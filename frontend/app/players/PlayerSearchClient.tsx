@@ -191,7 +191,7 @@ export default function PlayerSearchClient({ initialQ }: { initialQ: string }) {
           <span className="w-8 shrink-0" />
           <span className="flex-1 text-[11px] uppercase tracking-wider text-slate-600">Player</span>
           <span className="text-[11px] uppercase tracking-wider text-slate-600 text-right shrink-0">
-            Posterior / Confidence
+            Rating / Data
           </span>
           <span className="w-3.5 shrink-0" />
         </div>

@@ -15,8 +15,6 @@ import { NextRequest, NextResponse } from "next/server"
 import type { PlayerResponse } from "@/lib/api"
 
 const CONFIDENCE_THRESHOLD = 0.7
-const FALLBACK_NARRATIVE =
-  "Scouting report temporarily unavailable. The AI narrative service could not be reached. Please try again later."
 
 const _ANTI_YAPPING =
   "\n\nCRITICAL FORMATTING RULE: Do NOT output your chain of thought, reasoning process, " +
@@ -88,10 +86,11 @@ export async function POST(
     const filePath = path.join(process.cwd(), "public", "data", "players.json")
     const players  = JSON.parse(readFileSync(filePath, "utf-8")) as PlayerResponse[]
     player         = players.find((p) => p.reep_id === reep_id)
-  } catch {
+  } catch (err) {
+    console.error("[narratives] Failed to load players.json for", reep_id, err)
     return NextResponse.json(
-      { narrative: FALLBACK_NARRATIVE, voice: "traditional_scout" },
-      { status: 200 }
+      { error: "Player data unavailable" },
+      { status: 503 }
     )
   }
 
@@ -102,9 +101,10 @@ export async function POST(
   // ── API key check ─────────────────────────────────────────────────────────
   const apiKey = process.env.OPENROUTER_API_KEY
   if (!apiKey) {
+    console.error("[narratives] OPENROUTER_API_KEY is not set")
     return NextResponse.json(
-      { narrative: FALLBACK_NARRATIVE, voice: "traditional_scout" },
-      { status: 200 }
+      { error: "AI service not configured (missing API key)" },
+      { status: 503 }
     )
   }
 
@@ -112,11 +112,12 @@ export async function POST(
   const voice          = highConfidence ? "data_analyst" : "traditional_scout"
   const systemPrompt   = highConfidence ? DATA_ANALYST_SYSTEM : TRADITIONAL_SCOUT_SYSTEM
   const userMessage    = buildUserMessage(player, highConfidence)
-  const model          = process.env.OPENROUTER_MODEL ?? "google/gemma-3-27b-it:free"
+  const model = process.env.OPENROUTER_MODEL ?? "nvidia/nemotron-3-ultra-550b-a55b:free"
 
   // ── Call OpenRouter ───────────────────────────────────────────────────────
+  let resp: Response
   try {
-    const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization:  `Bearer ${apiKey}`,
@@ -135,20 +136,28 @@ export async function POST(
       }),
       signal: AbortSignal.timeout(25_000),
     })
-
-    if (!resp.ok) {
-      throw new Error(`OpenRouter ${resp.status}`)
-    }
-
-    const data      = (await resp.json()) as { choices?: { message?: { content?: string } }[] }
-    const narrative = data.choices?.[0]?.message?.content?.trim() ?? FALLBACK_NARRATIVE
-
-    return NextResponse.json({ narrative, voice })
   } catch (err) {
-    console.error("[narratives] OpenRouter call failed for", reep_id, err)
-    return NextResponse.json(
-      { narrative: FALLBACK_NARRATIVE, voice },
-      { status: 200 }
-    )
+    const reason = err instanceof Error ? err.message : "Network error"
+    console.error("[narratives] OpenRouter request failed for", reep_id, reason)
+    return NextResponse.json({ error: reason }, { status: 502 })
   }
+
+  if (!resp.ok) {
+    let reason = `OpenRouter returned ${resp.status}`
+    try {
+      const errBody = await resp.json() as { error?: { message?: string } }
+      if (errBody?.error?.message) reason = errBody.error.message
+    } catch { /* ignore JSON parse failure */ }
+    console.error("[narratives] OpenRouter error for", reep_id, resp.status, reason)
+    return NextResponse.json({ error: reason }, { status: 502 })
+  }
+
+  const data      = (await resp.json()) as { choices?: { message?: { content?: string } }[] }
+  const narrative = data.choices?.[0]?.message?.content?.trim()
+  if (!narrative) {
+    console.error("[narratives] OpenRouter returned empty content for", reep_id)
+    return NextResponse.json({ error: "OpenRouter returned empty response" }, { status: 502 })
+  }
+
+  return NextResponse.json({ narrative, voice })
 }

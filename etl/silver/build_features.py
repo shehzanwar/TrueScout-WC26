@@ -29,6 +29,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from config import settings
 from etl.db.connection import get_read_conn
 
+# Opponent-strength adjustment exponent (mirrors OPPONENT_ALPHA in bayesian_ratings)
+_OPPONENT_ALPHA: float = settings.opponent_alpha
+# Fallback global mean when player_ratings is empty (first run or CI)
+_GLOBAL_MEAN_RATING: float = 6.8
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -40,7 +45,9 @@ _REEP_BUCKET: dict[str, str] = {
     "goalkeeper": "GK",
     # Defenders
     "defender": "DEF", "full-back": "DEF", "centre-back": "DEF",
+    "centre back": "DEF", "center back": "DEF",
     "stopper": "DEF", "sweeper": "DEF", "wing half": "DEF",
+    "wing back": "DEF", "wing-back": "DEF",
     "right back": "DEF", "left back": "DEF",
     # Midfielders
     "midfielder": "MID", "central midfielder": "MID",
@@ -50,7 +57,8 @@ _REEP_BUCKET: dict[str, str] = {
     "inside forward": "MID",
     # Forwards
     "forward": "FWD", "attacker": "FWD", "centre-forward": "FWD",
-    "striker": "FWD",
+    "striker": "FWD", "second striker": "FWD",
+    "false 9": "FWD", "false nine": "FWD",
 }
 
 # Sofascore one-letter codes (from lineup position column)
@@ -71,8 +79,21 @@ def _map_position(reep_pos: str | None, sc_pos: str | None, us_pos: str | None) 
             return bucket
     if us_pos:
         first = str(us_pos).strip().split()[0].upper() if us_pos else ""
-        return _US_FIRST.get(first, "MID")
-    return "MID"
+        return _US_FIRST.get(first, "UNK")
+    return "UNK"
+
+
+def _position_source(reep_pos: str | None, sc_pos: str | None, us_pos: str | None) -> str:
+    """Track which source determined the position bucket (for audit)."""
+    if reep_pos and _REEP_BUCKET.get(str(reep_pos).strip().lower()):
+        return "reep"
+    if sc_pos and _SC_BUCKET.get(str(sc_pos).strip().upper()):
+        return "sofascore_modal"
+    if us_pos:
+        first = str(us_pos).strip().split()[0].upper() if us_pos else ""
+        if first in _US_FIRST:
+            return "understat"
+    return "unknown"
 
 
 # ---------------------------------------------------------------------------
@@ -83,7 +104,6 @@ _WC_AGG_SQL = """
 SELECT
     CAST(player_id AS VARCHAR)          AS sofascore_id,
     ANY_VALUE(player_name)              AS wc_player_name,
-    ANY_VALUE(position)                 AS wc_sc_position,
     COUNT(*)                            AS wc_matches,
     SUM(minutes_played)                 AS wc_minutes,
     SUM(COALESCE(goals, 0))             AS wc_goals_raw,
@@ -103,6 +123,27 @@ WHERE minutes_played > 0
 GROUP BY player_id
 """
 
+# Modal Sofascore position — only trust it when the same letter (G/D/M/F)
+# appears in ≥60% of a player's lineup rows.  ANY_VALUE picks an arbitrary row
+# which is wrong for players who switch roles across matches.
+_WC_POS_SQL = """
+SELECT
+    sofascore_id,
+    CASE WHEN cnt * 1.0 / total >= 0.6 THEN position ELSE NULL END AS wc_sc_position
+FROM (
+    SELECT
+        CAST(player_id AS VARCHAR)                                   AS sofascore_id,
+        position,
+        COUNT(*)                                                     AS cnt,
+        SUM(COUNT(*)) OVER (PARTITION BY player_id)                  AS total,
+        ROW_NUMBER() OVER (PARTITION BY player_id ORDER BY COUNT(*) DESC) AS rn
+    FROM read_parquet('{lineup_glob}', union_by_name=true)
+    WHERE minutes_played > 0
+    GROUP BY player_id, position
+) t
+WHERE rn = 1
+"""
+
 _PER90_STATS = [
     "goals", "assists", "xg", "xa", "shots", "sot",
     "key_passes", "tackles", "interceptions", "clearances", "saves",
@@ -119,13 +160,14 @@ def _per90(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-# Columns produced by _WC_AGG_SQL — used to build the schema-correct empty
-# DataFrame when Sofascore Parquets are absent (e.g. GitHub Actions CI).
+# Columns present in the final wc DataFrame (after merging _WC_AGG_SQL + _WC_POS_SQL).
+# Used to create a schema-correct empty DataFrame when Sofascore Parquets are absent.
 _WC_AGG_COLS = [
-    "sofascore_id", "wc_player_name", "wc_sc_position", "wc_matches",
+    "sofascore_id", "wc_player_name", "wc_matches",
     "wc_minutes", "wc_goals_raw", "wc_assists_raw", "wc_xg_raw", "wc_xa_raw",
     "wc_shots_raw", "wc_sot_raw", "wc_key_passes_raw", "wc_tackles_raw",
     "wc_interceptions_raw", "wc_clearances_raw", "wc_saves_raw", "wc_rating_avg",
+    "wc_sc_position",  # added by _WC_POS_SQL merge
 ]
 
 
@@ -154,10 +196,13 @@ def load_wc_features() -> pd.DataFrame:
     lineup_glob = (lineup_dir / "*.parquet").as_posix()
     conn = duckdb.connect()
     try:
-        wc = conn.execute(_WC_AGG_SQL.format(lineup_glob=lineup_glob)).df()
+        wc  = conn.execute(_WC_AGG_SQL.format(lineup_glob=lineup_glob)).df()
+        pos = conn.execute(_WC_POS_SQL.format(lineup_glob=lineup_glob)).df()
     finally:
         conn.close()
 
+    # Attach modal position (NULL when no single position reaches 60% of appearances)
+    wc = wc.merge(pos, on="sofascore_id", how="left")
     wc = _per90(wc)
     wc["wc_low_data"] = wc["wc_minutes"] < 90
     logger.info("WC aggregation: %d unique players", len(wc))
@@ -217,6 +262,123 @@ def build_sofascore_bridge() -> pd.DataFrame:
 
 
 # ---------------------------------------------------------------------------
+# Opponent-strength adjustment  (3.1)
+# ---------------------------------------------------------------------------
+
+def _load_existing_ratings() -> dict[str, float]:
+    """Load previous nightly posterior means from player_ratings DuckDB table."""
+    conn = get_read_conn()
+    try:
+        df = conn.execute("SELECT reep_id, posterior_mean FROM player_ratings").df()
+        return dict(zip(df["reep_id"].astype(str), df["posterior_mean"].astype(float)))
+    except Exception as exc:
+        logger.info("Could not load existing player_ratings (%s) — first run or empty DB.", exc)
+        return {}
+    finally:
+        conn.close()
+
+
+def _apply_opponent_adjustment(wc: pd.DataFrame, bridge: pd.DataFrame) -> pd.DataFrame:
+    """
+    Compute per-player average opponent-strength-adjusted WC rating and add it
+    as the column `wc_rating_adjusted`.
+
+    Formula (Peña & Touchette, 2012):
+        adj_rating = raw_rating × (opp_strength / global_mean) ** α
+
+    Uses yesterday's player_ratings posteriors as proxy for team strength.
+    Falls back to unadjusted wc_rating_avg when:
+      - Sofascore events Parquets are missing
+      - player_ratings table is empty (first nightly run)
+      - The DuckDB JOIN fails for any reason
+    """
+    lineup_dir = Path(settings.parquet_bronze_dir) / "sofascore" / "lineups"
+    events_dir = Path(settings.parquet_bronze_dir) / "sofascore" / "events"
+
+    if not (lineup_dir.is_dir() and list(lineup_dir.glob("*.parquet"))):
+        return wc  # no WC data yet — graceful skip
+    if not (events_dir.is_dir() and list(events_dir.glob("*.parquet"))):
+        logger.warning("No Sofascore events Parquets — opponent adjustment skipped.")
+        return wc
+
+    existing_ratings = _load_existing_ratings()
+    if not existing_ratings:
+        logger.info("player_ratings empty — opponent adjustment skipped (first run).")
+        return wc
+
+    lineup_glob = (lineup_dir / "*.parquet").as_posix()
+    events_glob = (events_dir / "*.parquet").as_posix()
+
+    conn = duckdb.connect()
+    try:
+        raw = conn.execute(f"""
+            SELECT
+                CAST(l.player_id AS VARCHAR) AS sofascore_id,
+                CAST(l.event_id  AS BIGINT)  AS event_id,
+                l.team_side,
+                COALESCE(l.minutes_played, 0) AS minutes_played,
+                l.rating
+            FROM read_parquet('{lineup_glob}', union_by_name=true) l
+            WHERE l.minutes_played > 0 AND l.rating IS NOT NULL
+        """).df()
+
+        events = conn.execute(f"""
+            SELECT
+                CAST(event_id AS BIGINT) AS event_id,
+                home_team_id,
+                away_team_id
+            FROM read_parquet('{events_glob}', union_by_name=true)
+        """).df()
+    except Exception as exc:
+        logger.warning("Opponent adjustment query failed (%s) — skipping.", exc)
+        return wc
+    finally:
+        conn.close()
+
+    if raw.empty or events.empty:
+        return wc
+
+    # Build sc_id → reep_id lookup
+    sc_to_reep = dict(zip(bridge["sofascore_id"].astype(str), bridge["reep_id"].astype(str)))
+
+    global_mean = float(np.mean(list(existing_ratings.values())))
+
+    # Compute team strength per (event_id, team_side): mean posterior of top-15 by minutes
+    raw["reep_id"] = raw["sofascore_id"].map(sc_to_reep)
+    raw["opp_rating"] = raw["reep_id"].map(existing_ratings)
+
+    team_strength: dict[tuple[int, str], float] = {}
+    for (ev, side), grp in raw.groupby(["event_id", "team_side"]):
+        top15 = grp.nlargest(15, "minutes_played")
+        valid = top15["opp_rating"].dropna()
+        if not valid.empty:
+            team_strength[(int(ev), str(side))] = float(valid.mean())
+
+    # For each player-match row, look up opponent-team strength
+    opponent_side_map = {"home": "away", "away": "home"}
+    raw["opp_side"] = raw["team_side"].map(opponent_side_map)
+    raw["opp_key"] = list(zip(raw["event_id"].astype(int), raw["opp_side"]))
+    raw["opp_strength"] = raw["opp_key"].map(team_strength).fillna(global_mean)
+
+    # Adjusted rating per match row, then mean per player
+    raw["adjusted_rating"] = raw["rating"] * (raw["opp_strength"] / global_mean) ** _OPPONENT_ALPHA
+    adj = (
+        raw.groupby("sofascore_id")["adjusted_rating"]
+        .mean()
+        .reset_index()
+        .rename(columns={"adjusted_rating": "wc_rating_adjusted"})
+    )
+
+    wc = wc.merge(adj, on="sofascore_id", how="left")
+    n_adj = wc["wc_rating_adjusted"].notna().sum()
+    logger.info(
+        "Opponent-strength adjustment (α=%.2f, global_mean=%.3f): %d players adjusted.",
+        _OPPONENT_ALPHA, global_mean, n_adj,
+    )
+    return wc
+
+
+# ---------------------------------------------------------------------------
 # Build
 # ---------------------------------------------------------------------------
 
@@ -236,8 +398,15 @@ def build_features() -> pd.DataFrame:
     bridge = build_sofascore_bridge()
     priors = load_club_priors()
 
+    # 3.1 — Opponent-strength adjustment (requires bridge for sc_id → reep_id mapping)
+    if wc.shape[0] > 0:
+        wc["sofascore_id"] = wc["sofascore_id"].astype(str)
+        bridge["sofascore_id"] = bridge["sofascore_id"].astype(str)
+        wc = _apply_opponent_adjustment(wc, bridge)
+
     # Parquets store player_id as int64; identity_players.key_sofascore is VARCHAR.
-    # Cast both sides to str so pandas merge matches them correctly.
+    # Both sides already cast to str above (after opponent adjustment). Guard in case
+    # we skipped the adjustment block (wc was empty).
     wc["sofascore_id"]     = wc["sofascore_id"].astype(str)
     bridge["sofascore_id"] = bridge["sofascore_id"].astype(str)
 
@@ -286,6 +455,21 @@ def build_features() -> pd.DataFrame:
         ),
         axis=1,
     )
+    features["position_source"] = features.apply(
+        lambda r: _position_source(
+            r.get("reep_position"),
+            r.get("wc_sc_position"),
+            r.get("prior_us_position"),
+        ),
+        axis=1,
+    )
+    unk_n = (features["position_bucket"] == "UNK").sum()
+    if unk_n:
+        logger.warning(
+            "%d players could not be position-bucketed (all 3 sources missing/unmapped); "
+            "flagged UNK — excluded from percentile ranking.",
+            unk_n,
+        )
 
     # Data presence flags
     features["has_wc_data"] = features["wc_minutes"].notna() & (features["wc_minutes"] > 0)
@@ -309,6 +493,10 @@ def build_features() -> pd.DataFrame:
     logger.info(
         "Position buckets: %s",
         features["position_bucket"].value_counts().to_dict(),
+    )
+    logger.info(
+        "Position sources: %s",
+        features["position_source"].value_counts().to_dict(),
     )
     return features
 

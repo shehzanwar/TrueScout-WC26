@@ -194,11 +194,22 @@ def fetch_season(league: str, season: str) -> list[dict]:
 
 def aggregate_seasons(frames: list[pd.DataFrame]) -> pd.DataFrame:
     """
-    90s-weighted mean across all supplied season DataFrames, grouped by
-    player_id.  Players who appear in only one season get that data directly.
+    90s × recency-weighted mean across all supplied season DataFrames, grouped
+    by player_id.  Older seasons are down-weighted by exp(-λ × seasons_behind)
+    where λ = settings.season_decay_lambda (default 1.0 → 2024-25 ≈ 37% of 2025-26).
     """
     combined = pd.concat(frames, ignore_index=True)
     combined["_90s"] = combined["minutes_played"] / 90.0
+
+    # Recency decay: latest season always gets weight 1.0; each step back → ×exp(-λ)
+    latest_season = max(combined["season"].unique(), key=int)
+    decay_map = {
+        s: float(np.exp(-settings.season_decay_lambda * (int(latest_season) - int(s))))
+        for s in combined["season"].unique()
+    }
+    combined["_decay"] = combined["season"].map(decay_map).fillna(1.0)
+    # Effective weight = 90-minutes × recency-decay-factor
+    combined["_eff_w"] = combined["_90s"] * combined["_decay"]
 
     per90_cols = [
         "goals_per_90", "assists_per_90", "xg_per_90", "xa_per_90",
@@ -206,7 +217,7 @@ def aggregate_seasons(frames: list[pd.DataFrame]) -> pd.DataFrame:
     ]
 
     def _wmean(grp: pd.DataFrame) -> pd.Series:
-        w = grp["_90s"]
+        w = grp["_eff_w"]
         seasons_seen = sorted(grp["season"].unique())
         out: dict = {
             "understat_id":   grp["understat_id"].iloc[0],

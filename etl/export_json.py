@@ -274,15 +274,33 @@ def export_brier(conn) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# FM-style radar  (5 attribute buckets computed from features.parquet)
+# FM-style radar  (3.3 — position-aware axes + GK remapping)
 # ---------------------------------------------------------------------------
+
+# Position-specific axis weights for the overall composite
+# [shooting_pct, creativity_pct, defending_pct, wc_form_pct]
+_POS_WEIGHTS: dict[str, list[float]] = {
+    "FWD": [0.60, 0.25, 0.05, 0.10],
+    "MID": [0.25, 0.45, 0.20, 0.10],
+    "DEF": [0.10, 0.20, 0.60, 0.10],
+    "GK":  [0.80, 0.00, 0.00, 0.20],  # GK "shooting" slot = shot-stopping (remapped below)
+}
+_DEFAULT_WEIGHTS: list[float] = [0.25, 0.25, 0.25, 0.25]
+
+# Position-specific axis labels (5 items: shooting, creativity, defending, wc_form, overall)
+_RADAR_AXES: dict[str, list[str]] = {
+    "GK":  ["Shot Stopping", "Distribution", "Defending",  "WC Form", "Overall"],
+    "DEF": ["Shooting",      "Playmaking",   "Defending",  "WC Form", "Overall"],
+    "MID": ["Shooting",      "Playmaking",   "Defending",  "WC Form", "Overall"],
+    "FWD": ["Shooting",      "Playmaking",   "Defending",  "WC Form", "Overall"],
+}
+_DEFAULT_AXES: list[str] = ["Shooting", "Playmaking", "Defending", "WC Form", "Overall"]
+
 
 def _load_fm_radar(silver_dir: str) -> dict[str, dict]:
     """
     Load features.parquet and compute 5 FM-style attribute percentiles.
-
-    Buckets: shooting, creativity, defending, wc_form, + Bayesian keepers.
-    All bucket values 0.0–1.0 = percentile rank within position_bucket.
+    Includes position-aware overall composite and GK axis remapping.
     Returns {} when features.parquet is absent (safe fallback).
     """
     features_path = Path(silver_dir) / "player_stats" / "features.parquet"
@@ -357,16 +375,279 @@ def _load_fm_radar(silver_dir: str) -> dict[str, dict]:
     for bucket in BUCKETS:
         work[f"{bucket}_pct"] = work.groupby("position_bucket")[bucket].rank(pct=True)
 
+    # 3.3 — GK axis remap: override "shooting_pct" for GKs to use saves percentile.
+    # GKs' xG/goals are near-zero; saves represent their primary on-ball contribution.
+    if "wc_saves_per_90" in df.columns:
+        gk_mask = (work["position_bucket"] == "GK").values
+        if gk_mask.any():
+            saves_vals = df.loc[gk_mask, "wc_saves_per_90"].copy()
+            if saves_vals.std() > 1e-8:
+                # Recompute shooting Z-score for GKs using saves instead of xg/goals
+                saves_z = (saves_vals - saves_vals.mean()) / saves_vals.std()
+                work.loc[gk_mask, "shooting"]     = saves_z.values
+                work.loc[gk_mask, "shooting_pct"] = saves_z.rank(pct=True).values
+
+    # 3.3 — Position-aware overall composite
+    pct_cols   = ["shooting_pct", "creativity_pct", "defending_pct", "wc_form_pct"]
+    pct_mat    = work[pct_cols].values.astype(float)
+    w_mat      = np.vstack([
+        _POS_WEIGHTS.get(str(pos), _DEFAULT_WEIGHTS)
+        for pos in work["position_bucket"]
+    ])
+    nan_mask   = np.isnan(pct_mat)
+    w_eff      = np.where(nan_mask, 0.0, w_mat)
+    sum_w      = w_eff.sum(axis=1)
+    work["overall_composite"] = np.where(
+        sum_w > 0,
+        (np.where(nan_mask, 0.0, pct_mat) * w_eff).sum(axis=1) / sum_w,
+        np.nan,
+    )
+
     result: dict[str, dict] = {}
     for _, row in work.iterrows():
         rid = row["reep_id"]
         if pd.isna(rid):
             continue
+        pos = str(row.get("position_bucket", ""))
         result[str(rid)] = {
             b: (float(row[f"{b}_pct"]) if pd.notna(row.get(f"{b}_pct")) else None)
             for b in BUCKETS
+        } | {
+            "overall":     float(row["overall_composite"]) if pd.notna(row.get("overall_composite")) else None,
+            "radar_axes":  _RADAR_AXES.get(pos, _DEFAULT_AXES),
         }
     return result
+
+
+# ---------------------------------------------------------------------------
+# Raw stats lookup  (3.4 — populates RawStats.tsx panel)
+# ---------------------------------------------------------------------------
+
+_RAW_STAT_COLS: list[str] = [
+    "wc_matches", "wc_goals_raw", "wc_assists_raw", "wc_xg_raw", "wc_xa_raw",
+    "wc_shots_raw", "wc_sot_raw", "wc_key_passes_raw",
+    "wc_tackles_raw", "wc_interceptions_raw", "wc_clearances_raw", "wc_saves_raw",
+    "wc_goals_per_90", "wc_assists_per_90", "wc_xg_per_90", "wc_xa_per_90",
+    "wc_shots_per_90", "wc_sot_per_90", "wc_key_passes_per_90",
+    "wc_tackles_per_90", "wc_interceptions_per_90", "wc_clearances_per_90",
+    "wc_saves_per_90", "wc_rating_adjusted",
+    "has_prior", "prior_goals_per_90", "prior_assists_per_90",
+    "prior_xg_per_90", "prior_xa_per_90", "prior_shots_per_90",
+    "prior_key_passes_per_90", "prior_minutes",
+    "position_source", "league",
+]
+
+
+def _load_raw_stats(silver_dir: str) -> dict[str, dict]:
+    """
+    Load features.parquet and return a dict keyed by reep_id containing all
+    raw WC stats and club-prior stats for the RawStats.tsx panel.
+    """
+    features_path = Path(silver_dir) / "player_stats" / "features.parquet"
+    if not features_path.exists():
+        return {}
+    try:
+        df = pd.read_parquet(features_path)
+    except Exception as exc:
+        print(f"Warning: could not load features.parquet for raw stats: {exc}", file=sys.stderr)
+        return {}
+    if df.empty or "reep_id" not in df.columns:
+        return {}
+
+    result: dict[str, dict] = {}
+    for _, row in df.iterrows():
+        rid = row.get("reep_id")
+        if pd.isna(rid):
+            continue
+        entry: dict = {}
+        for col in _RAW_STAT_COLS:
+            if col not in row.index:
+                continue
+            val = row[col]
+            if col == "has_prior":
+                entry[col] = bool(val) if pd.notna(val) else False
+            elif isinstance(val, (bool, np.bool_)):
+                entry[col] = bool(val)
+            elif isinstance(val, str):
+                entry[col] = val if val and val.lower() not in ("nan", "none", "") else None
+            else:
+                entry[col] = _safe_float(val)
+        result[str(rid)] = entry
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Per-match log builder  (3.4 — populates MatchTimeline.tsx)
+# ---------------------------------------------------------------------------
+
+_TEAM_CODE: dict[str, str] = {
+    "Argentina": "ARG", "Australia": "AUS", "Austria": "AUT", "Belgium": "BEL",
+    "Bolivia": "BOL", "Brazil": "BRA", "Cameroon": "CMR", "Canada": "CAN",
+    "Chile": "CHI", "Colombia": "COL", "Costa Rica": "CRC", "Croatia": "CRO",
+    "Denmark": "DEN", "Ecuador": "ECU", "Egypt": "EGY", "England": "ENG",
+    "France": "FRA", "Germany": "GER", "Ghana": "GHA", "Honduras": "HON",
+    "Hungary": "HUN", "Indonesia": "IDN", "Iran": "IRN", "Japan": "JPN",
+    "Korea Republic": "KOR", "South Korea": "KOR", "Mexico": "MEX",
+    "Morocco": "MAR", "Netherlands": "NED", "New Zealand": "NZL", "Nigeria": "NGA",
+    "Panama": "PAN", "Paraguay": "PAR", "Peru": "PER", "Poland": "POL",
+    "Portugal": "POR", "Qatar": "QAT", "Romania": "ROU", "Saudi Arabia": "KSA",
+    "Scotland": "SCO", "Senegal": "SEN", "Serbia": "SRB", "Slovenia": "SVN",
+    "Spain": "ESP", "Switzerland": "SUI", "Tunisia": "TUN", "Turkey": "TUR",
+    "Türkiye": "TUR", "Ukraine": "UKR", "United States": "USA", "Uruguay": "URU",
+    "Venezuela": "VEN", "Wales": "WAL", "USA": "USA",
+}
+
+
+def _build_match_logs(conn) -> dict[str, list[dict]]:
+    """
+    Build per-player per-match log entries by joining Sofascore lineup and
+    events Parquets.  Returns {} when Parquets are absent (graceful fallback).
+    """
+    lineup_dir = Path(settings.parquet_bronze_dir) / "sofascore" / "lineups"
+    events_dir = Path(settings.parquet_bronze_dir) / "sofascore" / "events"
+
+    if not (lineup_dir.is_dir() and list(lineup_dir.glob("*.parquet"))):
+        return {}
+    if not (events_dir.is_dir() and list(events_dir.glob("*.parquet"))):
+        return {}
+
+    lineup_glob = (lineup_dir / "*.parquet").as_posix()
+    events_glob = (events_dir / "*.parquet").as_posix()
+
+    # Fetch sofascore_id → reep_id bridge from identity_players
+    try:
+        bridge_rows = conn.execute("""
+            SELECT CAST(key_sofascore AS VARCHAR) AS sofascore_id, reep_id
+            FROM identity_players
+            WHERE key_sofascore IS NOT NULL AND key_sofascore != ''
+        """).fetchall()
+    except Exception:
+        return {}
+    sc_to_reep = {str(sc): str(r) for sc, r in bridge_rows}
+
+    # Fetch yesterday's posteriors for opponent-strength adjustment
+    try:
+        ratings_rows = conn.execute(
+            "SELECT reep_id, posterior_mean FROM player_ratings"
+        ).fetchall()
+    except Exception:
+        ratings_rows = []
+    existing_ratings: dict[str, float] = {str(r): float(p) for r, p in ratings_rows}
+    global_mean = float(np.mean(list(existing_ratings.values()))) if existing_ratings else 6.8
+    alpha = settings.opponent_alpha
+
+    import duckdb as _duckdb
+    tmp = _duckdb.connect()
+    try:
+        lineups = tmp.execute(f"""
+            SELECT
+                CAST(player_id AS VARCHAR)  AS sofascore_id,
+                CAST(event_id  AS BIGINT)   AS event_id,
+                team_side,
+                COALESCE(minutes_played, 0) AS minutes_played,
+                COALESCE(goals, 0)          AS goals,
+                COALESCE(assists, 0)        AS assists,
+                COALESCE(xg, 0.0)           AS xg,
+                COALESCE(xa, 0.0)           AS xa,
+                COALESCE(shots, 0)          AS shots,
+                COALESCE(key_passes, 0)     AS key_passes,
+                COALESCE(tackles, 0)        AS tackles,
+                COALESCE(interceptions, 0)  AS interceptions,
+                COALESCE(yellow_cards, 0)   AS yellow_cards,
+                rating
+            FROM read_parquet('{lineup_glob}', union_by_name=true)
+            WHERE minutes_played > 0
+        """).df()
+
+        events = tmp.execute(f"""
+            SELECT
+                CAST(event_id AS BIGINT) AS event_id,
+                home_team_name,
+                away_team_name,
+                CAST(home_score AS INTEGER) AS home_score,
+                CAST(away_score AS INTEGER) AS away_score,
+                match_date
+            FROM read_parquet('{events_glob}', union_by_name=true)
+        """).df()
+    except Exception as exc:
+        print(f"Warning: match log query failed: {exc}", file=sys.stderr)
+        return {}
+    finally:
+        tmp.close()
+
+    if lineups.empty or events.empty:
+        return {}
+
+    # Merge lineups with events
+    merged = lineups.merge(events, on="event_id", how="left")
+
+    # Determine opponent name and score string
+    merged["opponent"] = np.where(
+        merged["team_side"] == "home",
+        merged["away_team_name"],
+        merged["home_team_name"],
+    )
+    merged["score"] = np.where(
+        merged["team_side"] == "home",
+        merged["home_score"].astype(str) + "–" + merged["away_score"].astype(str),
+        merged["away_score"].astype(str) + "–" + merged["home_score"].astype(str),
+    )
+
+    # Compute opponent-team strength per (event_id, team_side)
+    merged["reep_id"] = merged["sofascore_id"].map(sc_to_reep)
+    merged["opp_rating_lookup"] = merged["reep_id"].map(existing_ratings)
+
+    team_strength: dict[tuple[int, str], float] = {}
+    for (ev, side), grp in merged.groupby(["event_id", "team_side"]):
+        top15 = grp.nlargest(15, "minutes_played")
+        valid  = top15["opp_rating_lookup"].dropna()
+        if not valid.empty:
+            team_strength[(int(ev), str(side))] = float(valid.mean())
+
+    opp_side_map = {"home": "away", "away": "home"}
+    merged["opp_side"]     = merged["team_side"].map(opp_side_map)
+    merged["opp_key"]      = list(zip(merged["event_id"].astype(int), merged["opp_side"]))
+    merged["opp_strength"] = merged["opp_key"].map(team_strength).fillna(global_mean)
+    merged["adjusted_rating"] = np.where(
+        merged["rating"].notna(),
+        merged["rating"] * (merged["opp_strength"] / global_mean) ** alpha,
+        np.nan,
+    )
+
+    # Build per-player match log
+    logs: dict[str, list[dict]] = {}
+    for _, row in merged.iterrows():
+        rid = row.get("reep_id")
+        if pd.isna(rid):
+            continue
+        rid = str(rid)
+        entry: dict = {
+            "match_date":      str(row.get("match_date", "")),
+            "opponent":        str(row["opponent"]) if pd.notna(row.get("opponent")) else "?",
+            "opponent_code":   _TEAM_CODE.get(str(row.get("opponent", "")), "?"),
+            "score":           str(row["score"]) if pd.notna(row.get("score")) else "?-?",
+            "minutes":         int(row["minutes_played"]),
+            "rating":          round(float(row["rating"]), 2) if pd.notna(row.get("rating")) else None,
+            "adjusted_rating": round(float(row["adjusted_rating"]), 2) if pd.notna(row.get("adjusted_rating")) else None,
+            "goals":           int(row["goals"]),
+            "assists":         int(row["assists"]),
+            "xg":              round(float(row["xg"]), 3) if pd.notna(row.get("xg")) else 0.0,
+            "xa":              round(float(row["xa"]), 3) if pd.notna(row.get("xa")) else 0.0,
+            "shots":           int(row["shots"]),
+            "key_passes":      int(row["key_passes"]),
+            "tackles":         int(row["tackles"]),
+            "interceptions":   int(row["interceptions"]),
+            "yellow_card":     bool(int(row["yellow_cards"]) > 0),
+        }
+        if rid not in logs:
+            logs[rid] = []
+        logs[rid].append(entry)
+
+    # Sort each player's log chronologically
+    for rid in logs:
+        logs[rid].sort(key=lambda e: e["match_date"])
+
+    return logs
 
 
 # ---------------------------------------------------------------------------
@@ -374,7 +655,9 @@ def _load_fm_radar(silver_dir: str) -> dict[str, dict]:
 # ---------------------------------------------------------------------------
 
 def export_players(conn) -> list:
-    fm_radar = _load_fm_radar(settings.parquet_silver_dir)
+    fm_radar   = _load_fm_radar(settings.parquet_silver_dir)
+    raw_stats  = _load_raw_stats(settings.parquet_silver_dir)
+    match_logs = _build_match_logs(conn)
 
     rows = conn.execute("""
         WITH prior_rank AS (
@@ -419,10 +702,13 @@ def export_players(conn) -> list:
          prior_mean, posterior_mean, posterior_std, hdi_low, hdi_high,
          shrinkage_weight, wc_minutes, confidence_score, percentile_rank, prior_pct) = row
 
-        sw = _safe_float(shrinkage_weight)
-        wm = _safe_float(wc_minutes)
-        fm = fm_radar.get(reep_id, {})
-        players.append({
+        sw  = _safe_float(shrinkage_weight)
+        wm  = _safe_float(wc_minutes)
+        fm  = fm_radar.get(reep_id, {})
+        rs  = raw_stats.get(reep_id, {})
+        log = match_logs.get(reep_id)
+
+        p: dict = {
             "reep_id":          reep_id,
             "name":             _safe_str(name),
             "nationality":      _safe_str(nationality),
@@ -441,13 +727,16 @@ def export_players(conn) -> list:
             "wc_minutes":       wm,
             "confidence_score": _safe_float(confidence_score),
             "percentile_rank":  _safe_float(percentile_rank),
+            # FM-style radar
             "radar": {
-                # FM-style attribute percentiles (0.0–1.0 within position group)
                 "shooting":      _safe_float(fm.get("shooting")),
                 "creativity":    _safe_float(fm.get("creativity")),
                 "defending":     _safe_float(fm.get("defending")),
                 "wc_form":       _safe_float(fm.get("wc_form")),
-                # Bayesian dimensions (kept for the stats info card)
+                # Position-aware overall composite (replaces posterior_pct as 5th axis)
+                "overall":       _safe_float(fm.get("overall")),
+                "radar_axes":    fm.get("radar_axes", _DEFAULT_AXES),
+                # Bayesian dimensions (stats card / back-compat)
                 "posterior_pct": _safe_float(percentile_rank),
                 "wc_experience": _safe_float(
                     min(wm / 270.0, 1.0) if wm is not None else None
@@ -458,7 +747,18 @@ def export_players(conn) -> list:
                     1.0 - sw if sw is not None else None
                 ),
             },
-        })
+        }
+
+        # Raw WC stats (from features.parquet — populated once WC Parquets exist)
+        for col in _RAW_STAT_COLS:
+            if col in rs:
+                p[col] = rs[col]
+
+        # Per-match timeline
+        if log:
+            p["match_log"] = log
+
+        players.append(p)
 
     return players
 
