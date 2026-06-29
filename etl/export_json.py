@@ -15,6 +15,9 @@ import math
 import sys
 from pathlib import Path
 
+import numpy as np
+import pandas as pd
+
 ROOT_DIR = Path(__file__).parent.parent.resolve()
 sys.path.insert(0, str(ROOT_DIR))
 
@@ -271,10 +274,108 @@ def export_brier(conn) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# FM-style radar  (5 attribute buckets computed from features.parquet)
+# ---------------------------------------------------------------------------
+
+def _load_fm_radar(silver_dir: str) -> dict[str, dict]:
+    """
+    Load features.parquet and compute 5 FM-style attribute percentiles.
+
+    Buckets: shooting, creativity, defending, wc_form, + Bayesian keepers.
+    All bucket values 0.0–1.0 = percentile rank within position_bucket.
+    Returns {} when features.parquet is absent (safe fallback).
+    """
+    features_path = Path(silver_dir) / "player_stats" / "features.parquet"
+    if not features_path.exists():
+        return {}
+    try:
+        df = pd.read_parquet(features_path)
+    except Exception as exc:
+        print(f"Warning: could not load features.parquet for FM radar: {exc}", file=sys.stderr)
+        return {}
+    if df.empty or "reep_id" not in df.columns or "position_bucket" not in df.columns:
+        return {}
+
+    # Weighted stat buckets — cols absent from df are skipped silently.
+    BUCKETS: dict[str, list[tuple[str, float]]] = {
+        "shooting": [
+            ("wc_xg_per_90",       1.2),
+            ("wc_goals_per_90",    1.5),
+            ("wc_shots_per_90",    0.6),
+            ("prior_xg_per_90",    1.0),
+            ("prior_npxg_per_90",  1.0),
+            ("prior_goals_per_90", 1.2),
+        ],
+        "creativity": [
+            ("wc_xa_per_90",            1.2),
+            ("wc_key_passes_per_90",    0.8),
+            ("wc_assists_per_90",       1.5),
+            ("prior_xa_per_90",         1.0),
+            ("prior_key_passes_per_90", 0.8),
+            ("prior_assists_per_90",    1.2),
+        ],
+        "defending": [
+            ("wc_tackles_per_90",       1.2),
+            ("wc_interceptions_per_90", 1.2),
+            ("wc_clearances_per_90",    0.8),
+            ("wc_saves_per_90",         1.5),  # GK-specific; near-zero for outfield
+        ],
+        "wc_form": [
+            ("wc_rating_avg", 1.0),
+        ],
+    }
+
+    work = df[["reep_id", "position_bucket"]].copy()
+
+    for bucket, stat_weights in BUCKETS.items():
+        available = [(col, w) for col, w in stat_weights if col in df.columns]
+        if not available:
+            work[bucket] = np.nan
+            continue
+
+        zscores, weights = [], []
+        for col, w in available:
+            z = df.groupby("position_bucket")[col].transform(
+                lambda s: (s - s.mean()) / s.std()
+                if s.std() > 1e-8 else pd.Series(0.0, index=s.index)
+            )
+            zscores.append(z.values)
+            weights.append(w)
+
+        z_mat    = np.column_stack(zscores).astype(float)
+        w_arr    = np.array(weights, dtype=float)
+        nan_mask = np.isnan(z_mat)
+        w_eff    = np.where(nan_mask, 0.0, w_arr)
+        sum_w    = w_eff.sum(axis=1)
+        composite = np.where(
+            sum_w > 0,
+            (np.where(nan_mask, 0.0, z_mat) * w_eff).sum(axis=1) / sum_w,
+            np.nan,
+        )
+        work[bucket] = composite
+
+    for bucket in BUCKETS:
+        work[f"{bucket}_pct"] = work.groupby("position_bucket")[bucket].rank(pct=True)
+
+    result: dict[str, dict] = {}
+    for _, row in work.iterrows():
+        rid = row["reep_id"]
+        if pd.isna(rid):
+            continue
+        result[str(rid)] = {
+            b: (float(row[f"{b}_pct"]) if pd.notna(row.get(f"{b}_pct")) else None)
+            for b in BUCKETS
+        }
+    return result
+
+
+# ---------------------------------------------------------------------------
 # Players  (full profiles — used for search + player detail page)
 # ---------------------------------------------------------------------------
 
 def export_players(conn) -> list:
+    fm_radar = _load_fm_radar(settings.parquet_silver_dir)
+
     rows = conn.execute("""
         WITH prior_rank AS (
             SELECT
@@ -320,6 +421,7 @@ def export_players(conn) -> list:
 
         sw = _safe_float(shrinkage_weight)
         wm = _safe_float(wc_minutes)
+        fm = fm_radar.get(reep_id, {})
         players.append({
             "reep_id":          reep_id,
             "name":             _safe_str(name),
@@ -340,6 +442,12 @@ def export_players(conn) -> list:
             "confidence_score": _safe_float(confidence_score),
             "percentile_rank":  _safe_float(percentile_rank),
             "radar": {
+                # FM-style attribute percentiles (0.0–1.0 within position group)
+                "shooting":      _safe_float(fm.get("shooting")),
+                "creativity":    _safe_float(fm.get("creativity")),
+                "defending":     _safe_float(fm.get("defending")),
+                "wc_form":       _safe_float(fm.get("wc_form")),
+                # Bayesian dimensions (kept for the stats info card)
                 "posterior_pct": _safe_float(percentile_rank),
                 "wc_experience": _safe_float(
                     min(wm / 270.0, 1.0) if wm is not None else None

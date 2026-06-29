@@ -78,11 +78,17 @@ export interface BrierResponse {
 }
 
 export interface RadarMetrics {
-  posterior_pct: number   // percentile_rank
-  wc_experience: number   // min(wc_minutes / 270, 1.0)
-  confidence: number      // confidence_score
-  prior_pct: number       // PERCENT_RANK of prior_mean within position_macro
-  wc_dominance: number    // 1 – shrinkage_weight
+  // FM-style attribute percentiles (0.0–1.0 within position group)
+  shooting:   number | null   // goals, xG, shots per-90
+  creativity: number | null   // xA, key passes, assists per-90
+  defending:  number | null   // tackles, interceptions, clearances per-90
+  wc_form:    number | null   // Sofascore WC rating percentile
+  // Bayesian dimensions (used by the stats info card, not the radar chart)
+  posterior_pct: number
+  wc_experience: number
+  confidence: number
+  prior_pct: number
+  wc_dominance: number
 }
 
 export interface PlayerResponse {
@@ -125,6 +131,21 @@ export interface NarrativeResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Search helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Strip diacritics and lowercase — lets users type "Mbappe" and match "Mbappé",
+ * "Vinicius" and match "Vinícius", etc.
+ */
+export function normalizeString(str: string): string {
+  return str
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+}
+
+// ---------------------------------------------------------------------------
 // Client-side fetchers (safe to call from browser Client Components)
 // ---------------------------------------------------------------------------
 
@@ -132,6 +153,11 @@ export interface NarrativeResponse {
  * Search players by name substring against the locally cached players.json.
  * The JSON (~2 MB) is downloaded once and browser-cached; subsequent calls
  * are served from the HTTP cache — no RTT beyond the first search per session.
+ *
+ * Search is accent-insensitive: "Mbappe" matches "Mbappé".
+ * Results are sorted by confidence_score then posterior_mean so global
+ * superstars (Messi, Ronaldo, Mbappé) always surface above lesser-known
+ * namesakes.
  */
 export async function searchPlayers(q: string): Promise<PlayerSearchResult[]> {
   if (q.trim().length < 2) return []
@@ -140,9 +166,9 @@ export async function searchPlayers(q: string): Promise<PlayerSearchResult[]> {
   if (!res.ok) throw new Error("Failed to fetch player data")
   const players = (await res.json()) as PlayerResponse[]
 
-  const query = q.trim().toLowerCase()
+  const query = normalizeString(q.trim())
   return players
-    .filter((p) => p.name?.toLowerCase().includes(query))
+    .filter((p) => normalizeString(p.name ?? "").includes(query))
     .sort(
       (a, b) =>
         b.confidence_score - a.confidence_score ||

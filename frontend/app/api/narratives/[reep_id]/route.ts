@@ -112,7 +112,7 @@ export async function POST(
   const voice          = highConfidence ? "data_analyst" : "traditional_scout"
   const systemPrompt   = highConfidence ? DATA_ANALYST_SYSTEM : TRADITIONAL_SCOUT_SYSTEM
   const userMessage    = buildUserMessage(player, highConfidence)
-  const model          = process.env.OPENROUTER_MODEL ?? "meta-llama/llama-3.1-8b-instruct:free"
+  const model          = process.env.OPENROUTER_MODEL ?? "google/gemma-3-27b-it:free"
 
   // ── Call OpenRouter ───────────────────────────────────────────────────────
   try {
@@ -144,7 +144,8 @@ export async function POST(
     const narrative = data.choices?.[0]?.message?.content?.trim() ?? FALLBACK_NARRATIVE
 
     return NextResponse.json({ narrative, voice })
-  } catch {
+  } catch (err) {
+    console.error("[narratives] OpenRouter call failed for", reep_id, err)
     return NextResponse.json(
       { narrative: FALLBACK_NARRATIVE, voice },
       { status: 200 }

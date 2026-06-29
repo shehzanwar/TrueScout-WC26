@@ -244,66 +244,92 @@ def _load_bracket(conn: duckdb.DuckDBPyConnection) -> list[str]:
 # Team strength aggregation (player_ratings via WC lineups)
 # ---------------------------------------------------------------------------
 
-_STRENGTH_SQL = """
-WITH wc_players AS (
-    SELECT DISTINCT
-        CAST(l.player_id AS VARCHAR) AS sofascore_id,
-        CASE l.team_side
-            WHEN 'home' THEN e.home_team_name
-            WHEN 'away' THEN e.away_team_name
-        END AS national_team
-    FROM read_parquet('{lineup_glob}', union_by_name=true) l
-    JOIN read_parquet('{events_glob}', union_by_name=true) e
-      ON CAST(l.event_id AS BIGINT) = CAST(e.event_id AS BIGINT)
-),
-player_national AS (
-    SELECT
-        wc.national_team,
-        ip.reep_id,
-        pr.posterior_mean
-    FROM wc_players wc
-    JOIN identity_players ip ON wc.sofascore_id = ip.key_sofascore
-    JOIN player_ratings   pr ON ip.reep_id       = pr.reep_id
-),
-ranked AS (
-    SELECT
-        national_team,
-        posterior_mean,
-        ROW_NUMBER() OVER (
-            PARTITION BY national_team
-            ORDER BY posterior_mean DESC
-        ) AS rn
-    FROM player_national
-)
-SELECT
-    national_team                AS team,
-    AVG(posterior_mean)          AS strength,
-    COUNT(*)                     AS n_players
-FROM ranked
-WHERE rn <= {top_n}
-GROUP BY national_team
-ORDER BY strength DESC
-"""
-
-
 def _build_team_strengths(
     conn: duckdb.DuckDBPyConnection,
 ) -> tuple[dict[str, float], pd.DataFrame]:
-    bronze      = Path(settings.parquet_bronze_dir)
-    lineup_glob = (bronze / "sofascore" / "lineups" / "*.parquet").as_posix()
-    events_glob = (bronze / "sofascore" / "events"  / "*.parquet").as_posix()
+    bronze        = Path(settings.parquet_bronze_dir)
+    silver        = Path(settings.parquet_silver_dir)
+    lineup_glob   = (bronze / "sofascore" / "lineups" / "*.parquet").as_posix()
+    events_glob   = (bronze / "sofascore" / "events"  / "*.parquet").as_posix()
+    features_path = silver / "player_stats" / "features.parquet"
 
-    sql = _STRENGTH_SQL.format(
-        lineup_glob=lineup_glob,
-        events_glob=events_glob,
-        top_n=TOP_N_PLAYERS,
+    # WC-minutes floor: prevents MLS/non-European players (whose club priors
+    # are absent from Understat's top-5 leagues) from dragging their team
+    # strength below their demonstrated World Cup performance.
+    # For any player with ≥90 WC mins, their contribution ≥ 90% of their
+    # Sofascore WC rating — so a player rating 9.0 in-tournament contributes
+    # at least 8.1, even if the Bayesian model pulled their posterior lower
+    # due to a missing club prior.
+    if features_path.exists():
+        wc_floor_expr = f"""
+        GREATEST(
+            pr.posterior_mean,
+            CASE
+                WHEN pr.wc_minutes >= 90 AND f.wc_rating_avg IS NOT NULL
+                THEN f.wc_rating_avg * 0.90
+                ELSE pr.posterior_mean
+            END
+        )"""
+        features_join = (
+            f"LEFT JOIN read_parquet('{features_path.as_posix()}') f"
+            f" ON ip.reep_id = f.reep_id"
+        )
+        floor_applied = True
+    else:
+        wc_floor_expr = "pr.posterior_mean"
+        features_join = ""
+        floor_applied = False
+
+    sql = f"""
+    WITH wc_players AS (
+        SELECT DISTINCT
+            CAST(l.player_id AS VARCHAR) AS sofascore_id,
+            CASE l.team_side
+                WHEN 'home' THEN e.home_team_name
+                WHEN 'away' THEN e.away_team_name
+            END AS national_team
+        FROM read_parquet('{lineup_glob}', union_by_name=true) l
+        JOIN read_parquet('{events_glob}', union_by_name=true) e
+          ON CAST(l.event_id AS BIGINT) = CAST(e.event_id AS BIGINT)
+    ),
+    player_national AS (
+        SELECT
+            wc.national_team,
+            ip.reep_id,
+            {wc_floor_expr} AS posterior_mean
+        FROM wc_players wc
+        JOIN identity_players ip ON wc.sofascore_id = ip.key_sofascore
+        JOIN player_ratings   pr ON ip.reep_id       = pr.reep_id
+        {features_join}
+    ),
+    ranked AS (
+        SELECT
+            national_team,
+            posterior_mean,
+            ROW_NUMBER() OVER (
+                PARTITION BY national_team
+                ORDER BY posterior_mean DESC
+            ) AS rn
+        FROM player_national
     )
+    SELECT
+        national_team       AS team,
+        AVG(posterior_mean) AS strength,
+        COUNT(*)            AS n_players
+    FROM ranked
+    WHERE rn <= {TOP_N_PLAYERS}
+    GROUP BY national_team
+    ORDER BY strength DESC
+    """
+
     df = conn.execute(sql).df()
     df["team"] = df["team"].map(_normalize)   # Sofascore Cabo Verde → Cape Verde etc.
 
     strengths = dict(zip(df["team"], df["strength"].astype(float)))
-    logger.info("Strength computed for %d teams (top-%d avg posterior).",
-                len(df), TOP_N_PLAYERS)
+    logger.info(
+        "Strength computed for %d teams (top-%d avg posterior, WC floor: %s).",
+        len(df), TOP_N_PLAYERS, "applied" if floor_applied else "skipped (no features.parquet)",
+    )
     return strengths, df
 
 
