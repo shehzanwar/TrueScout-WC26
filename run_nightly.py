@@ -5,19 +5,22 @@ Runs the full pipeline in dependency order:
   1. ESPN pull          (knockout matches + odds)
   2. Sofascore pull     (knockout lineups / stats)
   3. Load group stage   (upsert new matches to Silver)
-  4. Build features     (unified Silver feature matrix)
-  5. Bayesian ratings   (update posteriors with new WC likelihood)
-  6. Monte Carlo sim    (re-simulate remaining bracket)
-  7. Brier tracker      (grade model against new market odds)
-  8. Export JSON        (write frontend/public/data/*.json for Vercel)
+  4. Load identity      (Reep people.parquet → identity_players crosswalk)
+  5. Build features     (unified Silver feature matrix)
+  6. Bayesian ratings   (update posteriors with new WC likelihood)
+  7. Monte Carlo sim    (re-simulate remaining bracket)
+  8. Brier tracker      (grade model against new market odds)
+  9. Export JSON        (write frontend/public/data/*.json for Vercel)
 
 Designed for Windows Task Scheduler (single-user V1) and GitHub Actions.
 
 Exit code semantics ("Local Scrape, Cloud Math" pattern):
-  - Steps 1–3 are INGESTION (non-critical):  Sofascore is permanently blocked
+  - Steps 1–4 are INGESTION (non-critical):  Sofascore is permanently blocked
     by Cloudflare on datacenter IPs.  A Sofascore 403 should NOT fail the CI
-    job — committed Parquets provide the baseline WC data.
-  - Steps 4–8 are CRITICAL: if any math or export step fails the process
+    job — committed Parquets provide the baseline WC data.  The identity load
+    (step 4) is also non-critical: if people.parquet is missing the model
+    falls back to prior-only ratings.
+  - Steps 5–9 are CRITICAL: if any math or export step fails the process
     exits 1, failing the GitHub Action so the breakage is visible.
 
 Run manually:
@@ -91,13 +94,14 @@ def _step(name: str, fn, *, hard_fail: bool = False) -> bool:
 
 def run_pipeline() -> dict[str, bool]:
     """
-    Execute all 8 steps in order.  Returns a dict of step_name → success.
+    Execute all 9 steps in order.  Returns a dict of step_name → success.
     """
     # Import here so logging is configured first and module-level basicConfig
     # calls in each module are no-ops (logging already initialised).
     from etl.sources.espn_pull        import main as espn_main
     from etl.sources.sofascore_pull   import main as sofascore_main
     from etl.load.load_group_stage    import main as load_main
+    from etl.load.load_identity       import main as identity_main
     from etl.silver.build_features    import main as features_main
     from etl.models.bayesian_ratings  import main as ratings_main
     from etl.models.monte_carlo_sim   import main as sim_main
@@ -130,32 +134,39 @@ def run_pipeline() -> dict[str, bool]:
         load_main,
     )
 
-    # Step 4 — Rebuild Silver feature matrix
-    results["4_build_features"] = _step(
+    # Step 4 — Load identity crosswalk (Reep people.parquet → identity_players)
+    # Non-critical: if people.parquet is absent the model falls back to prior-only.
+    results["4_load_identity"] = _step(
+        "Load identity crosswalk",
+        identity_main,
+    )
+
+    # Step 5 — Rebuild Silver feature matrix
+    results["5_build_features"] = _step(
         "Build Silver feature matrix",
         features_main,
     )
 
-    # Step 5 — Update Bayesian posteriors
-    results["5_bayesian_ratings"] = _step(
+    # Step 6 — Update Bayesian posteriors
+    results["6_bayesian_ratings"] = _step(
         "Bayesian ratings update",
         ratings_main,
     )
 
-    # Step 6 — Re-simulate remaining bracket
-    results["6_monte_carlo_sim"] = _step(
+    # Step 7 — Re-simulate remaining bracket
+    results["7_monte_carlo_sim"] = _step(
         "Monte Carlo bracket simulation",
         sim_main,
     )
 
-    # Step 7 — Grade completed matches against model + market odds
-    results["7_brier_tracker"] = _step(
+    # Step 8 — Grade completed matches against model + market odds
+    results["8_brier_tracker"] = _step(
         "Brier score tracker",
         brier_main,
     )
 
-    # Step 8 — Export static JSON for Vercel (critical: Vercel deploy depends on this)
-    results["8_export_json"] = _step(
+    # Step 9 — Export static JSON for Vercel (critical: Vercel deploy depends on this)
+    results["9_export_json"] = _step(
         "Export static JSON",
         export_main,
     )
@@ -196,9 +207,9 @@ def main() -> None:
     # ── Exit logic: distinguish ingestion failures from pipeline failures ────
     # Ingestion steps (1–3) are non-critical: Sofascore is permanently blocked
     # on GitHub Actions datacenter IPs.  Only math/export failures are fatal.
-    _INGESTION = {"1_espn_pull", "2_sofascore_pull", "3_load_matches"}
-    _CRITICAL  = {"4_build_features", "5_bayesian_ratings", "6_monte_carlo_sim",
-                  "7_brier_tracker", "8_export_json"}
+    _INGESTION = {"1_espn_pull", "2_sofascore_pull", "3_load_matches", "4_load_identity"}
+    _CRITICAL  = {"5_build_features", "6_bayesian_ratings", "7_monte_carlo_sim",
+                  "8_brier_tracker", "9_export_json"}
 
     failed            = {k for k, ok in results.items() if not ok}
     critical_failures = failed & _CRITICAL
