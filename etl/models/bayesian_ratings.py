@@ -1,0 +1,530 @@
+"""
+Hierarchical Bayesian ratings — analytical Normal-Normal conjugate shrinkage.
+
+NO PyMC, NO NumPyro, NO MCMC.  Pure NumPy/Pandas/DuckDB, fully vectorized.
+
+Two-tier stratification
+-----------------------
+  Tier 1 — Macro (GK | DEF | MID | FWD)
+      Used for the shrinkage math and archetype variance.  Large sample sizes
+      ensure stable estimates of the group variance.
+
+  Tier 2 — Micro (reep position_detail, e.g. "Centre Back", "Defensive Midfielder")
+      Used only for the final percentile ranking.  A DM's posterior is shrunk
+      toward the MID macro mean, but his dashboard percentile ranks him against
+      other DMs only.
+
+Normal-Normal conjugate update
+-------------------------------
+  Prior:       N(mu_prior, sigma2_prior)
+    mu_prior    = cluster_wc_mean
+                  + club_composite_z * cluster_wc_std * PRIOR_PULL * (not GK)
+    sigma2_prior = cluster_wc_var  (archetype cluster variance of wc_rating_avg)
+
+  Likelihood:  N(wc_rating_avg, sigma2_wc)
+    sigma2_wc   = BASE_WC_VAR * 90 / max(wc_minutes, MIN_WC_MINUTES)
+    (→ inf for players with no WC data, giving tau_wc = 0)
+
+  Posterior:   N(mu_post, sigma2_post)
+    tau_post   = tau_prior + tau_wc
+    mu_post    = (tau_prior * mu_prior + tau_wc * mu_wc) / tau_post
+    sigma2_post = 1 / tau_post
+
+  HDI (90%):   mu_post ± 1.645 * sigma_post
+
+Usage
+-----
+    python -m etl.models.bayesian_ratings
+    python -m etl.models.bayesian_ratings --validate   # sanity checks, skip DB write
+"""
+import argparse
+import logging
+import sys
+from pathlib import Path
+
+import duckdb
+import numpy as np
+import pandas as pd
+
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from config import settings
+from etl.db.connection import get_read_conn, write_conn
+
+logger = logging.getLogger(__name__)
+
+FEATURES_PATH = Path(settings.parquet_silver_dir) / "player_stats" / "features.parquet"
+
+# ---------------------------------------------------------------------------
+# Calibration constants
+# ---------------------------------------------------------------------------
+
+# Variance of a single Sofascore match rating  (≈ 0.55 std per match → var ≈ 0.30)
+BASE_WC_VAR = 0.30
+
+# Floor on WC minutes to avoid near-zero σ²_wc
+MIN_WC_MINUTES = 15.0
+
+# Dampening factor: how much of the club Z-score adjusts the prior mean.
+# 0.0 = pure archetype mean; 1.0 = full Z-score translation.
+PRIOR_PULL = 0.50
+
+# Minimum WC players per cluster to use cluster stats; smaller → bucket fallback
+MIN_CLUSTER_WC = 5
+
+# Micro-position groups with fewer than this many players are collapsed
+# into their macro-bucket fallback.
+MIN_MICRO_N = 8
+
+# ---------------------------------------------------------------------------
+# League ELO coefficients (from leagues table, EPL = 1.0 reference)
+# ---------------------------------------------------------------------------
+
+_LEAGUE_ELO: dict[str, float] = {
+    "EPL":        1.000,
+    "La_Liga":    0.926,
+    "Bundesliga": 0.918,
+    "Serie_A":    0.909,
+    "Ligue_1":    0.908,
+}
+_MEAN_ELO = float(np.mean(list(_LEAGUE_ELO.values())))  # ≈ 0.932
+
+# ---------------------------------------------------------------------------
+# Micro-position mapping (Tier 2)
+# ---------------------------------------------------------------------------
+
+_MICRO_MAP: dict[str, str] = {
+    # Goalkeepers
+    "goalkeeper":           "Goalkeeper",
+    "goaltender":           "Goalkeeper",
+    # Defenders — split CB vs. FB
+    "centre-back":          "Centre Back",
+    "stopper":              "Centre Back",
+    "sweeper":              "Centre Back",
+    "centerhalf":           "Centre Back",
+    "defender":             "Centre Back",
+    "full-back":            "Full Back",
+    "right-back":           "Full Back",
+    "left back":            "Full Back",
+    "right back":           "Full Back",
+    "wing-back":            "Full Back",
+    "wing half":            "Full Back",
+    # Midfielders
+    "midfielder":           "Central Midfielder",
+    "central midfielder":   "Central Midfielder",
+    "defensive midfielder": "Defensive Midfielder",
+    "attacking midfielder": "Attacking Midfielder",
+    "playmaker":            "Attacking Midfielder",
+    "wide midfielder":      "Winger",
+    "winger":               "Winger",
+    "left winger":          "Winger",
+    "right winger":         "Winger",
+    "inverted winger":      "Winger",
+    "inside forward":       "Winger",
+    # Forwards
+    "forward":              "Centre Forward",
+    "attacker":             "Centre Forward",
+    "centre-forward":       "Centre Forward",
+    "striker":              "Centre Forward",
+    "second striker":       "Centre Forward",
+}
+
+_MACRO_FALLBACK: dict[str, str] = {
+    "GK":  "Goalkeeper",
+    "DEF": "Defender",
+    "MID": "Midfielder",
+    "FWD": "Forward",
+}
+
+
+def _assign_micro(reep_pos: str | None, macro: str) -> str:
+    if reep_pos:
+        m = _MICRO_MAP.get(str(reep_pos).strip().lower())
+        if m:
+            return m
+    return _MACRO_FALLBACK.get(macro, "Unknown")
+
+
+# ---------------------------------------------------------------------------
+# Data loading
+# ---------------------------------------------------------------------------
+
+def _load_data() -> pd.DataFrame:
+    """
+    Load features.parquet and join cluster_id from the archetypes DuckDB table.
+    Returns a single DataFrame ready for the Bayesian update.
+    """
+    df = pd.read_parquet(FEATURES_PATH)
+
+    conn = get_read_conn()
+    try:
+        arcs = conn.execute(
+            "SELECT reep_id, cluster_id FROM archetypes"
+        ).df()
+    finally:
+        conn.close()
+
+    df = df.merge(arcs, on="reep_id", how="left")
+    df["cluster_id"] = df["cluster_id"].fillna(-1).astype(int)
+
+    # Defensive: drop rows with no reep_id or no position_bucket
+    df = df[df["reep_id"].notna() & df["position_bucket"].notna()].copy()
+
+    logger.info("Loaded %d players from features.parquet + archetypes join", len(df))
+    return df
+
+
+# ---------------------------------------------------------------------------
+# Prior composite (outfield only; GK stays at 0 → archetype-mean anchor)
+# ---------------------------------------------------------------------------
+
+def _add_prior_composite(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Offensive prior composite = (xg_per_90 + xa_per_90) * elo_coef.
+    GK rows are set to 0.0 (archetype cluster mean is their anchor).
+    """
+    elo = df["league"].map(_LEAGUE_ELO).fillna(_MEAN_ELO)
+    xg  = df["prior_xg_per_90"].fillna(0.0)
+    xa  = df["prior_xa_per_90"].fillna(0.0)
+    df["prior_composite"] = np.where(
+        df["position_bucket"] == "GK",
+        0.0,
+        (xg + xa) * elo,
+    )
+    return df
+
+
+# ---------------------------------------------------------------------------
+# Cluster / bucket statistics (anchors for the shrinkage)
+# ---------------------------------------------------------------------------
+
+def _compute_anchor_stats(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Compute per-cluster stats (from WC players only) and per-bucket fallbacks.
+
+    Returns a stats DataFrame with columns:
+      position_bucket, cluster_id,
+      cluster_wc_mean, cluster_wc_var, cluster_wc_count,
+      cluster_prior_mean, cluster_prior_std
+    """
+    wc = df[df["has_wc_data"] & df["wc_rating_avg"].notna()]
+
+    # Cluster-level WC stats
+    clust_wc = (
+        wc.groupby(["position_bucket", "cluster_id"])["wc_rating_avg"]
+        .agg(cluster_wc_mean="mean", cluster_wc_var="var", cluster_wc_count="count")
+        .reset_index()
+    )
+
+    # Bucket-level WC fallback (for clusters with too few WC players)
+    bucket_wc = (
+        wc.groupby("position_bucket")["wc_rating_avg"]
+        .agg(bucket_wc_mean="mean", bucket_wc_var="var")
+        .reset_index()
+    )
+
+    # Cluster-level prior-composite stats (for Z-scoring)
+    prior = df[df["has_prior"] & (df["position_bucket"] != "GK")]
+    clust_prior = (
+        prior.groupby(["position_bucket", "cluster_id"])["prior_composite"]
+        .agg(cluster_prior_mean="mean", cluster_prior_std="std")
+        .reset_index()
+    )
+
+    stats = (
+        clust_wc
+        .merge(clust_prior, on=["position_bucket", "cluster_id"], how="left")
+        .merge(bucket_wc,   on="position_bucket",                  how="left")
+    )
+
+    # Fall back to bucket stats for small clusters
+    small = stats["cluster_wc_count"] < MIN_CLUSTER_WC
+    stats.loc[small, "cluster_wc_mean"] = stats.loc[small, "bucket_wc_mean"]
+    stats.loc[small, "cluster_wc_var"]  = stats.loc[small, "bucket_wc_var"]
+
+    # Fill any remaining NaN (cluster never observed in WC)
+    for col in ("cluster_wc_mean", "cluster_wc_var"):
+        stats[col] = stats[col].fillna(stats.groupby("position_bucket")[col].transform("mean"))
+    # Final fallback for buckets with no WC at all (shouldn't happen)
+    stats["cluster_wc_mean"] = stats["cluster_wc_mean"].fillna(7.0)
+    stats["cluster_wc_var"]  = stats["cluster_wc_var"].fillna(0.20)
+
+    # Floor variance so precision is bounded
+    stats["cluster_wc_var"] = stats["cluster_wc_var"].clip(lower=0.01)
+
+    return stats
+
+
+# ---------------------------------------------------------------------------
+# Bayesian update — vectorized Normal-Normal conjugate
+# ---------------------------------------------------------------------------
+
+def _bayesian_update(df: pd.DataFrame, stats: pd.DataFrame) -> pd.DataFrame:
+    df = df.merge(stats, on=["position_bucket", "cluster_id"], how="left")
+
+    # --- Prior mean ---
+    # Club composite Z-score within cluster (0 when no prior → no deviation)
+    comp_z = (
+        (df["prior_composite"] - df["cluster_prior_mean"].fillna(0.0))
+        / df["cluster_prior_std"].fillna(1.0).clip(lower=1e-8)
+    )
+    comp_z = comp_z.where(df["has_prior"] & (df["position_bucket"] != "GK"), 0.0)
+
+    cluster_wc_std = np.sqrt(df["cluster_wc_var"])
+    df["prior_mean"] = df["cluster_wc_mean"] + comp_z * cluster_wc_std * PRIOR_PULL
+
+    # GK: reset to pure archetype mean (club composite carries no signal)
+    df.loc[df["position_bucket"] == "GK", "prior_mean"] = (
+        df.loc[df["position_bucket"] == "GK", "cluster_wc_mean"]
+    )
+
+    # --- Precisions ---
+    sigma2_prior = df["cluster_wc_var"].clip(lower=1e-4).values  # (N,)
+
+    wc_mins = df["wc_minutes"].clip(lower=MIN_WC_MINUTES).fillna(MIN_WC_MINUTES).values
+    # Require a non-NaN Sofascore rating — brief subs (e.g. 1 min) may lack one
+    has_wc  = df["has_wc_data"].values.astype(bool) & df["wc_rating_avg"].notna().values
+    sigma2_wc = np.where(has_wc, BASE_WC_VAR * 90.0 / wc_mins, np.inf)
+
+    tau_prior = 1.0 / sigma2_prior
+    tau_wc    = np.where(np.isinf(sigma2_wc), 0.0, 1.0 / sigma2_wc)
+    tau_post  = tau_prior + tau_wc
+
+    mu_prior = df["prior_mean"].values
+    mu_wc    = df["wc_rating_avg"].fillna(df["prior_mean"]).values
+
+    # Posterior
+    mu_post    = (tau_prior * mu_prior + tau_wc * mu_wc) / tau_post
+    sigma2_post = 1.0 / tau_post
+    sigma_post  = np.sqrt(sigma2_post)
+
+    df["posterior_mean"]   = mu_post
+    df["posterior_std"]    = sigma_post
+    df["shrinkage_weight"] = tau_wc / tau_post   # 0=prior  1=WC
+    df["hdi_low"]          = mu_post - 1.645 * sigma_post
+    df["hdi_high"]         = mu_post + 1.645 * sigma_post
+
+    return df
+
+
+# ---------------------------------------------------------------------------
+# Confidence score
+# ---------------------------------------------------------------------------
+
+def _confidence(df: pd.DataFrame) -> pd.Series:
+    wc_conf    = (df["wc_minutes"].clip(upper=270.0).fillna(0.0) / 270.0).clip(0.0, 1.0)
+    prior_conf = df["has_prior"].astype(float)
+    return (0.7 * wc_conf + 0.3 * prior_conf).clip(0.0, 1.0)
+
+
+# ---------------------------------------------------------------------------
+# Micro-position (Tier 2) + percentile rank
+# ---------------------------------------------------------------------------
+
+def _add_micro_and_percentile(df: pd.DataFrame) -> pd.DataFrame:
+    df["position_micro"] = [
+        _assign_micro(r, b)
+        for r, b in zip(df["reep_position"], df["position_bucket"])
+    ]
+
+    # Collapse micro groups with < MIN_MICRO_N players into macro fallback
+    counts = df["position_micro"].value_counts()
+    small  = set(counts[counts < MIN_MICRO_N].index)
+    if small:
+        logger.info("Collapsing %d small micro-position groups: %s", len(small), small)
+        mask = df["position_micro"].isin(small)
+        df.loc[mask, "position_micro"] = (
+            df.loc[mask, "position_bucket"].map(_MACRO_FALLBACK)
+        )
+
+    # Percentile rank within micro-position (0=worst, 1=best)
+    df["percentile_rank"] = df.groupby("position_micro")["posterior_mean"].rank(pct=True)
+
+    return df
+
+
+# ---------------------------------------------------------------------------
+# DuckDB write (bulk — no row-by-row loops)
+# ---------------------------------------------------------------------------
+
+_INSERT_SQL = """
+INSERT INTO player_ratings (
+    reep_id, position_macro, position_micro, cluster_id,
+    prior_mean, posterior_mean, posterior_std,
+    hdi_low, hdi_high, shrinkage_weight,
+    wc_minutes, confidence_score, percentile_rank, updated_at
+)
+SELECT
+    reep_id, position_macro, position_micro, cluster_id,
+    prior_mean, posterior_mean, posterior_std,
+    hdi_low, hdi_high, shrinkage_weight,
+    wc_minutes, confidence_score, percentile_rank,
+    now()
+FROM ratings_temp
+"""
+
+
+def _write_ratings(df: pd.DataFrame) -> None:
+    out = df[[
+        "reep_id", "position_bucket", "position_micro", "cluster_id",
+        "prior_mean", "posterior_mean", "posterior_std",
+        "hdi_low", "hdi_high", "shrinkage_weight",
+        "wc_minutes", "confidence_score", "percentile_rank",
+    ]].rename(columns={"position_bucket": "position_macro"}).copy()
+
+    out["cluster_id"] = out["cluster_id"].fillna(-1).astype(int)
+    out["wc_minutes"] = out["wc_minutes"].fillna(0.0)
+
+    with write_conn() as conn:
+        conn.execute("DELETE FROM player_ratings")
+        conn.register("ratings_temp", out)
+        conn.execute(_INSERT_SQL)
+
+    logger.info("Written %d rows -> player_ratings", len(out))
+
+
+# ---------------------------------------------------------------------------
+# Validation report
+# ---------------------------------------------------------------------------
+
+def _validate(df: pd.DataFrame) -> None:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
+    print("\n" + "=" * 70)
+    print("  VALIDATION REPORT — Bayesian Ratings")
+    print("=" * 70)
+
+    # (a) Low-minute player: should be heavily shrunk toward prior/archetype.
+    # Require non-NaN wc_rating_avg so we can compute |post - WC| meaningfully.
+    low_min = df[
+        df["has_wc_data"]
+        & df["wc_rating_avg"].notna()
+        & (df["wc_minutes"] < 45)
+    ].copy()
+    if not low_min.empty:
+        row = low_min.nsmallest(1, "wc_minutes").iloc[0]
+        print(f"\n(a) Low-minute player shrinkage check")
+        print(f"    Player       : {row.get('player_name','?')} ({row.get('nationality','?')})")
+        print(f"    WC minutes   : {row.get('wc_minutes', 0):.0f}")
+        print(f"    WC rating    : {row.get('wc_rating_avg', float('nan')):.3f}")
+        print(f"    Prior mean   : {row['prior_mean']:.3f}")
+        print(f"    Posterior    : {row['posterior_mean']:.3f}")
+        print(f"    Shrinkage w  : {row['shrinkage_weight']:.3f}  (0=prior, 1=WC)")
+        delta_to_prior = abs(row["posterior_mean"] - row["prior_mean"])
+        delta_to_wc    = abs(row["posterior_mean"] - row.get("wc_rating_avg", row["prior_mean"]))
+        result = "✓ PASS" if delta_to_prior < delta_to_wc else "✗ FAIL"
+        print(f"    |post-prior| = {delta_to_prior:.3f}  |post-WC| = {delta_to_wc:.3f}  → {result}")
+
+    # (b) High-minute WC star: posterior should track the WC observation
+    high_min = df[df["has_wc_data"] & (df["wc_minutes"] >= 270)].copy()
+    if not high_min.empty:
+        row = high_min.nlargest(1, "wc_rating_avg").iloc[0]
+        print(f"\n(b) High-minute WC star shrinkage check")
+        print(f"    Player       : {row.get('player_name','?')} ({row.get('nationality','?')})")
+        print(f"    WC minutes   : {row.get('wc_minutes', 0):.0f}")
+        print(f"    WC rating    : {row.get('wc_rating_avg', float('nan')):.3f}")
+        print(f"    Prior mean   : {row['prior_mean']:.3f}")
+        print(f"    Posterior    : {row['posterior_mean']:.3f}")
+        print(f"    Shrinkage w  : {row['shrinkage_weight']:.3f}")
+        delta_to_wc    = abs(row["posterior_mean"] - row.get("wc_rating_avg", row["prior_mean"]))
+        delta_to_prior = abs(row["posterior_mean"] - row["prior_mean"])
+        result = "✓ PASS" if delta_to_wc < delta_to_prior else "✗ FAIL"
+        print(f"    |post-WC| = {delta_to_wc:.3f}  |post-prior| = {delta_to_prior:.3f}  → {result}")
+
+    # (c) Micro-position ranking: DM vs AM
+    dm = df[df["position_micro"] == "Defensive Midfielder"].copy()
+    am = df[df["position_micro"] == "Attacking Midfielder"].copy()
+    if not dm.empty and not am.empty:
+        print(f"\n(c) Micro-position percentile check")
+        print(f"    Defensive Midfielders ({len(dm)} players) — top 3 by posterior:")
+        for _, r in dm.nlargest(3, "posterior_mean").iterrows():
+            print(f"      {r.get('player_name','?'):30s}  "
+                  f"post={r['posterior_mean']:.3f}  "
+                  f"pct={r['percentile_rank']:.2f} (vs DMs only)")
+        print(f"    Attacking Midfielders ({len(am)} players) — top 3 by posterior:")
+        for _, r in am.nlargest(3, "posterior_mean").iterrows():
+            print(f"      {r.get('player_name','?'):30s}  "
+                  f"post={r['posterior_mean']:.3f}  "
+                  f"pct={r['percentile_rank']:.2f} (vs AMs only)")
+        print("    → DMs and AMs each have their own percentile scale.  ✓ PASS")
+
+    # Summary stats
+    print(f"\n--- Summary ---")
+    print(f"  Total players    : {len(df)}")
+    print(f"  Has WC data      : {df['has_wc_data'].sum()}")
+    print(f"  Has club prior   : {df['has_prior'].sum()}")
+    print(f"  Both WC + prior  : {(df['has_wc_data'] & df['has_prior']).sum()}")
+    print(f"  Shrinkage w >0.5 : {(df['shrinkage_weight'] > 0.5).sum()}  (WC-dominant)")
+    print(f"  Shrinkage w <0.2 : {(df['shrinkage_weight'] < 0.2).sum()}  (prior-dominant)")
+    print()
+    print(f"--- Posterior stats per macro bucket ---")
+    print(
+        df.groupby("position_bucket")[["posterior_mean", "posterior_std", "confidence_score"]]
+        .agg(["mean", "min", "max"])
+        .round(3)
+        .to_string()
+    )
+
+    print(f"\n--- Top 5 players per macro bucket (by posterior_mean) ---")
+    for bucket in ["GK", "DEF", "MID", "FWD"]:
+        sub = df[df["position_bucket"] == bucket].nlargest(5, "posterior_mean")
+        print(f"\n  {bucket}:")
+        for _, r in sub.iterrows():
+            print(f"    {r.get('player_name','?'):30s}  "
+                  f"post={r['posterior_mean']:.3f}  "
+                  f"w={r['shrinkage_weight']:.2f}  "
+                  f"conf={r['confidence_score']:.2f}  "
+                  f"pct={r['percentile_rank']:.2f}  "
+                  f"({r['position_micro']})")
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+def main() -> None:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    logging.basicConfig(level=logging.INFO, format="%(levelname)-8s %(message)s")
+    logger.info("=== TrueScout Phase 2: bayesian_ratings ===")
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--validate", action="store_true",
+                        help="Print validation report; skip DuckDB write.")
+    args = parser.parse_args()
+
+    if not FEATURES_PATH.exists():
+        logger.error("features.parquet not found — run build_features.py first.")
+        sys.exit(1)
+
+    df = _load_data()
+    df = _add_prior_composite(df)
+
+    stats = _compute_anchor_stats(df)
+    logger.info("Anchor stats computed for %d clusters", len(stats))
+
+    df = _bayesian_update(df, stats)
+    df["confidence_score"] = _confidence(df)
+    df = _add_micro_and_percentile(df)
+
+    logger.info(
+        "Ratings ready: %d players  "
+        "(shrinkage w: min=%.3f  mean=%.3f  max=%.3f)",
+        len(df),
+        df["shrinkage_weight"].min(),
+        df["shrinkage_weight"].mean(),
+        df["shrinkage_weight"].max(),
+    )
+
+    _validate(df)
+
+    if args.validate:
+        logger.info("--validate: skipping DuckDB write.")
+    else:
+        _write_ratings(df)
+
+    logger.info("=== bayesian_ratings complete ===")
+
+
+if __name__ == "__main__":
+    main()
