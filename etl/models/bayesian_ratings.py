@@ -494,8 +494,11 @@ def main() -> None:
     args = parser.parse_args()
 
     if not FEATURES_PATH.exists():
-        logger.error("features.parquet not found — run build_features.py first.")
-        sys.exit(1)
+        logger.error(
+            "features.parquet not found — skipping bayesian_ratings for this run. "
+            "Existing ratings preserved."
+        )
+        return
 
     df = _load_data()
     df = _add_prior_composite(df)

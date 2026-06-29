@@ -25,16 +25,19 @@ pip-log.txt
 pip-delete-this-directory.txt
 
 # ---------------------------------------------------------------------------
-# DuckDB  (can be large; re-created via etl/db/init_db.py)
+# DuckDB  (local write-connection DB — rebuilt by the nightly batch)
 # ---------------------------------------------------------------------------
-*.duckdb
-*.duckdb.wal
+data/truescout.duckdb
+data/truescout.duckdb.wal
 
 # ---------------------------------------------------------------------------
-# Parquet cache  (re-populated by the nightly batch; do not commit)
+# Parquet cache
+#   bronze/  — COMMITTED to git so GitHub Actions has the baseline scrape
+#              (Sofascore is Cloudflare-blocked on datacenter IPs; local
+#              developer commits fresh Parquets after each manual pull)
+#   silver/  — derived; rebuilt by build_features.py every nightly run
+#   gold/    — reserved for future aggregates; always derivable
 # ---------------------------------------------------------------------------
-*.parquet
-data/bronze/
 data/silver/
 data/gold/
 

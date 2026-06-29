@@ -119,12 +119,39 @@ def _per90(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def load_wc_features() -> pd.DataFrame:
-    """Aggregate WC player stats from all Sofascore lineup Parquets."""
-    lineup_glob = (
-        Path(settings.parquet_bronze_dir) / "sofascore" / "lineups" / "*.parquet"
-    ).as_posix()
+# Columns produced by _WC_AGG_SQL — used to build the schema-correct empty
+# DataFrame when Sofascore Parquets are absent (e.g. GitHub Actions CI).
+_WC_AGG_COLS = [
+    "sofascore_id", "wc_player_name", "wc_sc_position", "wc_matches",
+    "wc_minutes", "wc_goals_raw", "wc_assists_raw", "wc_xg_raw", "wc_xa_raw",
+    "wc_shots_raw", "wc_sot_raw", "wc_key_passes_raw", "wc_tackles_raw",
+    "wc_interceptions_raw", "wc_clearances_raw", "wc_saves_raw", "wc_rating_avg",
+]
 
+
+def load_wc_features() -> pd.DataFrame:
+    """Aggregate WC player stats from all Sofascore lineup Parquets.
+
+    Returns an empty DataFrame with the correct column schema when the Parquet
+    directory is missing or empty — this happens in GitHub Actions CI where
+    Sofascore is blocked by Cloudflare and Parquets are committed to git by
+    the developer.  Downstream steps (build_features, bayesian_ratings) handle
+    0-row WC data gracefully: the model falls back to club-prior-only ratings.
+    """
+    lineup_dir   = Path(settings.parquet_bronze_dir) / "sofascore" / "lineups"
+    parquet_files = list(lineup_dir.glob("*.parquet")) if lineup_dir.is_dir() else []
+
+    if not parquet_files:
+        logger.warning(
+            "Sofascore lineup Parquets not found at %s — "
+            "WC aggregation skipped; model will run on club priors only.",
+            lineup_dir,
+        )
+        # Return a schema-correct empty DataFrame so _per90() and the outer
+        # merge in build_features() do not raise KeyError.
+        return pd.DataFrame(columns=_WC_AGG_COLS)
+
+    lineup_glob = (lineup_dir / "*.parquet").as_posix()
     conn = duckdb.connect()
     try:
         wc = conn.execute(_WC_AGG_SQL.format(lineup_glob=lineup_glob)).df()
