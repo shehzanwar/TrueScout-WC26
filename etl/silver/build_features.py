@@ -46,8 +46,10 @@ _REEP_BUCKET: dict[str, str] = {
     # Defenders
     "defender": "DEF", "full-back": "DEF", "centre-back": "DEF",
     "centre back": "DEF", "center back": "DEF",
-    "stopper": "DEF", "sweeper": "DEF", "wing half": "DEF",
+    "stopper": "DEF", "sweeper": "DEF",
     "wing back": "DEF", "wing-back": "DEF",
+    # "wing half" is a historical midfield role (holding/box-to-box in old 4-4-2)
+    "wing half": "MID",
     "right back": "DEF", "left back": "DEF",
     # Midfielders
     "midfielder": "MID", "central midfielder": "MID",
@@ -150,13 +152,28 @@ _PER90_STATS = [
 ]
 
 
+_PER90_CAPS: dict[str, float] = {
+    "xg": 1.8, "goals": 2.5, "assists": 2.5, "xa": 1.8,
+    "shots": 12.0, "sot": 8.0, "key_passes": 8.0,
+    "tackles": 10.0, "interceptions": 10.0, "clearances": 15.0, "saves": 8.0,
+}
+
+
 def _per90(df: pd.DataFrame) -> pd.DataFrame:
-    """Add per-90 WC columns, computed from raw sums and total minutes."""
+    """Add per-90 WC columns, computed from raw sums and total minutes.
+
+    Caps prevent sub-3-minute appearances from producing physically impossible
+    per-90 values (e.g. a player scoring once in 1 min → xg_per_90 ≈ 90).
+    """
     mins = df["wc_minutes"].clip(lower=1e-6)
     for stat in _PER90_STATS:
         raw = df.get(f"wc_{stat}_raw")
         if raw is not None:
-            df[f"wc_{stat}_per_90"] = raw / (mins / 90.0)
+            val = raw / (mins / 90.0)
+            cap = _PER90_CAPS.get(stat)
+            if cap is not None:
+                val = val.clip(upper=cap)
+            df[f"wc_{stat}_per_90"] = val
     return df
 
 
