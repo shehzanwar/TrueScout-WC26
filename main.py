@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from config import settings
 from etl.db.connection import get_write_conn, close_write_conn
 from etl.db.init_db import init_schema, _create_parquet_dirs
-from api.routes import health, players, matchups, simulations, brier
+from api.routes import health, players, matchups, simulations, brier, narratives
 
 logging.basicConfig(
     level=logging.DEBUG if settings.debug else logging.INFO,
@@ -73,7 +73,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins,
     allow_credentials=True,
-    allow_methods=["GET"],   # V1 is read-only from the frontend
+    allow_methods=["GET", "POST"],  # POST for /narratives LLM endpoint
     allow_headers=["*"],
 )
 
@@ -86,6 +86,7 @@ app.include_router(players.router)
 app.include_router(matchups.router)
 app.include_router(simulations.router)
 app.include_router(brier.router)
+app.include_router(narratives.router)
 
 # ---------------------------------------------------------------------------
 # Root
@@ -103,6 +104,7 @@ def root() -> dict:
             "health":      "/health",
             "db_stats":    "/health/db",
             "player":      "/api/v1/players/{reep_id}",
+            "narrative":   "POST /api/v1/narratives/{reep_id}",
             "matchups":    "/api/v1/matchups?round=R32",
             "simulations": "/api/v1/simulations",
             "brier":       "/api/v1/brier",

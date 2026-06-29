@@ -1,4 +1,4 @@
-import { getSimulations, getBrier } from "@/lib/api"
+import { getSimulations, getBrier } from "@/lib/server-data"
 import HomeCards from "./components/HomeCards"
 
 export default async function HomePage() {

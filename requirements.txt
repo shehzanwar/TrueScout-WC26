@@ -53,6 +53,11 @@ numpy>=1.26.0             # Monte Carlo bracket simulation
 scikit-learn>=1.4.0       # K-Means archetypes + Elastic Net feature selection
 
 # ---------------------------------------------------------------------------
+# LLM / RAG
+# ---------------------------------------------------------------------------
+openai>=1.35.0            # OpenRouter uses OpenAI-compatible API (base_url override)
+
+# ---------------------------------------------------------------------------
 # Scheduling
 # ---------------------------------------------------------------------------
 apscheduler>=3.10.0       # Nightly ETL → model → sim → Brier-log job

@@ -96,7 +96,7 @@ export default function Sidebar() {
 
       {/* Footer */}
       <div className="px-5 py-4 border-t border-slate-800">
-        <p className="text-xs text-slate-600">Phase 2 — Backend live</p>
+        <p className="text-xs text-slate-600">Phase 3 — Dashboard live</p>
       </div>
     </aside>
   )

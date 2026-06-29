@@ -3,7 +3,7 @@
 > Simple Kanban, not a Gantt chart. Track daily progress here (or mirror to GitHub Projects / Trello /
 > Notion). Pairs with [`PRD.md`](PRD.md) and [`ARCHITECTURE.md`](ARCHITECTURE.md).
 >
-> **Last updated:** 2026-06-28 (Phase 2 COMPLETE — all 7 pipeline steps + FastAPI endpoints + nightly orchestrator done)
+> **Last updated:** 2026-06-29 (Phase 3 complete — all features live + static-export deployment pattern implemented)
 
 ---
 
@@ -53,12 +53,16 @@ Next.js dashboard, OpenRouter RAG narratives, bug-fixing, deployment.
 - [x] Wire nightly CRON (Task Scheduler): `run_nightly.py` — 7-step sequential orchestrator, per-step try/except, rotating log to `logs/nightly.log`
 
 **Phase 3**
-- [ ] Next.js + Tailwind dashboard shell (dark mode)
-- [ ] Player profile page: league-adjusted percentile radar + confidence indicator
-- [ ] Interactive Knockout Tree with live advancement/title odds
-- [ ] Brier-tracker panel
-- [ ] OpenRouter RAG narratives, confidence-routed (Data Analyst vs Traditional Scout voice)
-- [ ] Deploy: FastAPI (Render/Railway/Fly) + Next.js (Vercel)
+- [x] Next.js + Tailwind dashboard shell (dark mode) — App Router, Geist font, slate-950, sidebar nav, Framer Motion
+- [x] TypeScript API client (`frontend/lib/api.ts`) — all Pydantic interfaces, 8s AbortController timeout
+- [x] Home dashboard (`/`) — Top 5 title favorites leaderboard + Brier calibration card, stagger animations
+- [x] Matchups page (`/matchups`) — round selector tabs, MatchCard with TrueScout vs market prob bars, flag emojis, edge signal, color-coded confidence, 2→3-col responsive grid
+- [x] Player profile page: Recharts radar (5 Bayesian axes) + confidence badge + posterior stats card + prior/WC weight bar
+- [x] Player search (`/players`): debounced ILIKE search, flag emojis, color-coded posterior/confidence
+- [x] OpenRouter RAG narratives: `POST /api/v1/narratives/{reep_id}` — confidence-gated (≥0.7→Data Analyst/Llama 3.1, <0.7→Traditional Scout); Framer Motion fade-in paragraph reveal; VoiceBadge, 30s timeout, graceful fallback
+- [x] Interactive Knockout Tree (`/bracket`) — CSS flex bracket, proportional-flex connector lines (25%/75% arm geometry), Framer Motion whileInView prob bars, confirmed-fixture vs ghosted-projection styling, champion card
+- [x] Brier-tracker panel (`/brier`) — 4 summary cards (Brier/skill-score/log-loss/count), sortable MatchLogTable with edge/upset row highlighting, Recharts ComposedChart scatter (model vs market, favorites + upsets, y=x diagonal reference line)
+- [x] Deploy: Static JSON export (GitHub Actions nightly) + Next.js API route (Vercel) — see `DEPLOYMENT.md`
 
 ### 🔨 In Progress (today)
 - _(empty — pull from To Do)_

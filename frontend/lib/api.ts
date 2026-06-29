@@ -1,7 +1,5 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1"
-
 // ---------------------------------------------------------------------------
-// Types — mirroring Pydantic response models exactly
+// Types — mirror the shape of every static JSON file / Pydantic model exactly
 // ---------------------------------------------------------------------------
 
 export interface SimTeam {
@@ -89,53 +87,97 @@ export interface RadarMetrics {
 
 export interface PlayerResponse {
   reep_id: string
-  name: string
+  name: string | null
   nationality: string | null
   position_detail: string | null
-  position_macro: string | null
+  position_macro: string           // always present (GK/DEF/MID/FWD)
   position_micro: string | null
-  cluster_id: number | null
+  cluster_id: number               // always present
   cluster_label: string | null
-  position_bucket: string | null
-  prior_mean: number | null
-  posterior_mean: number | null
-  posterior_std: number | null
-  hdi_low: number | null
-  hdi_high: number | null
-  shrinkage_weight: number | null
-  wc_minutes: number | null
-  confidence_score: number | null
-  percentile_rank: number | null
+  position_bucket: string          // always present
+  // Bayesian posterior — always present for players in player_ratings
+  prior_mean: number
+  posterior_mean: number
+  posterior_std: number
+  hdi_low: number
+  hdi_high: number
+  shrinkage_weight: number
+  wc_minutes: number
+  confidence_score: number
+  percentile_rank: number
   radar: RadarMetrics
 }
 
+export interface PlayerSearchResult {
+  reep_id: string
+  name: string | null
+  nationality: string | null
+  position_micro: string | null
+  position_macro: string
+  posterior_mean: number
+  confidence_score: number
+  percentile_rank: number
+}
+
+export interface NarrativeResponse {
+  narrative: string
+  voice: "data_analyst" | "traditional_scout"
+}
+
 // ---------------------------------------------------------------------------
-// Fetchers
+// Client-side fetchers (safe to call from browser Client Components)
 // ---------------------------------------------------------------------------
 
-async function apiFetch<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    // No caching — always fresh from the Python backend
-    cache: "no-store",
-  })
-  if (!res.ok) {
-    throw new Error(`API error ${res.status} on ${path}`)
+/**
+ * Search players by name substring against the locally cached players.json.
+ * The JSON (~2 MB) is downloaded once and browser-cached; subsequent calls
+ * are served from the HTTP cache — no RTT beyond the first search per session.
+ */
+export async function searchPlayers(q: string): Promise<PlayerSearchResult[]> {
+  if (q.trim().length < 2) return []
+
+  const res = await fetch("/data/players.json", { cache: "force-cache" })
+  if (!res.ok) throw new Error("Failed to fetch player data")
+  const players = (await res.json()) as PlayerResponse[]
+
+  const query = q.trim().toLowerCase()
+  return players
+    .filter((p) => p.name?.toLowerCase().includes(query))
+    .sort(
+      (a, b) =>
+        b.confidence_score - a.confidence_score ||
+        b.posterior_mean - a.posterior_mean
+    )
+    .slice(0, 20)
+    .map((p) => ({
+      reep_id:          p.reep_id,
+      name:             p.name,
+      nationality:      p.nationality,
+      position_micro:   p.position_micro,
+      position_macro:   p.position_macro,
+      posterior_mean:   p.posterior_mean,
+      confidence_score: p.confidence_score,
+      percentile_rank:  p.percentile_rank,
+    }))
+}
+
+/**
+ * Generate a confidence-gated scouting narrative via the Next.js API route,
+ * which proxies to OpenRouter server-side (API key never touches the browser).
+ * Timeout: 30 s — LLM calls can be slow on the free tier.
+ */
+export async function generateNarrative(reep_id: string): Promise<NarrativeResponse> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 30_000)
+  try {
+    const res = await fetch(`/api/narratives/${encodeURIComponent(reep_id)}`, {
+      method: "POST",
+      cache: "no-store",
+      signal: controller.signal,
+    })
+    if (!res.ok) throw new Error(`API error ${res.status}`)
+    return res.json() as Promise<NarrativeResponse>
+  } finally {
+    clearTimeout(timer)
   }
-  return res.json() as Promise<T>
-}
-
-export async function getSimulations(): Promise<SimulationsResponse> {
-  return apiFetch<SimulationsResponse>("/simulations/")
-}
-
-export async function getMatchups(round = "R32"): Promise<MatchupsResponse> {
-  return apiFetch<MatchupsResponse>(`/matchups/?round=${round}`)
-}
-
-export async function getBrier(): Promise<BrierResponse> {
-  return apiFetch<BrierResponse>("/brier/")
-}
-
-export async function getPlayer(reep_id: string): Promise<PlayerResponse> {
-  return apiFetch<PlayerResponse>(`/players/${reep_id}`)
 }

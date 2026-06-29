@@ -11,7 +11,7 @@ import math
 import logging
 
 import duckdb
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, field_validator
 
 from api.deps import get_db
@@ -71,8 +71,52 @@ class PlayerResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Search response model
+# ---------------------------------------------------------------------------
+
+class PlayerSearchResult(BaseModel):
+    reep_id:          str
+    name:             str | None
+    nationality:      str | None
+    position_micro:   str | None
+    position_macro:   str
+    posterior_mean:   float
+    confidence_score: float
+    percentile_rank:  float
+
+    @field_validator("name", "nationality", "position_micro", mode="before")
+    @classmethod
+    def none_for_nan(cls, v):
+        if v is None:
+            return None
+        try:
+            if math.isnan(float(v)):
+                return None
+        except (TypeError, ValueError):
+            pass
+        return v
+
+
+# ---------------------------------------------------------------------------
 # SQL
 # ---------------------------------------------------------------------------
+
+_SEARCH_SQL = """
+SELECT DISTINCT
+    pr.reep_id,
+    ip.name,
+    ip.nationality,
+    pr.position_micro,
+    pr.position_macro,
+    pr.posterior_mean,
+    pr.confidence_score,
+    pr.percentile_rank
+FROM player_ratings pr
+LEFT JOIN identity_players ip ON pr.reep_id = ip.reep_id
+WHERE ip.name ILIKE '%' || $1 || '%'
+ORDER BY pr.confidence_score DESC NULLS LAST, pr.posterior_mean DESC NULLS LAST
+LIMIT 20
+"""
 
 _PLAYER_SQL = """
 WITH prior_rank AS (
@@ -112,8 +156,42 @@ WHERE pr.reep_id = $1
 
 
 # ---------------------------------------------------------------------------
-# Route
+# Routes
 # ---------------------------------------------------------------------------
+
+@router.get("/search", response_model=list[PlayerSearchResult])
+def search_players(
+    q: str = Query(default="", description="Name search string (ILIKE match)"),
+    db: duckdb.DuckDBPyConnection = Depends(get_db),
+) -> list[PlayerSearchResult]:
+    """
+    Search players by name across all 3,274 WC 2026 player ratings.
+    Returns up to 20 results, ranked by confidence then posterior.
+
+    Note: DuckDB ILIKE is accent-sensitive. 'Mbappe' will not match 'Mbappé'.
+    Use the accented form for starred players if needed.
+    """
+    q = q.strip()
+    if len(q) < 2:
+        return []
+
+    rows = db.execute(_SEARCH_SQL, [q]).fetchall()
+    results: list[PlayerSearchResult] = []
+    for row in rows:
+        (reep_id, name, nationality, position_micro, position_macro,
+         posterior_mean, confidence_score, percentile_rank) = row
+        results.append(PlayerSearchResult(
+            reep_id          = reep_id,
+            name             = name,
+            nationality      = nationality,
+            position_micro   = position_micro,
+            position_macro   = position_macro,
+            posterior_mean   = float(posterior_mean),
+            confidence_score = float(confidence_score),
+            percentile_rank  = float(percentile_rank),
+        ))
+    return results
+
 
 @router.get("/{reep_id}", response_model=PlayerResponse)
 def get_player(

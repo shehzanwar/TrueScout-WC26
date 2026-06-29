@@ -20,6 +20,7 @@ class Settings(BaseSettings):
 
     # --- API keys ---
     openrouter_api_key: str = ""
+    openrouter_model: str = "meta-llama/llama-3.1-8b-instruct:free"
 
     # --- Storage ---
     duckdb_path: str = str(ROOT_DIR / "data" / "truescout.duckdb")
@@ -39,6 +40,8 @@ class Settings(BaseSettings):
     mc_iterations: int = 10_000
     # Players below this threshold → "data_sparse" → Traditional Scout LLM voice
     confidence_score_threshold: float = 0.4
+    # Narrative routing: >= this value → Data Analyst voice; below → Traditional Scout
+    narrative_confidence_threshold: float = 0.7
 
     # --- Server ---
     api_host: str = "0.0.0.0"

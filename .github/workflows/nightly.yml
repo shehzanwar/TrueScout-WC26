@@ -1,0 +1,66 @@
+name: Nightly ETL + Static Export
+
+on:
+  schedule:
+    - cron: "0 2 * * *"   # 02:00 UTC daily
+  workflow_dispatch:       # manual trigger from GitHub UI
+
+jobs:
+  nightly:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write      # required for git push
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: ${{ runner.os }}-pip-
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Create data directories
+        run: mkdir -p data/bronze/espn/matches data/bronze/espn/odds data/bronze/sofascore data/bronze/reep data/silver data/gold logs
+
+      - name: Initialise DuckDB schema
+        run: |
+          python -c "
+          from etl.db.init_db import _create_parquet_dirs, init_schema
+          from etl.db.connection import get_write_conn
+          _create_parquet_dirs()
+          conn = get_write_conn()
+          init_schema(conn)
+          print('Schema initialised.')
+          "
+
+      - name: Run nightly pipeline
+        run: python run_nightly.py
+
+      - name: Export static JSON
+        run: python etl/export_json.py
+
+      - name: Commit and push JSON exports
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add frontend/public/data/
+          if git diff --staged --quiet; then
+            echo "No JSON changes — skipping commit."
+          else
+            git commit -m "chore: nightly data export [skip ci]"
+            git push
+          fi
