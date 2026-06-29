@@ -57,10 +57,11 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-N_SIM          = 10_000
-TOP_N_PLAYERS  = 15
-LOGISTIC_SCALE = 1.5   # P(A wins | delta=+1.0) ≈ 82%; typical match delta ≈ 0.3–0.6
-SEED           = 42
+N_SIM             = 10_000
+TOP_N_PLAYERS     = 15
+LOGISTIC_SCALE    = 1.5   # P(A wins | delta=+1.0) ≈ 82%; typical match delta ≈ 0.3–0.6
+SEED              = 42
+FALLBACK_STRENGTH = 7.0   # used when a team has no valid posterior ratings
 
 ROUNDS = ["R32", "R16", "QF", "SF", "F", "W"]
 
@@ -468,12 +469,19 @@ def main() -> None:
         # 2. Team strengths from player_ratings
         strengths_map, strength_df = _build_team_strengths(conn)
 
-        # 3. Coverage check — missing teams get the median strength
+        # 3. Coverage check — replace any NaN entries (AVG returned NULL when
+        #    posterior_mean was all-NaN), then fill teams absent from the map.
+        strengths_map = {
+            t: (v if np.isfinite(v) else FALLBACK_STRENGTH)
+            for t, v in strengths_map.items()
+        }
+
         missing = [t for t in bracket_order if t not in strengths_map]
         if missing:
-            fallback = float(np.median(list(strengths_map.values())))
+            valid = [v for v in strengths_map.values() if np.isfinite(v)]
+            fallback = float(np.median(valid)) if valid else FALLBACK_STRENGTH
             logger.warning(
-                "%d bracket team(s) not in player_ratings — using median %.4f: %s",
+                "%d bracket team(s) not in player_ratings — using %.4f: %s",
                 len(missing), fallback, missing,
             )
             for t in missing:

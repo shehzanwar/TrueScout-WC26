@@ -236,6 +236,11 @@ def build_features() -> pd.DataFrame:
     bridge = build_sofascore_bridge()
     priors = load_club_priors()
 
+    # Parquets store player_id as int64; identity_players.key_sofascore is VARCHAR.
+    # Cast both sides to str so pandas merge matches them correctly.
+    wc["sofascore_id"]     = wc["sofascore_id"].astype(str)
+    bridge["sofascore_id"] = bridge["sofascore_id"].astype(str)
+
     # Attach reep_id to WC rows
     wc_reep = wc.merge(bridge, on="sofascore_id", how="left")
     no_bridge = wc_reep["reep_id"].isna().sum()

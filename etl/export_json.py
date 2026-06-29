@@ -98,8 +98,8 @@ def export_simulations(conn) -> dict:
         if rnd in by_round:
             by_round[rnd].append({
                 "team_id":      team_id,
-                "advance_prob": round(float(advance_prob), 4),
-                "title_prob":   round(float(title_prob), 4),
+                "advance_prob": _safe_float(advance_prob),
+                "title_prob":   _safe_float(title_prob),
             })
 
     rounds = [
@@ -318,6 +318,8 @@ def export_players(conn) -> list:
          prior_mean, posterior_mean, posterior_std, hdi_low, hdi_high,
          shrinkage_weight, wc_minutes, confidence_score, percentile_rank, prior_pct) = row
 
+        sw = _safe_float(shrinkage_weight)
+        wm = _safe_float(wc_minutes)
         players.append({
             "reep_id":          reep_id,
             "name":             _safe_str(name),
@@ -325,24 +327,28 @@ def export_players(conn) -> list:
             "position_detail":  _safe_str(position_detail),
             "position_macro":   position_macro,
             "position_micro":   _safe_str(position_micro),
-            "cluster_id":       int(cluster_id),
+            "cluster_id":       int(cluster_id) if cluster_id is not None else -1,
             "cluster_label":    _safe_str(cluster_label),
             "position_bucket":  position_bucket,
-            "prior_mean":       round(float(prior_mean), 4),
-            "posterior_mean":   round(float(posterior_mean), 4),
-            "posterior_std":    round(float(posterior_std), 4),
-            "hdi_low":          round(float(hdi_low), 4),
-            "hdi_high":         round(float(hdi_high), 4),
-            "shrinkage_weight": round(float(shrinkage_weight), 4),
-            "wc_minutes":       round(float(wc_minutes), 1),
-            "confidence_score": round(float(confidence_score), 4),
-            "percentile_rank":  round(float(percentile_rank), 4),
+            "prior_mean":       _safe_float(prior_mean),
+            "posterior_mean":   _safe_float(posterior_mean),
+            "posterior_std":    _safe_float(posterior_std),
+            "hdi_low":          _safe_float(hdi_low),
+            "hdi_high":         _safe_float(hdi_high),
+            "shrinkage_weight": sw,
+            "wc_minutes":       wm,
+            "confidence_score": _safe_float(confidence_score),
+            "percentile_rank":  _safe_float(percentile_rank),
             "radar": {
-                "posterior_pct": round(float(percentile_rank), 4),
-                "wc_experience": round(min(float(wc_minutes) / 270.0, 1.0), 4),
-                "confidence":    round(float(confidence_score), 4),
-                "prior_pct":     round(float(prior_pct), 4),
-                "wc_dominance":  round(1.0 - float(shrinkage_weight), 4),
+                "posterior_pct": _safe_float(percentile_rank),
+                "wc_experience": _safe_float(
+                    min(wm / 270.0, 1.0) if wm is not None else None
+                ),
+                "confidence":    _safe_float(confidence_score),
+                "prior_pct":     _safe_float(prior_pct),
+                "wc_dominance":  _safe_float(
+                    1.0 - sw if sw is not None else None
+                ),
             },
         })
 

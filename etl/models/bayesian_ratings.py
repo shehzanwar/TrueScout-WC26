@@ -261,6 +261,11 @@ def _compute_anchor_stats(df: pd.DataFrame) -> pd.DataFrame:
 def _bayesian_update(df: pd.DataFrame, stats: pd.DataFrame) -> pd.DataFrame:
     df = df.merge(stats, on=["position_bucket", "cluster_id"], how="left")
 
+    # Guard: stats is empty when no WC Parquets exist (CI "Local Scrape, Cloud Math"
+    # run). Fill with global defaults so the prior math doesn't NaN-collapse everyone.
+    df["cluster_wc_mean"] = df["cluster_wc_mean"].fillna(7.0)
+    df["cluster_wc_var"]  = df["cluster_wc_var"].fillna(0.20).clip(lower=1e-4)
+
     # --- Prior mean ---
     # Club composite Z-score within cluster (0 when no prior → no deviation)
     comp_z = (
@@ -276,6 +281,12 @@ def _bayesian_update(df: pd.DataFrame, stats: pd.DataFrame) -> pd.DataFrame:
     df.loc[df["position_bucket"] == "GK", "prior_mean"] = (
         df.loc[df["position_bucket"] == "GK", "cluster_wc_mean"]
     )
+
+    # Safety net: fall back to club_composite (outfield) or 6.5 (GK / no prior)
+    _fallback = df["prior_composite"].where(
+        df["has_prior"] & (df["position_bucket"] != "GK"), np.nan
+    ).fillna(6.5)
+    df["prior_mean"] = df["prior_mean"].fillna(_fallback)
 
     # --- Precisions ---
     sigma2_prior = df["cluster_wc_var"].clip(lower=1e-4).values  # (N,)
@@ -296,6 +307,12 @@ def _bayesian_update(df: pd.DataFrame, stats: pd.DataFrame) -> pd.DataFrame:
     mu_post    = (tau_prior * mu_prior + tau_wc * mu_wc) / tau_post
     sigma2_post = 1.0 / tau_post
     sigma_post  = np.sqrt(sigma2_post)
+
+    # Clamp any residual NaNs (e.g. wc_minutes=0 players) to their prior_mean.
+    nan_mask = np.isnan(mu_post)
+    if nan_mask.any():
+        logger.warning("Clamping %d NaN posterior_mean values to prior_mean.", nan_mask.sum())
+        mu_post = np.where(nan_mask, df["prior_mean"].values, mu_post)
 
     df["posterior_mean"]   = mu_post
     df["posterior_std"]    = sigma_post
