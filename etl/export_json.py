@@ -365,11 +365,12 @@ def _load_fm_radar(silver_dir: str) -> dict[str, dict]:
         nan_mask = np.isnan(z_mat)
         w_eff    = np.where(nan_mask, 0.0, w_arr)
         sum_w    = w_eff.sum(axis=1)
-        composite = np.where(
-            sum_w > 0,
-            (np.where(nan_mask, 0.0, z_mat) * w_eff).sum(axis=1) / sum_w,
-            np.nan,
-        )
+        with np.errstate(divide="ignore", invalid="ignore"):
+            composite = np.where(
+                sum_w > 0,
+                (np.where(nan_mask, 0.0, z_mat) * w_eff).sum(axis=1) / sum_w,
+                np.nan,
+            )
         work[bucket] = composite
 
     for bucket in BUCKETS:
@@ -397,11 +398,12 @@ def _load_fm_radar(silver_dir: str) -> dict[str, dict]:
     nan_mask   = np.isnan(pct_mat)
     w_eff      = np.where(nan_mask, 0.0, w_mat)
     sum_w      = w_eff.sum(axis=1)
-    work["overall_composite"] = np.where(
-        sum_w > 0,
-        (np.where(nan_mask, 0.0, pct_mat) * w_eff).sum(axis=1) / sum_w,
-        np.nan,
-    )
+    with np.errstate(divide="ignore", invalid="ignore"):
+        work["overall_composite"] = np.where(
+            sum_w > 0,
+            (np.where(nan_mask, 0.0, pct_mat) * w_eff).sum(axis=1) / sum_w,
+            np.nan,
+        )
 
     result: dict[str, dict] = {}
     for _, row in work.iterrows():
