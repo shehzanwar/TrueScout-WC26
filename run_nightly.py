@@ -1,7 +1,7 @@
 """
 TrueScout — Nightly Batch Orchestrator
 =======================================
-Runs the full Phase 2 pipeline in dependency order:
+Runs the full pipeline in dependency order:
   1. ESPN pull          (knockout matches + odds)
   2. Sofascore pull     (knockout lineups / stats)
   3. Load group stage   (upsert new matches to Silver)
@@ -9,10 +9,16 @@ Runs the full Phase 2 pipeline in dependency order:
   5. Bayesian ratings   (update posteriors with new WC likelihood)
   6. Monte Carlo sim    (re-simulate remaining bracket)
   7. Brier tracker      (grade model against new market odds)
+  8. Export JSON        (write frontend/public/data/*.json for Vercel)
 
-Designed for Windows Task Scheduler (single-user V1).
-Each step fails independently — a Cloudflare block on Sofascore does
-NOT abort the downstream modeling steps.
+Designed for Windows Task Scheduler (single-user V1) and GitHub Actions.
+
+Exit code semantics ("Local Scrape, Cloud Math" pattern):
+  - Steps 1–3 are INGESTION (non-critical):  Sofascore is permanently blocked
+    by Cloudflare on datacenter IPs.  A Sofascore 403 should NOT fail the CI
+    job — committed Parquets provide the baseline WC data.
+  - Steps 4–8 are CRITICAL: if any math or export step fails the process
+    exits 1, failing the GitHub Action so the breakage is visible.
 
 Run manually:
     C:\\Users\\couga\\miniconda3\\envs\\wc26\\python.exe run_nightly.py
@@ -85,7 +91,7 @@ def _step(name: str, fn, *, hard_fail: bool = False) -> bool:
 
 def run_pipeline() -> dict[str, bool]:
     """
-    Execute all 7 steps in order.  Returns a dict of step_name → success.
+    Execute all 8 steps in order.  Returns a dict of step_name → success.
     """
     # Import here so logging is configured first and module-level basicConfig
     # calls in each module are no-ops (logging already initialised).
@@ -96,6 +102,7 @@ def run_pipeline() -> dict[str, bool]:
     from etl.models.bayesian_ratings  import main as ratings_main
     from etl.models.monte_carlo_sim   import main as sim_main
     from etl.models.brier_tracker     import main as brier_main
+    from etl.export_json              import main as export_main
 
     results: dict[str, bool] = {}
 
@@ -147,6 +154,12 @@ def run_pipeline() -> dict[str, bool]:
         brier_main,
     )
 
+    # Step 8 — Export static JSON for Vercel (critical: Vercel deploy depends on this)
+    results["8_export_json"] = _step(
+        "Export static JSON",
+        export_main,
+    )
+
     return results
 
 
@@ -180,8 +193,32 @@ def main() -> None:
         logger.info("    %s  %s", icon, step)
     logger.info("=" * 72)
 
-    if passed < total:
-        sys.exit(1)   # non-zero exit lets Task Scheduler detect partial failure
+    # ── Exit logic: distinguish ingestion failures from pipeline failures ────
+    # Ingestion steps (1–3) are non-critical: Sofascore is permanently blocked
+    # on GitHub Actions datacenter IPs.  Only math/export failures are fatal.
+    _INGESTION = {"1_espn_pull", "2_sofascore_pull", "3_load_matches"}
+    _CRITICAL  = {"4_build_features", "5_bayesian_ratings", "6_monte_carlo_sim",
+                  "7_brier_tracker", "8_export_json"}
+
+    failed            = {k for k, ok in results.items() if not ok}
+    critical_failures = failed & _CRITICAL
+    ingestion_failures= failed & _INGESTION
+
+    if critical_failures:
+        logger.error(
+            "Critical step(s) failed — exiting 1: %s",
+            ", ".join(sorted(critical_failures)),
+        )
+        sys.exit(1)
+
+    if ingestion_failures:
+        logger.warning(
+            "Non-critical ingestion step(s) failed (%s) — "
+            "using baseline Git data; downstream math succeeded. "
+            "Vercel deployment will proceed.",
+            ", ".join(sorted(ingestion_failures)),
+        )
+    # else: all steps passed — exit 0 implicitly
 
 
 if __name__ == "__main__":
