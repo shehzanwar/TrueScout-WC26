@@ -11,31 +11,32 @@ import {
 } from "recharts"
 import type { RadarMetrics } from "@/lib/api"
 
+// Five FM-style attribute axes — readable by any football fan.
 const AXES: { key: keyof RadarMetrics; label: string; description: string }[] = [
   {
+    key: "shooting",
+    label: "Shooting",
+    description: "Goals, xG & shots per 90 — within position group",
+  },
+  {
+    key: "creativity",
+    label: "Playmaking",
+    description: "xA, key passes & assists per 90 — within position group",
+  },
+  {
+    key: "defending",
+    label: "Defending",
+    description: "Tackles, interceptions & clearances per 90",
+  },
+  {
+    key: "wc_form",
+    label: "WC Form",
+    description: "Sofascore tournament rating — within position group",
+  },
+  {
     key: "posterior_pct",
-    label: "Rating",
-    description: "Percentile within position group",
-  },
-  {
-    key: "wc_experience",
-    label: "WC Games",
-    description: "Normalized World Cup minutes (max 270)",
-  },
-  {
-    key: "confidence",
-    label: "Data Quality",
-    description: "Confidence score (minutes + prior coverage)",
-  },
-  {
-    key: "prior_pct",
-    label: "Club Form",
-    description: "Club xG/xA percentile within position",
-  },
-  {
-    key: "wc_dominance",
-    label: "WC Impact",
-    description: "How much WC data drives the posterior",
+    label: "Overall",
+    description: "TrueScout Rating percentile within position group",
   },
 ]
 
@@ -62,20 +63,21 @@ function CustomTooltip({
 }
 
 export default function PlayerRadar({ radar }: { radar: RadarMetrics }) {
-  const data = AXES.map(({ key, label, description }) => ({
-    axis: label,
-    value: Math.round(radar[key] * 100),
-    description,
-  }))
+  const data = AXES.map(({ key, label, description }) => {
+    const raw = radar[key]
+    // null / undefined → 0 so the chart doesn't break; shown as a collapsed spoke.
+    const value = raw != null ? Math.round(raw * 100) : 0
+    return { axis: label, value, description }
+  })
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col">
       <div className="mb-1">
         <h2 className="text-sm font-semibold text-slate-100 uppercase tracking-wider">
-          Performance Radar
+          Attribute Radar
         </h2>
         <p className="text-xs text-slate-500 mt-0.5">
-          Bayesian dimensions · 0–100 percentile
+          Percentile within position group · 0 – 100
         </p>
       </div>
 

@@ -68,7 +68,7 @@ export default function TacticalAnalysis({ reepId }: { reepId: string }) {
               exit={{ opacity: 0 }}
               className="text-xs text-slate-600 border border-slate-800 px-2.5 py-1 rounded-full"
             >
-              {status === "loading" ? "Generating…" : "Llama 3.1 · OpenRouter"}
+              {status === "loading" ? "Generating…" : "Gemma 4 · OpenRouter"}
             </motion.span>
           )}
         </AnimatePresence>

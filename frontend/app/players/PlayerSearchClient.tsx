@@ -106,7 +106,7 @@ function EmptyState({ query }: { query: string }) {
       </svg>
       <p className="text-slate-500 text-sm">No players found for "{query}"</p>
       <p className="text-slate-700 text-xs">
-        Try the accented spelling — e.g. "Mbappé" not "Mbappe"
+        Try a shorter name — e.g. "Mbappe", "Vini", "Rodri"
       </p>
     </div>
   )

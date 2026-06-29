@@ -8,6 +8,18 @@ import TacticalAnalysis from "./TacticalAnalysis"
 // Helpers
 // ---------------------------------------------------------------------------
 
+/** "1st", "2nd", "3rd", "4th" … "21st", "22nd", "23rd" … "73rd" not "73th" */
+function getOrdinalSuffix(n: number): string {
+  const abs    = Math.abs(n)
+  const mod100 = abs % 100
+  if (mod100 >= 11 && mod100 <= 13) return `${n}th`
+  const mod10 = abs % 10
+  if (mod10 === 1) return `${n}st`
+  if (mod10 === 2) return `${n}nd`
+  if (mod10 === 3) return `${n}rd`
+  return `${n}th`
+}
+
 function ConfidenceBadge({ score }: { score: number }) {
   if (score >= 0.7) {
     return (
@@ -67,16 +79,24 @@ export default async function PlayerProfilePage({
 
   if (!player) notFound()
 
-  const hdiRange = `${player.hdi_low.toFixed(2)} – ${player.hdi_high.toFixed(2)}`
-  const shrinkagePct = `${Math.round(player.shrinkage_weight * 100)}%`
-  const wcPct = `${Math.round((1 - player.shrinkage_weight) * 100)}%`
-  const pctLabel = player.percentile_rank >= 0.9
+  const hdiRange    = `${player.hdi_low.toFixed(2)} – ${player.hdi_high.toFixed(2)}`
+  const clubPct     = `${Math.round(player.shrinkage_weight * 100)}%`
+  const wcPct       = `${Math.round((1 - player.shrinkage_weight) * 100)}%`
+  const pctRank     = Math.round(player.percentile_rank * 100)
+  const pctLabel    = pctRank >= 90
     ? "Top 10%"
-    : player.percentile_rank >= 0.75
+    : pctRank >= 75
     ? "Top 25%"
-    : player.percentile_rank >= 0.5
-    ? "Above median"
-    : "Below median"
+    : pctRank >= 50
+    ? "Above Average"
+    : "Below Average"
+
+  // Resolve archetype label: cluster_id -1 means unclassified — fall back to
+  // position_detail so the UI never shows "Cluster -1".
+  const archetypeLabel =
+    player.cluster_id === -1 || !player.cluster_label
+      ? (player.position_detail ?? player.position_micro ?? player.position_macro)
+      : player.cluster_label
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -106,7 +126,7 @@ export default async function PlayerProfilePage({
             {[
               player.nationality,
               player.position_detail ?? player.position_macro,
-              player.cluster_label,
+              archetypeLabel,
             ]
               .filter(Boolean)
               .join(" · ")}
@@ -118,49 +138,48 @@ export default async function PlayerProfilePage({
       {/* ── Two-column grid ────────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
 
-        {/* Bayesian stats */}
+        {/* TrueScout Rating card */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-1">
           <h2 className="text-sm font-semibold text-slate-100 uppercase tracking-wider mb-3">
-            Bayesian Posterior
+            TrueScout Rating
           </h2>
 
           <StatRow
-            label="Posterior rating"
-            value={player.posterior_mean.toFixed(3)}
+            label="Overall Performance"
+            value={player.posterior_mean.toFixed(2)}
             sub={pctLabel}
           />
           <StatRow
-            label="90% HDI"
+            label="Consistency Range"
             value={hdiRange}
-            sub={`±${player.posterior_std.toFixed(3)}`}
+            sub={`±${player.posterior_std.toFixed(2)} margin`}
           />
           <StatRow
-            label="Club prior"
-            value={player.prior_mean.toFixed(3)}
-            sub={`${shrinkagePct} weight`}
+            label="Based on Club Form"
+            value={player.prior_mean.toFixed(2)}
+            sub={`${clubPct} of rating`}
           />
           <StatRow
-            label="WC data weight"
+            label="Based on World Cup Form"
             value={wcPct}
-            sub={`${Math.round(player.wc_minutes)} min`}
+            sub={`${Math.round(player.wc_minutes)} minutes played`}
           />
           <StatRow
-            label="Position percentile"
-            value={`${Math.round(player.percentile_rank * 100)}th`}
+            label="Position Percentile"
+            value={getOrdinalSuffix(pctRank)}
             sub={player.position_micro ?? player.position_macro}
           />
           <StatRow
-            label="Archetype"
-            value={player.cluster_label ?? `Cluster ${player.cluster_id}`}
+            label="Player Archetype"
+            value={archetypeLabel ?? player.position_macro}
             sub={player.position_bucket}
           />
 
-
-          {/* Posterior vs Prior bar */}
+          {/* Club Form vs WC Form bar */}
           <div className="pt-3 space-y-2">
             <div className="flex justify-between text-[11px] text-slate-500 mb-1">
-              <span>Prior weight (club data)</span>
-              <span>WC data weight</span>
+              <span>Club Form</span>
+              <span>World Cup Form</span>
             </div>
             <div className="h-2 bg-slate-800 rounded-full overflow-hidden flex">
               <div
@@ -173,7 +192,7 @@ export default async function PlayerProfilePage({
               />
             </div>
             <div className="flex justify-between text-[11px]">
-              <span className="text-slate-600">{shrinkagePct} prior</span>
+              <span className="text-slate-600">{clubPct} club</span>
               <span className="text-emerald-500">{wcPct} WC</span>
             </div>
           </div>

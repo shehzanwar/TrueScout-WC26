@@ -13,7 +13,7 @@ export default async function PlayersPage({
       <div>
         <h1 className="text-2xl font-bold text-slate-100">Player Search</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Bayesian posterior ratings across 3,274 WC 2026 players
+          TrueScout ratings across 3,274 WC 2026 players · accent-insensitive
         </p>
       </div>
 
