@@ -40,6 +40,9 @@ data/truescout.duckdb.wal
 # ---------------------------------------------------------------------------
 data/silver/
 data/gold/
+# Error-response dumps written by scrapers for local diagnostics only
+data/bronze/sofascore/errors/
+data/bronze/espn/errors/
 
 # ---------------------------------------------------------------------------
 # Next.js / Node
