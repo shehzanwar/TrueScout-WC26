@@ -189,11 +189,14 @@ def _load_bracket(conn: duckdb.DuckDBPyConnection) -> list[str]:
         team_to_r32_idx[home] = idx
         team_to_r32_idx[away] = idx
 
-    # Parse each R16 fixture → two R32 match indices (0-based)
-    r16_pairs: list[tuple[int, int]] = []
+    # Parse each R16 fixture → two R32 match indices (0-based) + n_real (how
+    # many sides used an actual team name rather than a placeholder).
+    # n_real=2 means both teams are confirmed; n_real=0 means both are TBD.
+    r16_pairs_meta: list[tuple[int, int, int]] = []
     for row in r16_df.itertuples(index=False):
         home_n = _parse_r32_num(row.home_team_name)
         away_n = _parse_r32_num(row.away_team_name)
+        n_real = 0
 
         # If the R32 match is already complete, ESPN shows the real team name
         if home_n is None:
@@ -206,6 +209,7 @@ def _load_bracket(conn: duckdb.DuckDBPyConnection) -> list[str]:
                 )
                 continue
             home_n += 1  # convert to 1-indexed to keep uniform
+            n_real += 1
         if away_n is None:
             team = _normalize(row.away_team_name)
             away_n = team_to_r32_idx.get(team)
@@ -216,12 +220,67 @@ def _load_bracket(conn: duckdb.DuckDBPyConnection) -> list[str]:
                 )
                 continue
             away_n += 1
+            n_real += 1
 
-        r16_pairs.append((home_n - 1, away_n - 1))  # back to 0-indexed
+        r16_pairs_meta.append((home_n - 1, away_n - 1, n_real))  # back to 0-indexed
+
+    # Deduplicate: ESPN occasionally emits BOTH the stale "Round of 32 N Winner"
+    # placeholder AND the updated real-team-name entry for the same bracket slot
+    # in the same nightly pull (the resolved entry has a higher n_real score).
+    # Process entries with MORE real names first (freshest data wins).
+    # Indices that get orphaned from skipped stale pairs are repaired by pairing
+    # them with the R32 match that would otherwise be absent from the bracket.
+    r16_pairs_meta.sort(key=lambda x: -x[2])
+
+    used_r32:  set[int]              = set()
+    r16_pairs: list[tuple[int, int]] = []
+    orphaned:  list[int]             = []
+
+    for a, b, n_real in r16_pairs_meta:
+        a_ok = a not in used_r32
+        b_ok = b not in used_r32
+        if a_ok and b_ok:
+            r16_pairs.append((a, b))
+            used_r32.add(a)
+            used_r32.add(b)
+        elif not a_ok and b_ok:
+            orphaned.append(b)
+            logger.warning(
+                "R16 pair (%d, %d): R32 index %d already used "
+                "(ESPN stale placeholder?) — orphaning index %d for repair.",
+                a, b, a, b,
+            )
+        elif a_ok and not b_ok:
+            orphaned.append(a)
+            logger.warning(
+                "R16 pair (%d, %d): R32 index %d already used "
+                "(ESPN stale placeholder?) — orphaning index %d for repair.",
+                a, b, b, a,
+            )
+        else:
+            logger.warning("R16 pair (%d, %d): both indices already used — discarding.", a, b)
+
+    # Pair each orphaned R32 index with the corresponding missing R32 index
+    # so the bracket stays at exactly 32 unique teams.
+    all_r32_indices = set(range(len(r32_fixtures)))
+    missing    = sorted(all_r32_indices - used_r32)
+    orphaned_u = sorted(set(orphaned) - used_r32)
+
+    if orphaned_u or missing:
+        logger.warning(
+            "Bracket repair: %d orphaned R32 index(es) %s / "
+            "%d missing R32 index(es) %s.",
+            len(orphaned_u), orphaned_u, len(missing), missing,
+        )
+        for orph, miss in zip(orphaned_u, missing):
+            r16_pairs.append((orph, miss))
+            used_r32.add(orph)
+            used_r32.add(miss)
+            logger.warning("  Paired orphaned R32 %d ↔ missing R32 %d.", orph, miss)
 
     if len(r16_pairs) != 8:
         raise RuntimeError(
-            f"Could only parse {len(r16_pairs)}/8 R16 bracket pairs.  "
+            f"Could only build {len(r16_pairs)}/8 R16 bracket pairs after repair.  "
             "Check Bronze R16 fixture data."
         )
 
