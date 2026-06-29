@@ -86,7 +86,7 @@ function FavoritesCard({ champions }: { champions: SimTeam[] }) {
   return (
     <SectionCard
       title="Title Favorites"
-      subtitle="Top 5 by Monte Carlo title probability"
+      subtitle="Top 5 · Chance of winning the World Cup"
     >
       <motion.ol variants={container} initial="hidden" animate="show" className="space-y-2.5">
         {top5.map((team, i) => {
@@ -146,8 +146,8 @@ function CalibrationCard({
 
   return (
     <SectionCard
-      title="Model Calibration"
-      subtitle="Brier score vs 50/50 coin-flip baseline"
+      title="Prediction Accuracy"
+      subtitle="How well our model calls knockout results"
     >
       {summary.n_matches === 0 ? (
         <p className="text-sm text-slate-500 italic">
@@ -157,10 +157,10 @@ function CalibrationCard({
         <>
           <div className="grid grid-cols-3 gap-3 py-1">
             <StatPill value={String(summary.n_matches)} label="Graded" />
-            <StatPill value={brierModel} label="Brier" accent />
+            <StatPill value={brierModel} label="Accuracy" accent />
             <StatPill
               value={skillPct}
-              label="Skill"
+              label="Edge"
               accent={skillPositive}
             />
           </div>
@@ -169,7 +169,7 @@ function CalibrationCard({
           {summary.brier_skill_vs_coin != null && (
             <div>
               <div className="flex justify-between text-xs text-slate-500 mb-1">
-                <span>vs Coin-flip baseline</span>
+                <span>vs coin-flip</span>
                 <span className={skillPositive ? "text-emerald-400" : "text-rose-400"}>
                   {skillPositive ? "▲ better" : "▼ worse"}
                 </span>
@@ -195,7 +195,7 @@ function CalibrationCard({
                     {e.home_team} <span className="text-slate-600">vs</span> {e.away_team}
                   </span>
                   <span className="text-slate-500 font-mono">
-                    Brier {e.brier_model?.toFixed(3) ?? "—"}
+                    Accuracy: {e.brier_model?.toFixed(3) ?? "—"}
                   </span>
                 </div>
               ))}

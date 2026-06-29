@@ -24,16 +24,19 @@ function VoiceBadge({ voice }: { voice: NarrativeResponse["voice"] }) {
 }
 
 export default function TacticalAnalysis({ reepId }: { reepId: string }) {
-  const [status, setStatus] = useState<Status>("idle")
-  const [result, setResult] = useState<NarrativeResponse | null>(null)
+  const [status, setStatus]   = useState<Status>("idle")
+  const [result, setResult]   = useState<NarrativeResponse | null>(null)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   async function handleGenerate() {
     setStatus("loading")
+    setErrorMsg(null)
     try {
       const data = await generateNarrative(reepId)
       setResult(data)
       setStatus("done")
-    } catch {
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : null)
       setStatus("error")
     }
   }
@@ -68,7 +71,7 @@ export default function TacticalAnalysis({ reepId }: { reepId: string }) {
               exit={{ opacity: 0 }}
               className="text-xs text-slate-600 border border-slate-800 px-2.5 py-1 rounded-full"
             >
-              {status === "loading" ? "Generating…" : "Gemma 4 · OpenRouter"}
+              {status === "loading" ? "Generating…" : "Nemotron 3 Ultra · OpenRouter"}
             </motion.span>
           )}
         </AnimatePresence>
@@ -139,9 +142,16 @@ export default function TacticalAnalysis({ reepId }: { reepId: string }) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="py-4 text-center space-y-2"
+            className="py-4 space-y-3"
           >
-            <p className="text-sm text-slate-500">Scouting report temporarily unavailable.</p>
+            <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-400">
+              <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 shrink-0 mt-0.5">
+                <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 5zm0 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" clipRule="evenodd" />
+              </svg>
+              <span>
+                AI Analyst unavailable{errorMsg ? `: ${errorMsg}` : ""}
+              </span>
+            </div>
             <button
               onClick={handleGenerate}
               className="text-xs text-slate-500 underline hover:text-slate-300 transition-colors"

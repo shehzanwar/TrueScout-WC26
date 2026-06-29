@@ -1,7 +1,9 @@
 "use client"
 
-import { motion } from "framer-motion"
-import type { Matchup } from "@/lib/api"
+import { useState, useCallback } from "react"
+import { motion, AnimatePresence } from "framer-motion"
+import Link from "next/link"
+import type { Matchup, PlayerSearchResult, PlayerResponse } from "@/lib/api"
 
 // ---------------------------------------------------------------------------
 // Country flag lookup for WC 2026 teams
@@ -133,6 +135,51 @@ function ProbRow({
 }
 
 // ---------------------------------------------------------------------------
+// Lineup disclosure helpers
+// ---------------------------------------------------------------------------
+
+function ratingColor(pct: number): string {
+  if (pct >= 0.75) return "text-emerald-400"
+  if (pct >= 0.4)  return "text-slate-300"
+  return "text-slate-500"
+}
+
+function LineupList({
+  teamName,
+  players,
+}: {
+  teamName: string
+  players: PlayerSearchResult[]
+}) {
+  if (players.length === 0) {
+    return (
+      <div className="py-2 text-[11px] text-slate-600 italic">
+        No player data for {teamName}
+      </div>
+    )
+  }
+  return (
+    <div className="space-y-0.5">
+      <p className="text-[10px] uppercase tracking-wider text-slate-600 mb-1">{teamName}</p>
+      {players.map((p) => (
+        <Link
+          key={p.reep_id}
+          href={`/players/${p.reep_id}`}
+          className="flex items-center justify-between py-1 px-1.5 rounded hover:bg-slate-800 transition-colors group"
+        >
+          <span className="text-xs text-slate-400 group-hover:text-slate-100 truncate transition-colors">
+            {p.name ?? p.reep_id}
+          </span>
+          <span className={`text-[11px] font-bold tabular-nums ml-2 shrink-0 ${ratingColor(p.percentile_rank)}`}>
+            {p.posterior_mean.toFixed(2)}
+          </span>
+        </Link>
+      ))}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Animation variant (exported so MatchCardGrid can set the stagger container)
 // ---------------------------------------------------------------------------
 
@@ -147,6 +194,53 @@ export const cardVariant = {
 
 export default function MatchCard({ match }: { match: Matchup }) {
   const { home, away, is_completed, match_date } = match
+
+  const [showLineups, setShowLineups] = useState(false)
+  const [lineupsLoaded, setLineupsLoaded] = useState(false)
+  const [lineupsLoading, setLineupsLoading] = useState(false)
+  const [teamPlayers, setTeamPlayers] = useState<{
+    home: PlayerSearchResult[]
+    away: PlayerSearchResult[]
+  } | null>(null)
+
+  const loadLineups = useCallback(async () => {
+    if (lineupsLoaded) return
+    setLineupsLoading(true)
+    try {
+      const res = await fetch("/data/players.json", { cache: "force-cache" })
+      if (!res.ok) return
+      const all = (await res.json()) as PlayerResponse[]
+
+      const byNat = (nat: string): PlayerSearchResult[] =>
+        all
+          .filter((p) => p.nationality === nat)
+          .sort(
+            (a, b) =>
+              b.confidence_score - a.confidence_score ||
+              b.posterior_mean - a.posterior_mean,
+          )
+          .slice(0, 10)
+          .map((p) => ({
+            reep_id:          p.reep_id,
+            name:             p.name,
+            nationality:      p.nationality,
+            position_micro:   p.position_micro,
+            position_macro:   p.position_macro,
+            posterior_mean:   p.posterior_mean,
+            confidence_score: p.confidence_score,
+            percentile_rank:  p.percentile_rank,
+          }))
+
+      setTeamPlayers({ home: byNat(home.name), away: byNat(away.name) })
+      setLineupsLoaded(true)
+    } catch { /* silent — data may not be available */ }
+    finally { setLineupsLoading(false) }
+  }, [lineupsLoaded, home.name, away.name])
+
+  function toggleLineups() {
+    if (!showLineups) loadLineups()
+    setShowLineups((v) => !v)
+  }
 
   const modelEdgeDelta =
     home.model_advance_prob != null && home.market_advance_prob != null
@@ -213,10 +307,10 @@ export default function MatchCard({ match }: { match: Matchup }) {
           </div>
 
           {home.model_advance_prob != null && (
-            <ProbRow homeProb={home.model_advance_prob} label="TrueScout" />
+            <ProbRow homeProb={home.model_advance_prob} label="Our model" />
           )}
           {home.market_advance_prob != null && (
-            <ProbRow homeProb={home.market_advance_prob} label="Market" />
+            <ProbRow homeProb={home.market_advance_prob} label="Bookies" />
           )}
 
           {showEdge && (
@@ -226,12 +320,60 @@ export default function MatchCard({ match }: { match: Matchup }) {
               }`}
             >
               {modelEdgeDelta! > 0
-                ? `Edge: ${home.name.split(" ").at(-1)} +${Math.round(modelEdgeDelta! * 100)}% vs market`
-                : `Edge: ${away.name.split(" ").at(-1)} +${Math.round(Math.abs(modelEdgeDelta!) * 100)}% vs market`}
+                ? `Value pick: ${home.name.split(" ").at(-1)} +${Math.round(modelEdgeDelta! * 100)}% vs bookies`
+                : `Value pick: ${away.name.split(" ").at(-1)} +${Math.round(Math.abs(modelEdgeDelta!) * 100)}% vs bookies`}
             </p>
           )}
         </div>
       )}
+      {/* ── Lineups disclosure ────────────────────────── */}
+      <div className="border-t border-slate-800 pt-3">
+        <button
+          onClick={toggleLineups}
+          className="flex items-center gap-1.5 text-[11px] text-slate-600 hover:text-slate-400 transition-colors"
+        >
+          <svg
+            viewBox="0 0 16 16"
+            fill="currentColor"
+            className={`w-3 h-3 transition-transform ${showLineups ? "rotate-90" : ""}`}
+          >
+            <path
+              fillRule="evenodd"
+              d="M6.22 4.22a.75.75 0 0 1 1.06 0l3.25 3.25a.75.75 0 0 1 0 1.06l-3.25 3.25a.75.75 0 0 1-1.06-1.06L8.94 8 6.22 5.28a.75.75 0 0 1 0-1.06Z"
+              clipRule="evenodd"
+            />
+          </svg>
+          {lineupsLoading ? "Loading…" : "Lineups"}
+        </button>
+
+        <AnimatePresence>
+          {showLineups && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.22, ease: "easeOut" }}
+              className="overflow-hidden"
+            >
+              <div className="mt-3 grid grid-cols-2 gap-4">
+                <LineupList
+                  teamName={home.name}
+                  players={teamPlayers?.home ?? []}
+                />
+                <LineupList
+                  teamName={away.name}
+                  players={teamPlayers?.away ?? []}
+                />
+              </div>
+              {!lineupsLoaded && !lineupsLoading && (
+                <p className="text-[11px] text-slate-600 mt-2 italic">
+                  No player data available yet.
+                </p>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </motion.div>
   )
 }

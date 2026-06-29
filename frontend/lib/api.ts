@@ -79,16 +79,40 @@ export interface BrierResponse {
 
 export interface RadarMetrics {
   // FM-style attribute percentiles (0.0–1.0 within position group)
-  shooting:   number | null   // goals, xG, shots per-90
+  shooting:   number | null   // goals, xG, shots per-90 (GKs: shot-stopping)
   creativity: number | null   // xA, key passes, assists per-90
   defending:  number | null   // tackles, interceptions, clearances per-90
   wc_form:    number | null   // Sofascore WC rating percentile
+  // Position-aware composite — replaces posterior_pct on the radar chart (PR 3)
+  overall?:   number | null   // weighted combination per position group
+  // Position-specific axis labels (5 items matching radar order)
+  radar_axes?: string[]
   // Bayesian dimensions (used by the stats info card, not the radar chart)
   posterior_pct: number
   wc_experience: number
   confidence: number
   prior_pct: number
   wc_dominance: number
+}
+
+// Per-match entry — populated by PR3 ETL export
+export interface MatchLogEntry {
+  match_date: string
+  opponent: string
+  opponent_code: string
+  score: string
+  minutes: number
+  rating: number
+  adjusted_rating?: number
+  goals: number
+  assists: number
+  xg: number
+  xa: number
+  shots: number
+  key_passes: number
+  tackles: number
+  interceptions: number
+  yellow_card: boolean
 }
 
 export interface PlayerResponse {
@@ -112,6 +136,39 @@ export interface PlayerResponse {
   confidence_score: number
   percentile_rank: number
   radar: RadarMetrics
+  // Optional fields added by PR3 ETL export
+  wc_matches?: number
+  wc_goals_raw?: number
+  wc_assists_raw?: number
+  wc_xg_raw?: number
+  wc_xa_raw?: number
+  wc_shots_raw?: number
+  wc_sot_raw?: number
+  wc_key_passes_raw?: number
+  wc_tackles_raw?: number
+  wc_interceptions_raw?: number
+  wc_clearances_raw?: number
+  wc_saves_raw?: number
+  wc_goals_per_90?: number
+  wc_assists_per_90?: number
+  wc_xg_per_90?: number
+  wc_xa_per_90?: number
+  wc_shots_per_90?: number
+  wc_sot_per_90?: number
+  wc_key_passes_per_90?: number
+  wc_tackles_per_90?: number
+  wc_interceptions_per_90?: number
+  wc_clearances_per_90?: number
+  wc_saves_per_90?: number
+  has_prior?: boolean
+  prior_goals_per_90?: number
+  prior_assists_per_90?: number
+  prior_xg_per_90?: number
+  prior_xa_per_90?: number
+  prior_shots_per_90?: number
+  prior_key_passes_per_90?: number
+  match_log?: MatchLogEntry[]
+  position_source?: string
 }
 
 export interface PlayerSearchResult {
@@ -201,7 +258,10 @@ export async function generateNarrative(reep_id: string): Promise<NarrativeRespo
       cache: "no-store",
       signal: controller.signal,
     })
-    if (!res.ok) throw new Error(`API error ${res.status}`)
+    if (!res.ok) {
+      const body = await res.json().catch(() => null) as { error?: string } | null
+      throw new Error(body?.error ?? `Error ${res.status}`)
+    }
     return res.json() as Promise<NarrativeResponse>
   } finally {
     clearTimeout(timer)

@@ -20,7 +20,7 @@ class Settings(BaseSettings):
 
     # --- API keys ---
     openrouter_api_key: str = ""
-    openrouter_model: str = "meta-llama/llama-3.1-8b-instruct:free"
+    openrouter_model: str = "nvidia/nemotron-3-ultra-550b-a55b:free"
 
     # --- Storage ---
     duckdb_path: str = str(ROOT_DIR / "data" / "truescout.duckdb")
@@ -42,6 +42,11 @@ class Settings(BaseSettings):
     confidence_score_threshold: float = 0.4
     # Narrative routing: >= this value → Data Analyst voice; below → Traditional Scout
     narrative_confidence_threshold: float = 0.7
+    # Recency weighting for Understat club priors: exp(-λ × seasons_behind_latest)
+    # λ=1.0 → older season weighted ≈37%; λ=0.0 → equal weight
+    season_decay_lambda: float = 1.0
+    # Opponent-strength adjustment exponent (α=0 → no adjustment; α=1 → full linear)
+    opponent_alpha: float = 0.5
 
     # --- Server ---
     api_host: str = "0.0.0.0"

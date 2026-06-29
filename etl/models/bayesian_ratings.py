@@ -75,6 +75,11 @@ MIN_CLUSTER_WC = 5
 # into their macro-bucket fallback.
 MIN_MICRO_N = 8
 
+# Opponent-strength adjustment exponent — matches build_features._OPPONENT_ALPHA.
+# Stored here as documentation; the actual adjustment is applied upstream in
+# build_features.py before features.parquet is written.
+OPPONENT_ALPHA = 0.5
+
 # ---------------------------------------------------------------------------
 # League ELO coefficients (from leagues table, EPL = 1.0 reference)
 # ---------------------------------------------------------------------------
@@ -98,6 +103,8 @@ _MICRO_MAP: dict[str, str] = {
     "goaltender":           "Goalkeeper",
     # Defenders — split CB vs. FB
     "centre-back":          "Centre Back",
+    "centre back":          "Centre Back",
+    "center back":          "Centre Back",
     "stopper":              "Centre Back",
     "sweeper":              "Centre Back",
     "centerhalf":           "Centre Back",
@@ -107,6 +114,7 @@ _MICRO_MAP: dict[str, str] = {
     "left back":            "Full Back",
     "right back":           "Full Back",
     "wing-back":            "Full Back",
+    "wing back":            "Full Back",
     "wing half":            "Full Back",
     # Midfielders
     "midfielder":           "Central Midfielder",
@@ -126,6 +134,8 @@ _MICRO_MAP: dict[str, str] = {
     "centre-forward":       "Centre Forward",
     "striker":              "Centre Forward",
     "second striker":       "Centre Forward",
+    "false 9":              "Centre Forward",
+    "false nine":           "Centre Forward",
 }
 
 _MACRO_FALLBACK: dict[str, str] = {
@@ -133,6 +143,7 @@ _MACRO_FALLBACK: dict[str, str] = {
     "DEF": "Defender",
     "MID": "Midfielder",
     "FWD": "Forward",
+    "UNK": "Unknown",
 }
 
 
@@ -301,7 +312,11 @@ def _bayesian_update(df: pd.DataFrame, stats: pd.DataFrame) -> pd.DataFrame:
     tau_post  = tau_prior + tau_wc
 
     mu_prior = df["prior_mean"].values
-    mu_wc    = df["wc_rating_avg"].fillna(df["prior_mean"]).values
+    # Prefer opponent-strength-adjusted rating when build_features has computed it
+    wc_obs_col = "wc_rating_adjusted" if "wc_rating_adjusted" in df.columns else "wc_rating_avg"
+    mu_wc = df[wc_obs_col].fillna(df["wc_rating_avg"]).fillna(df["prior_mean"]).values
+    if wc_obs_col == "wc_rating_adjusted":
+        logger.info("Using opponent-adjusted WC ratings (wc_rating_adjusted)")
 
     # Posterior
     mu_post    = (tau_prior * mu_prior + tau_wc * mu_wc) / tau_post
@@ -353,8 +368,15 @@ def _add_micro_and_percentile(df: pd.DataFrame) -> pd.DataFrame:
             df.loc[mask, "position_bucket"].map(_MACRO_FALLBACK)
         )
 
-    # Percentile rank within micro-position (0=worst, 1=best)
-    df["percentile_rank"] = df.groupby("position_micro")["posterior_mean"].rank(pct=True)
+    # Percentile rank within micro-position (0=worst, 1=best).
+    # UNK players are excluded — their position is unknown so cross-player
+    # comparison is meaningless.
+    known = df["position_bucket"] != "UNK"
+    df["percentile_rank"] = np.nan
+    if known.any():
+        df.loc[known, "percentile_rank"] = (
+            df[known].groupby("position_micro")["posterior_mean"].rank(pct=True)
+        )
 
     return df
 
@@ -535,6 +557,35 @@ def main() -> None:
         df["shrinkage_weight"].mean(),
         df["shrinkage_weight"].max(),
     )
+
+    # ── Position sanity checks (hard failures) ────────────────────────────────
+    unk_n = (df["position_bucket"] == "UNK").sum()
+    if unk_n:
+        logger.warning(
+            "%d players have UNK position bucket (excluded from percentile ranking).", unk_n
+        )
+
+    if "wc_saves_per_90" in df.columns:
+        bad_saves = df[
+            (df["wc_saves_per_90"].fillna(0) > 0.5) & (df["position_bucket"] != "GK")
+        ]
+        if not bad_saves.empty:
+            raise RuntimeError(
+                f"Position sanity FAILED: {len(bad_saves)} save-makers (wc_saves_per_90 > 0.5) "
+                f"bucketed as non-GK:\n"
+                + bad_saves[["player_name", "position_bucket", "wc_saves_per_90"]].to_string()
+            )
+
+    if "wc_xg_per_90" in df.columns:
+        bad_xg = df[
+            (df["wc_xg_per_90"].fillna(0) > 0.4) & df["position_bucket"].isin(["DEF", "GK"])
+        ]
+        if not bad_xg.empty:
+            raise RuntimeError(
+                f"Position sanity FAILED: {len(bad_xg)} high-xG players (wc_xg_per_90 > 0.4) "
+                f"bucketed as DEF/GK:\n"
+                + bad_xg[["player_name", "position_bucket", "wc_xg_per_90"]].to_string()
+            )
 
     _validate(df)
 

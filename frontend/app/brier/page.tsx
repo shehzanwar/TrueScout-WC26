@@ -15,7 +15,7 @@ export default async function BrierPage() {
       <div>
         <h1 className="text-2xl font-bold text-slate-100">Model Calibration</h1>
         <p className="mt-1 text-sm text-slate-500">
-          TrueScout vs market odds vs coin-flip baseline · Brier Score + Log Loss
+          How accurate are our predictions vs the bookies?
         </p>
       </div>
 

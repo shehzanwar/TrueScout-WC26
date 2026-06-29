@@ -11,8 +11,8 @@ import {
 } from "recharts"
 import type { RadarMetrics } from "@/lib/api"
 
-// Five FM-style attribute axes — readable by any football fan.
-const AXES: { key: keyof RadarMetrics; label: string; description: string }[] = [
+// Five FM-style attribute axes — fall back to these when radar_axes is absent.
+const DEFAULT_AXES: { key: keyof RadarMetrics; label: string; description: string }[] = [
   {
     key: "shooting",
     label: "Shooting",
@@ -36,8 +36,13 @@ const AXES: { key: keyof RadarMetrics; label: string; description: string }[] = 
   {
     key: "posterior_pct",
     label: "Overall",
-    description: "TrueScout Rating percentile within position group",
+    description: "Position-weighted composite percentile",
   },
+]
+
+// Data keys in axis order (immutable)
+const AXIS_KEYS: Array<keyof RadarMetrics> = [
+  "shooting", "creativity", "defending", "wc_form", "posterior_pct"
 ]
 
 interface TooltipPayload {
@@ -63,11 +68,15 @@ function CustomTooltip({
 }
 
 export default function PlayerRadar({ radar }: { radar: RadarMetrics }) {
-  const data = AXES.map(({ key, label, description }) => {
-    const raw = radar[key]
-    // null / undefined → 0 so the chart doesn't break; shown as a collapsed spoke.
-    const value = raw != null ? Math.round(raw * 100) : 0
-    return { axis: label, value, description }
+  // Use position-specific axis labels from the export when available
+  const axisLabels = radar.radar_axes ?? DEFAULT_AXES.map((a) => a.label)
+  const axisDescriptions = DEFAULT_AXES.map((a) => a.description)
+
+  const data = AXIS_KEYS.map((key, i) => {
+    // 5th axis: prefer position-aware "overall" over posterior_pct
+    const raw = key === "posterior_pct" ? (radar.overall ?? radar.posterior_pct) : radar[key]
+    const value = raw != null ? Math.round((raw as number) * 100) : 0
+    return { axis: axisLabels[i] ?? DEFAULT_AXES[i].label, value, description: axisDescriptions[i] }
   })
 
   return (
@@ -111,10 +120,10 @@ export default function PlayerRadar({ radar }: { radar: RadarMetrics }) {
 
       {/* Legend */}
       <div className="grid grid-cols-1 gap-1 mt-2 pt-3 border-t border-slate-800">
-        {AXES.map(({ label, description }) => (
+        {axisLabels.map((label, i) => (
           <div key={label} className="flex items-baseline gap-2">
-            <span className="text-[11px] font-medium text-slate-400 w-20 shrink-0">{label}</span>
-            <span className="text-[11px] text-slate-600">{description}</span>
+            <span className="text-[11px] font-medium text-slate-400 w-24 shrink-0">{label}</span>
+            <span className="text-[11px] text-slate-600">{axisDescriptions[i]}</span>
           </div>
         ))}
       </div>
