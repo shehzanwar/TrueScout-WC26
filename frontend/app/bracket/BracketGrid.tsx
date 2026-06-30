@@ -102,27 +102,57 @@ function ChampionCard({
 }
 
 // ---------------------------------------------------------------------------
+// Chaos meter helpers
+// ---------------------------------------------------------------------------
+
+function chaosColor(score: number): string {
+  if (score >= 0.65) return "bg-rose-500"
+  if (score >= 0.4)  return "bg-amber-500"
+  return "bg-emerald-600"
+}
+
+function chaosBadge(score: number): string {
+  if (score >= 0.65) return "text-rose-400"
+  if (score >= 0.4)  return "text-amber-400"
+  return "text-emerald-500"
+}
+
+// ---------------------------------------------------------------------------
 // Round column header row
 // ---------------------------------------------------------------------------
 
 function HeaderRow({ rounds }: { rounds: BracketData["rounds"] }) {
   const hasFive = rounds.length === 5  // R32→F
   return (
-    <div className="flex items-center shrink-0 mb-2" style={{ minWidth: "max-content" }}>
+    <div className="flex items-start shrink-0 mb-2" style={{ minWidth: "max-content" }}>
       {rounds.map((round, ri) => (
-        <div key={round.code} className="flex items-center">
+        <div key={round.code} className="flex items-start">
           {ri > 0 && <div style={{ width: CONNECTOR_WIDTH }} />}
           <div
-            className="text-center text-[11px] font-semibold uppercase tracking-wider text-slate-500"
+            className="flex flex-col items-center gap-1"
             style={{ width: COLUMN_WIDTH }}
           >
-            {round.label}
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              {round.label}
+            </span>
+            {/* Chaos meter badge */}
+            <div className="flex items-center gap-1" title={`Chaos: avg match entropy = ${(round.chaosScore * 100).toFixed(0)}%`}>
+              <div className="w-12 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full ${chaosColor(round.chaosScore)}`}
+                  style={{ width: `${round.chaosScore * 100}%` }}
+                />
+              </div>
+              <span className={`text-[9px] tabular-nums ${chaosBadge(round.chaosScore)}`}>
+                {(round.chaosScore * 100).toFixed(0)}%
+              </span>
+            </div>
           </div>
         </div>
       ))}
       {/* Champion header */}
       {hasFive && (
-        <div className="flex items-center">
+        <div className="flex items-start">
           <div style={{ width: CONNECTOR_WIDTH }} />
           <div
             className="text-center text-[11px] font-semibold uppercase tracking-wider text-emerald-600"
@@ -142,7 +172,7 @@ function HeaderRow({ rounds }: { rounds: BracketData["rounds"] }) {
 
 function Legend() {
   return (
-    <div className="flex items-center gap-4 text-[11px] text-slate-500 mb-4">
+    <div className="flex flex-wrap items-center gap-4 text-[11px] text-slate-500 mb-4">
       <div className="flex items-center gap-1.5">
         <div className="w-8 h-3 bg-slate-900 border border-slate-700/80 rounded" />
         Confirmed fixture
@@ -157,7 +187,14 @@ function Legend() {
           <div className="w-3 h-2 bg-amber-500 rounded-sm" />
           <div className="w-2 h-2 bg-slate-500 rounded-sm" />
         </div>
-        Advance prob (high / mid / low)
+        Match-win prob (high / mid / low)
+      </div>
+      <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-0.5">
+          <div className="w-6 h-1.5 bg-rose-500 rounded-full" />
+          <span className="text-rose-400 text-[9px]">%</span>
+        </div>
+        Chaos meter (avg match entropy)
       </div>
     </div>
   )

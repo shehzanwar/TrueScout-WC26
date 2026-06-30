@@ -14,10 +14,24 @@ export interface SimRound {
   teams: SimTeam[]
 }
 
+// Per-slot joint distribution entry — written by monte_carlo_sim.py (PR4)
+export interface BracketSlotTeam {
+  team: string
+  prob: number
+}
+
+export interface BracketSlotEntry {
+  round: string      // "R32" | "R16" | "QF" | "SF" | "F"
+  slot_idx: number   // 0-based match index within the round
+  top: BracketSlotTeam
+  alt: BracketSlotTeam[]
+}
+
 export interface SimulationsResponse {
   run_date: string
   n_iterations: number
   rounds: SimRound[]
+  bracket_slots?: BracketSlotEntry[]  // absent until PR4 pipeline runs
 }
 
 export interface MatchupTeam {

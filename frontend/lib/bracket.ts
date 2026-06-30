@@ -1,4 +1,4 @@
-import type { SimulationsResponse, MatchupsResponse } from "./api"
+import type { SimulationsResponse, MatchupsResponse, BracketSlotEntry } from "./api"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -9,17 +9,25 @@ export interface BracketTeam {
   advanceProb: number   // P(advance FROM this round to next) — drives the prob bar
   titleProb: number     // P(win tournament) — secondary display
   isProjected: boolean  // false only for R32 (actual ESPN fixtures)
+  slotProb?: number     // P(this team wins this specific match slot) — from joint distribution
+}
+
+export interface BracketSlotAlt {
+  team: string
+  prob: number
 }
 
 export interface BracketSlot {
   top: BracketTeam
   bottom: BracketTeam
+  alts: BracketSlotAlt[]   // other teams with non-trivial P(win this slot)
 }
 
 export interface BracketRound {
   code: string    // "R32" | "R16" | "QF" | "SF" | "F"
   label: string
   slots: BracketSlot[]
+  chaosScore: number  // 0–1: average match entropy (0 = all one-sided; 1 = all 50/50)
 }
 
 export interface BracketData {
@@ -74,9 +82,34 @@ export function buildBracket(
     }
   }
 
+  // Build joint slot-winner lookup: "R32:0", "R16:3", etc. → BracketSlotEntry
+  // Only present after the PR4 pipeline has run; falls back to marginal probs.
+  const slotMap = new Map<string, BracketSlotEntry>()
+  for (const entry of sim.bracket_slots ?? []) {
+    slotMap.set(`${entry.round}:${entry.slot_idx}`, entry)
+  }
+
+  // Binary entropy: measures uncertainty of a single match (0 = certain, 1 = 50/50)
+  function binEntropy(p: number): number {
+    if (p <= 0 || p >= 1) return 0
+    const q = 1 - p
+    return -(p * Math.log2(p) + q * Math.log2(q))
+  }
+
+  // chaosScore: average binary entropy of top.prob across all slots in a round
+  function roundChaos(slots: BracketSlot[]): number {
+    if (!slots.length) return 0
+    const sum = slots.reduce((acc, s) => acc + binEntropy(s.top.slotProb ?? 0.5), 0)
+    return sum / slots.length
+  }
+
   // teamData: build a BracketTeam for `name` as it appears in `displayRound`
-  // advanceProb = P(reaching the round AFTER displayRound) = sim[NEXT[displayRound]].ap
-  function teamData(name: string, displayRound: string, isProjected: boolean): BracketTeam {
+  function teamData(
+    name: string,
+    displayRound: string,
+    isProjected: boolean,
+    slotProb?: number,
+  ): BracketTeam {
     const nextRound = NEXT[displayRound]
     const nextEntry = nextRound ? simMap.get(name)?.get(nextRound) : undefined
     const wEntry = simMap.get(name)?.get("W")
@@ -85,44 +118,103 @@ export function buildBracket(
       advanceProb: nextEntry?.ap ?? 0,
       titleProb: wEntry?.tp ?? 0,
       isProjected,
+      slotProb,
     }
   }
 
-  // projectWinner: from a BracketSlot, pick the team more likely to reach `targetRound`
-  function projectWinner(slot: BracketSlot, targetRound: string): string {
-    const topProb = simMap.get(slot.top.name)?.get(targetRound)?.ap ?? 0
-    const botProb = simMap.get(slot.bottom.name)?.get(targetRound)?.ap ?? 0
-    return topProb >= botProb ? slot.top.name : slot.bottom.name
+  // resolveSlotWinner: pick the most likely winner of (round, slotIdx) from the
+  // joint distribution; fall back to marginal advance-prob comparison.
+  function resolveSlotWinner(
+    round: string,
+    slotIdx: number,
+    teamA: string,
+    teamB: string,
+    targetRound: string,
+  ): string {
+    const entry = slotMap.get(`${round}:${slotIdx}`)
+    if (entry) {
+      const top = entry.top.team
+      if (top === teamA || top === teamB) return top
+    }
+    // Fallback: marginal advance probabilities (old behaviour)
+    const pA = simMap.get(teamA)?.get(targetRound)?.ap ?? 0
+    const pB = simMap.get(teamB)?.get(targetRound)?.ap ?? 0
+    return pA >= pB ? teamA : teamB
   }
 
-  // R32: actual ESPN fixture pairings
-  const r32Slots: BracketSlot[] = r32.matches.map(m => ({
-    top:    teamData(m.home.name, "R32", false),
-    bottom: teamData(m.away.name, "R32", false),
-  }))
+  // slotProbFor: look up P(team wins round:slotIdx) from joint distribution
+  function slotProbFor(round: string, slotIdx: number, team: string): number | undefined {
+    const entry = slotMap.get(`${round}:${slotIdx}`)
+    if (!entry) return undefined
+    if (entry.top.team === team) return entry.top.prob
+    const alt = entry.alt.find(a => a.team === team)
+    return alt?.prob
+  }
+
+  // R32: actual ESPN fixture pairings (slot_idx = match index = array position)
+  const r32Slots: BracketSlot[] = r32.matches.map((m, j) => {
+    const entry = slotMap.get(`R32:${j}`)
+    const topName = m.home.name
+    const botName = m.away.name
+    // For R32, winner of this slot is the team advancing TO R16
+    const winnerEntry = entry
+    return {
+      top:    teamData(topName, "R32", false, slotProbFor("R32", j, topName)),
+      bottom: teamData(botName, "R32", false, slotProbFor("R32", j, botName)),
+      alts:   winnerEntry?.alt.filter(a => a.team !== topName && a.team !== botName) ?? [],
+    }
+  })
 
   const rounds: BracketRound[] = [
-    { code: "R32", label: ROUND_LABELS["R32"], slots: r32Slots },
+    {
+      code:       "R32",
+      label:      ROUND_LABELS["R32"],
+      slots:      r32Slots,
+      chaosScore: roundChaos(r32Slots),
+    },
   ]
 
   // R16 → F: project by pairing consecutive slots from the previous round
   const futureCodes = ["R16", "QF", "SF", "F"] as const
   let prevSlots = r32Slots
+  let prevCode  = "R32"
 
   for (const code of futureCodes) {
     const nextSlots: BracketSlot[] = []
+
     for (let i = 0; i + 1 < prevSlots.length; i += 2) {
-      const slotA = prevSlots[i]      // feeds top of this new slot
-      const slotB = prevSlots[i + 1]  // feeds bottom of this new slot
-      const winnerA = projectWinner(slotA, code)
-      const winnerB = projectWinner(slotB, code)
+      const newSlotIdx = i / 2
+
+      // Who comes out of the two prevSlots (winners of prev round matches)?
+      // Use joint distribution from prevCode:i and prevCode:i+1.
+      const teamA = resolveSlotWinner(
+        prevCode, i,   prevSlots[i].top.name,     prevSlots[i].bottom.name,     code,
+      )
+      const teamB = resolveSlotWinner(
+        prevCode, i+1, prevSlots[i+1].top.name,   prevSlots[i+1].bottom.name,   code,
+      )
+
+      // Who wins the code:newSlotIdx match?
+      const slotEntry = slotMap.get(`${code}:${newSlotIdx}`)
+      const matchWinner   = resolveSlotWinner(code, newSlotIdx, teamA, teamB, NEXT[code] ?? "W")
+      const matchLoser    = matchWinner === teamA ? teamB : teamA
+      const altsFromEntry = slotEntry?.alt.filter(a => a.team !== teamA && a.team !== teamB) ?? []
+
       nextSlots.push({
-        top:    teamData(winnerA, code, true),
-        bottom: teamData(winnerB, code, true),
+        top:    teamData(matchWinner, code, true, slotProbFor(code, newSlotIdx, matchWinner)),
+        bottom: teamData(matchLoser,  code, true, slotProbFor(code, newSlotIdx, matchLoser)),
+        alts:   altsFromEntry,
       })
     }
-    rounds.push({ code, label: ROUND_LABELS[code], slots: nextSlots })
+
+    rounds.push({
+      code,
+      label:      ROUND_LABELS[code],
+      slots:      nextSlots,
+      chaosScore: roundChaos(nextSlots),
+    })
     prevSlots = nextSlots
+    prevCode  = code
   }
 
   // Champion: top team in the W round (sorted advance_prob DESC = title_prob DESC)

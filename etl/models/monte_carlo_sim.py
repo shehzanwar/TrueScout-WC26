@@ -36,6 +36,7 @@ Usage
     python -m etl.models.monte_carlo_sim --scale 2.0
 """
 import argparse
+import json
 import logging
 import re
 import sys
@@ -401,7 +402,7 @@ def _run_sim(
     n_sim: int,
     scale: float,
     seed: int,
-) -> np.ndarray:
+) -> tuple[np.ndarray, dict[str, np.ndarray]]:
     """
     Pure NumPy vectorised Monte Carlo bracket.
 
@@ -413,6 +414,10 @@ def _run_sim(
     advance_counts : (n_teams, n_rounds) int64
         advance_counts[i, r] = # sims where team i reached round r.
         r=0 (R32) = n_sim for all; r=5 (W) = title count.
+    slot_winners : dict[round_code → (n_sim, n_slots) int16]
+        slot_winners["R32"][:, j] = team index that won R32 match j in each sim.
+        slot_winners["R16"][:, j] = team index that won R16 match j in each sim.
+        etc.  Used to build the joint bracket-slot distribution for PR4.
     """
     rng     = np.random.default_rng(seed)
     n_teams = len(strengths)
@@ -420,6 +425,8 @@ def _run_sim(
 
     advance_counts = np.zeros((n_teams, n_rounds), dtype=np.int64)
     advance_counts[:, 0] = n_sim   # every team starts in R32
+
+    slot_winners: dict[str, np.ndarray] = {}
 
     # current[sim, bracket_pos] = team index at that position
     current = np.broadcast_to(
@@ -442,11 +449,74 @@ def _run_sim(
         winners = np.where(rand < p_left, left, right)
         current = winners
 
+        # Store who wins each match slot for this round (int16 saves ~50% memory vs int32)
+        # ROUNDS[round_idx - 1] is the round whose matches just finished.
+        # (round_idx=1 plays R32 matches → slot_winners["R32"])
+        slot_winners[ROUNDS[round_idx - 1]] = winners.astype(np.int16)
+
         flat   = winners.ravel()
         counts = np.bincount(flat, minlength=n_teams)
         advance_counts[:, round_idx] = counts
 
-    return advance_counts
+    return advance_counts, slot_winners
+
+
+# ---------------------------------------------------------------------------
+# Bracket-slot distribution builder  (PR4)
+# ---------------------------------------------------------------------------
+
+def _compute_bracket_slots(
+    slot_winners: dict[str, np.ndarray],
+    bracket_order: list[str],
+    n_sim: int,
+    run_date: date,
+) -> dict:
+    """
+    Convert per-sim slot-winner arrays into a JSON-serialisable distribution.
+
+    For each (round, slot_idx) returns the top team plus up to 2 alternates
+    with their probability of winning that specific match slot.  The frontend
+    uses this to fix the Colombia-over-Argentina bracket-coherence bug.
+
+    Output shape
+    ------------
+    {
+      "run_date": "2026-06-30",
+      "slots": [
+        {"round":"R32","slot_idx":0,"top":{"team":"Canada","prob":0.607},
+         "alt":[{"team":"South Africa","prob":0.393}]},
+        {"round":"R16","slot_idx":7,
+         "top":{"team":"Argentina","prob":0.543},
+         "alt":[{"team":"Colombia","prob":0.412},{"team":"Cape Verde","prob":0.045}]},
+        ...
+      ]
+    }
+    """
+    n_teams = len(bracket_order)
+    slots: list[dict] = []
+
+    for round_code in ["R32", "R16", "QF", "SF", "F"]:
+        sw = slot_winners.get(round_code)
+        if sw is None:
+            continue
+        n_slots = sw.shape[1]
+        for slot_j in range(n_slots):
+            counts = np.bincount(sw[:, slot_j].astype(np.intp), minlength=n_teams)
+            sorted_idx = np.argsort(-counts)
+            entries = [
+                {"team": bracket_order[int(t)], "prob": round(float(counts[t]) / n_sim, 4)}
+                for t in sorted_idx
+                if counts[t] > 0
+            ]
+            if entries:
+                slots.append({
+                    "round":    round_code,
+                    "slot_idx": int(slot_j),
+                    "top":      entries[0],
+                    "alt":      entries[1:3],   # up to 2 alternates
+                })
+
+    return {"run_date": str(run_date), "slots": slots}
 
 
 # ---------------------------------------------------------------------------
@@ -582,7 +652,7 @@ def main() -> None:
             "Running %d iterations (scale=%.2f, seed=%d) ...",
             args.n_sim, args.scale, args.seed,
         )
-        advance_counts = _run_sim(
+        advance_counts, slot_winners = _run_sim(
             strengths=strengths_vec,
             n_sim=args.n_sim,
             scale=args.scale,
@@ -591,12 +661,19 @@ def main() -> None:
         elapsed = time.perf_counter() - t0
         logger.info("Simulation complete in %.2fs.", elapsed)
 
-        # 6. Build results
+        # 6. Build marginal results + bracket slot distributions
+        today = date.today()
         results = _build_results(
             bracket_order=bracket_order,
             advance_counts=advance_counts,
             n_sim=args.n_sim,
-            run_date=date.today(),
+            run_date=today,
+        )
+        bracket_slots_data = _compute_bracket_slots(
+            slot_winners=slot_winners,
+            bracket_order=bracket_order,
+            n_sim=args.n_sim,
+            run_date=today,
         )
 
         # 7. Validate
@@ -620,9 +697,14 @@ def main() -> None:
             print(pivot.round(3).to_string())
         else:
             _write_simulations(conn, results)
+            # Write bracket_slots.json to Silver directory (loaded by export_json.py)
+            bracket_slots_path = Path(settings.parquet_silver_dir) / "bracket_slots.json"
+            bracket_slots_path.write_text(
+                json.dumps(bracket_slots_data, ensure_ascii=False), encoding="utf-8"
+            )
             logger.info(
-                "Done. run_date=%s | %d teams | %d rows written.",
-                date.today(), len(bracket_order), len(results),
+                "Done. run_date=%s | %d teams | %d rows written | bracket_slots.json: %d slots.",
+                today, len(bracket_order), len(results), len(bracket_slots_data["slots"]),
             )
 
     finally:
