@@ -1,6 +1,7 @@
 "use client"
 
-import { motion } from "framer-motion"
+import { motion, AnimatePresence } from "framer-motion"
+import { useState } from "react"
 import type { BracketTeam, BracketSlot as BracketSlotType } from "@/lib/bracket"
 import { getFlag } from "@/lib/flags"
 
@@ -9,8 +10,8 @@ import { getFlag } from "@/lib/flags"
 // ---------------------------------------------------------------------------
 
 function barColor(p: number): string {
-  if (p >= 0.7) return "bg-emerald-500"
-  if (p >= 0.4) return "bg-amber-500"
+  if (p >= 0.6) return "bg-emerald-500"
+  if (p >= 0.35) return "bg-amber-500"
   return "bg-slate-500"
 }
 
@@ -20,10 +21,13 @@ function nameColor(team: BracketTeam): string {
 
 // ---------------------------------------------------------------------------
 // TeamRow — one team within the slot
+// slotProb (joint match-win probability) drives the bar when available;
+// advanceProb (marginal) is the fallback.
 // ---------------------------------------------------------------------------
 
 function TeamRow({ team, delay }: { team: BracketTeam; delay: number }) {
-  const pct = Math.round(team.advanceProb * 100)
+  const displayProb = team.slotProb ?? team.advanceProb
+  const pct         = Math.round(displayProb * 100)
   return (
     <div className={`px-2.5 pt-1.5 pb-1 ${team.isProjected ? "opacity-60" : ""}`}>
       {/* Name row */}
@@ -34,15 +38,18 @@ function TeamRow({ team, delay }: { team: BracketTeam; delay: number }) {
         <span className={`flex-1 text-[11px] font-medium leading-tight truncate ${nameColor(team)}`}>
           {team.name}
         </span>
-        <span className="text-[10px] tabular-nums text-slate-600 shrink-0">
-          {(team.titleProb * 100).toFixed(1)}%
+        <span className="text-[10px] tabular-nums text-slate-400 shrink-0">
+          {pct}%
+        </span>
+        <span className="text-[10px] tabular-nums text-slate-600 shrink-0 ml-0.5">
+          🏆{(team.titleProb * 100).toFixed(1)}%
         </span>
       </div>
 
-      {/* Prob bar */}
+      {/* Prob bar — width driven by joint slot probability */}
       <div className="h-[3px] bg-slate-800 rounded-full overflow-hidden">
         <motion.div
-          className={`h-full rounded-full ${barColor(team.advanceProb)}`}
+          className={`h-full rounded-full ${barColor(displayProb)}`}
           initial={{ width: 0 }}
           whileInView={{ width: `${pct}%` }}
           viewport={{ once: true, margin: "0px 0px -40px 0px" }}
@@ -64,7 +71,9 @@ export default function BracketSlot({
   slot: BracketSlotType
   animDelay?: number
 }) {
+  const [showAlts, setShowAlts] = useState(false)
   const isAllProjected = slot.top.isProjected && slot.bottom.isProjected
+  const hasAlts = slot.alts.length > 0
 
   return (
     <div
@@ -82,6 +91,44 @@ export default function BracketSlot({
 
       {/* Bottom team */}
       <TeamRow team={slot.bottom} delay={animDelay + 0.05} />
+
+      {/* Alt-team expansion — dark horses who occasionally win this slot */}
+      {hasAlts && (
+        <>
+          <button
+            onClick={() => setShowAlts(v => !v)}
+            className="w-full px-2.5 py-0.5 text-[9px] text-slate-600 hover:text-slate-400 transition-colors text-left border-t border-slate-800/40"
+          >
+            {showAlts ? "▲ hide alts" : `▼ +${slot.alts.length} alt${slot.alts.length > 1 ? "s" : ""}`}
+          </button>
+
+          <AnimatePresence>
+            {showAlts && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden border-t border-slate-800/40"
+              >
+                {slot.alts.map(alt => (
+                  <div key={alt.team} className="flex items-center gap-1.5 px-2.5 py-1">
+                    <span className="text-sm leading-none w-5 text-center shrink-0">
+                      {getFlag(alt.team)}
+                    </span>
+                    <span className="flex-1 text-[10px] text-slate-600 italic truncate">
+                      {alt.team}
+                    </span>
+                    <span className="text-[10px] tabular-nums text-slate-700 shrink-0">
+                      {Math.round(alt.prob * 100)}%
+                    </span>
+                  </div>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </>
+      )}
     </div>
   )
 }
