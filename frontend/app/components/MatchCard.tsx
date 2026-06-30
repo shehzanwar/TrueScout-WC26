@@ -100,6 +100,44 @@ function formatDate(dateStr: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Templated match preview — pure logic, no LLM call
+// ---------------------------------------------------------------------------
+
+function buildPreview(match: Matchup): string | null {
+  const { home, away, is_completed } = match
+  if (is_completed) return null
+
+  const hp = home.model_advance_prob
+  const ap = away.model_advance_prob
+  if (hp == null || ap == null) return null
+
+  const favoured = hp >= ap ? home : away
+  const underdog = hp >= ap ? away : home
+  const favPct   = Math.round(Math.max(hp, ap) * 100)
+  const gap      = Math.abs(hp - ap)
+
+  const restNote = (() => {
+    if (home.rest_days != null && away.rest_days != null) {
+      const diff = home.rest_days - away.rest_days
+      if (Math.abs(diff) >= 2) {
+        const rested = diff > 0 ? home : away
+        const tired  = diff > 0 ? away : home
+        return ` ${tired.name} have had less time to recover (${tired.rest_days}d vs ${rested.rest_days}d rest).`
+      }
+    }
+    return ""
+  })()
+
+  if (gap < 0.08) {
+    return `A tight contest — our model sees this as close to a coin flip.${restNote}`
+  }
+  if (favPct >= 70) {
+    return `${favoured.name} are strong favourites at ${favPct}% to advance over ${underdog.name}.${restNote}`
+  }
+  return `${favoured.name} hold a slight edge at ${favPct}% over ${underdog.name}.${restNote}`
+}
+
+// ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
 
@@ -213,7 +251,7 @@ export default function MatchCard({ match }: { match: Matchup }) {
 
       const byNat = (nat: string): PlayerSearchResult[] =>
         all
-          .filter((p) => p.nationality === nat)
+          .filter((p) => (p.national_team ?? p.nationality) === nat)
           .sort(
             (a, b) =>
               b.confidence_score - a.confidence_score ||
@@ -224,6 +262,7 @@ export default function MatchCard({ match }: { match: Matchup }) {
             reep_id:          p.reep_id,
             name:             p.name,
             nationality:      p.nationality,
+            national_team:    p.national_team ?? null,
             position_micro:   p.position_micro,
             position_macro:   p.position_macro,
             posterior_mean:   p.posterior_mean,
@@ -248,6 +287,7 @@ export default function MatchCard({ match }: { match: Matchup }) {
       : null
 
   const showEdge = modelEdgeDelta != null && Math.abs(modelEdgeDelta) >= 0.03
+  const preview  = buildPreview(match)
 
   return (
     <motion.div
@@ -276,6 +316,16 @@ export default function MatchCard({ match }: { match: Matchup }) {
         <div className="flex-1 min-w-0 flex flex-col gap-0.5">
           <span className="text-2xl leading-none">{teamFlag(home.name)}</span>
           <span className="text-sm font-semibold text-slate-100 truncate leading-snug">{home.name}</span>
+          {home.rest_days != null && !is_completed && (
+            <span
+              className={`text-[10px] font-medium tabular-nums ${
+                home.rest_days <= 2 ? "text-amber-500" : "text-slate-600"
+              }`}
+              title={`${home.rest_days}d since last match`}
+            >
+              {home.rest_days}d rest
+            </span>
+          )}
         </div>
 
         {/* Score / vs */}
@@ -295,8 +345,25 @@ export default function MatchCard({ match }: { match: Matchup }) {
           <span className="text-sm font-semibold text-slate-100 truncate text-right leading-snug">
             {away.name}
           </span>
+          {away.rest_days != null && !is_completed && (
+            <span
+              className={`text-[10px] font-medium tabular-nums ${
+                away.rest_days <= 2 ? "text-amber-500" : "text-slate-600"
+              }`}
+              title={`${away.rest_days}d since last match`}
+            >
+              {away.rest_days}d rest
+            </span>
+          )}
         </div>
       </div>
+
+      {/* ── Templated preview ─────────────────────────── */}
+      {preview && (
+        <p className="text-[11px] text-slate-500 leading-relaxed italic -mt-1">
+          {preview}
+        </p>
+      )}
 
       {/* ── Probability bars ──────────────────────────── */}
       {(home.model_advance_prob != null || home.market_advance_prob != null) && (

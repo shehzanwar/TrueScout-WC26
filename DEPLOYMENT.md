@@ -14,15 +14,18 @@ GitHub repo
        │  git push  [skip ci]
        │
 GitHub Actions (.github/workflows/nightly.yml)
-  runs daily at 02:00 UTC:
-    1. ESPN pull → Bronze Parquet
-    2. Sofascore pull → Bronze Parquet
-    3. Load group-stage results
-    4. Build feature matrix
-    5. Bayesian ratings
-    6. Monte Carlo bracket sim
-    7. Brier tracker
-    8. etl/export_json.py → frontend/public/data/*.json
+  runs daily at 02:00 UTC (run_nightly.py, 10 steps):
+    1. ESPN pull (knockout) → Bronze Parquet
+    2. Sofascore pull (all rounds) → Bronze Parquet
+    3. Load matches (group stage + knockout)
+    4. Load identity crosswalk (Reep) — applies data/static/position_overrides.json
+    5. Build Silver feature matrix
+    6. Bayesian ratings update
+    7. Monte Carlo bracket sim — includes rest/travel strength penalty (PR5b.1)
+    8. Brier score tracker
+    9. etl/export_json.py → frontend/public/data/*.json
+    10. generate_narratives.py → frontend/public/data/narratives/{reep_id}.json
+        (pre-generated AI scouting reports; soft-fail if OPENROUTER_API_KEY absent)
 
 Vercel
   auto-deploys on every push to master
@@ -32,8 +35,10 @@ Vercel
 
 Data flow on a page request:
 - Server Components (page.tsx) read JSON from disk via `lib/server-data.ts`
-- Client Components download `/data/players.json` once and cache it (player search)
-- "Generate Report" button calls `/api/narratives/[reep_id]` (same-origin, no CORS)
+- Client Components download `/data/players.json` once and cache it (player search, `/compare`)
+- `TacticalAnalysis.tsx` first probes `/data/narratives/{reep_id}.json` (pre-generated, instant —
+  CDN-served, no LLM call); falls back to the "Generate Scouting Report" button → `/api/narratives/[reep_id]`
+  (same-origin, no CORS) only when no cached report exists
 
 ---
 
@@ -51,8 +56,8 @@ Data flow on a page request:
 
 | Variable | Where to get it | Required? |
 |---|---|---|
-| `OPENROUTER_API_KEY` | [openrouter.ai/keys](https://openrouter.ai/keys) | Yes (for narratives) |
-| `OPENROUTER_MODEL` | e.g. `meta-llama/llama-3.1-8b-instruct:free` | No (has default) |
+| `OPENROUTER_API_KEY` | [openrouter.ai/keys](https://openrouter.ai/keys) | Yes (for live "Generate Report" calls) |
+| `OPENROUTER_MODEL` | e.g. `google/gemma-4-31b-it:free` | No (has default) |
 
 Add these under **Project Settings → Environment Variables**.
 
@@ -60,7 +65,10 @@ Add these under **Project Settings → Environment Variables**.
 
 1. In the GitHub repo → **Settings → Actions → General** → ensure "Allow all actions" is on.
 2. The `GITHUB_TOKEN` secret is auto-provisioned — no manual setup needed.
-3. To trigger the first real data run: go to **Actions → Nightly ETL + Static Export → Run workflow**.
+3. Add `OPENROUTER_API_KEY` as a **repo secret** (Settings → Secrets and variables → Actions) so step
+   10 (narrative pre-generation) can run in CI. Without it, step 10 skips silently — the live
+   "Generate Report" button on Vercel still works as long as the Vercel env var (above) is set.
+4. To trigger the first real data run: go to **Actions → Nightly ETL + Static Export → Run workflow**.
 
 After it succeeds, Vercel will auto-deploy with real data.
 
@@ -76,6 +84,10 @@ uvicorn main:app --reload --port 8001
 # Run the ETL pipeline once to populate local data
 python run_nightly.py
 python etl/export_json.py
+
+# Optional — pre-generate AI scouting reports for the top players
+# (requires OPENROUTER_API_KEY in your shell env)
+python -m etl.models.generate_narratives --limit 50
 
 # Frontend
 cd frontend

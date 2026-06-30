@@ -1,0 +1,11 @@
+{
+  "_instructions": "Manual position overrides for known corrupted Reep data. Run etl/audits/audit_player_data.py to discover new cases. 'position' must match a key in _REEP_BUCKET (build_features.py) when lowercased. 'position_detail' is the display label.",
+  "overrides": {
+    "reep_pc2351c88": {
+      "_name": "Cristiano Ronaldo",
+      "_reason": "Reep register incorrectly lists position as 'Full Back'; he is a Centre Forward",
+      "position": "centre-forward",
+      "position_detail": "Centre Forward"
+    }
+  }
+}

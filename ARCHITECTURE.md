@@ -3,7 +3,7 @@
 > Lives in the repo so we don't rewrite the code halfway through because we picked the wrong database
 > or model. Pairs with [`PRD.md`](PRD.md) (the *what*) and [`BOARD.md`](BOARD.md) (the *when*).
 >
-> **Scope:** V1 — Knockout Stage Intelligence Dashboard · **Last updated:** 2026-06-27
+> **Scope:** V1 — Knockout Stage Intelligence Dashboard · **Last updated:** 2026-06-30
 
 ---
 
@@ -17,7 +17,7 @@
 | **Database** | DuckDB (in-process OLAP) over Parquet cache files | Single file-based store. **PostgreSQL deferred** — unneeded for a single-user batch app. |
 | **Ingestion** | `understatapi` (club xG/xA priors) · `soccerdata` (Club Elo) · `curl_cffi` (Sofascore) · `httpx`/`requests` (ESPN) | FBref removed Jan 2026 (Opta data blackout) |
 | **Orchestration** | Nightly scheduled job (Windows Task Scheduler / cron / APScheduler) | Runs ETL → re-model → re-sim → Brier log. |
-| **LLM** | OpenRouter API (free model) behind a thin RAG retriever + prompt layer | Model-agnostic; swappable without code changes. |
+| **LLM** | OpenRouter API (free model, currently `google/gemma-4-31b-it:free`) behind a thin RAG retriever + prompt layer | Model-agnostic; swappable without code changes via `OPENROUTER_MODEL` env var. Reports are pre-generated nightly for high-confidence players (`etl/models/generate_narratives.py`) and served as static JSON; live generation is a fallback only. |
 | **Hosting** | FastAPI on Render/Railway/Fly (or self-host) · Next.js on Vercel | DuckDB is file-based → backend stays on a single host. |
 
 ---
@@ -54,6 +54,22 @@ simulations (run_date, round, team_id → teams.id, advance_prob, title_prob)
 - `archetypes` scopes percentile/Z-score calculations so a defender isn't judged on attacking output.
 - `simulations` is rewritten each nightly run; `brier_log` is append-only for tracking over time.
 
+**Static override / supplementary files** (not DuckDB tables — flat JSON under `data/static/`,
+applied during ETL or read directly by the frontend):
+- `position_overrides.json` — manual corrections for known-corrupted Reep `position_detail` values
+  (e.g. Ronaldo mislabeled "Full Back"); applied as a `UPDATE identity_players` in
+  `etl/load/load_identity.py` after the Bronze load. Discoverable via `etl/audits/audit_player_data.py`.
+- `venues_2026.json` — 16 host-venue coordinates for the World Cup; backs the rest/travel strength
+  adjustment in `monte_carlo_sim.py` (currently rest-days only; haversine travel distance not yet wired in).
+- `etl/utils/team_aliases.py` (+ `frontend/lib/teamAliases.ts` mirror) — canonical team-name mapping
+  shared across the Monte Carlo sim, export pipeline, and audit script so "Türkiye"/"Turkey",
+  "USA"/"United States" etc. never silently desync between Sofascore/ESPN/Reep sources.
+- `frontend/public/data/narratives/{reep_id}.json` — pre-generated AI scouting reports
+  (`{narrative, voice, generated_at}`), written nightly by `etl/models/generate_narratives.py` and
+  committed to git like the rest of `public/data/`. `national_team` (modal Sofascore lineup team,
+  distinct from Reep's bio `nationality`) is computed in `export_json.py` and embedded directly in
+  `players.json` rather than stored as a separate table.
+
 ---
 
 ## 3. Third-Party APIs
@@ -88,7 +104,7 @@ simulations (run_date, round, team_id → teams.id, advance_prob, title_prob)
 | 2 | **Over-scoped** for a solo dev (~12 subsystems) | Keep Bayesian ratings + Monte Carlo; **drop RAPM + Dixon-Coles**; defer WebGL, KNN twins, live firehose. |
 | 3 | **Sofascore TLS-spoof = single point of failure + ToS risk** | Batch tolerates failure (retry next night); ESPN fallback; Parquet caching; personal-use/rate-limited. Escalation path if `curl_cffi` fingerprint is defeated: swap `__enter__` + `_fetch_url` for `wreq` (Python, BoringSSL / JA4). |
 | 4 | **Tiny WC samples (3–7 matches)** → posterior dominated by priors | Stated honestly: the value is **cross-league prior translation**, not WC likelihood moving the needle; partial pooling shrinks low-minute players. |
-| 5 | **Monte Carlo fatigue params unsourced** | Ship the sim **without** the fatigue model in V1; fatigue → Backlog with a calibration task. |
+| 5 | **Monte Carlo fatigue params unsourced** | Shipped the sim **without** a full fatigue model in V1. A simple, explicitly uncalibrated rest-days penalty (`-0.10 × max(0, 3 - rest_days)`) was added in Phase 4 as a cheap directional signal; the full fatigue model (minutes load + travel distance) stays in `BOARD.md` Backlog pending calibration. |
 | 6 | **"Beat the market" oversells** | Reframed as a **Brier-score tracker** vs market odds — a measured comparison, not a guarantee. |
 | 7 | **Stale LLM choice** (GPT-4o-mini / Claude 3 Haiku) | **OpenRouter free model**; RAG layer model-agnostic. |
 | 8 | **KNN "statistical twins" fabricate missing metrics** | Dropped; a **confidence score** routes sparse players to the no-stats "Traditional Scout" LLM path. |

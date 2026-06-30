@@ -24,9 +24,11 @@ function posGroupLabel(macro: string): string {
 }
 
 function comparator(pct: number | null | undefined, group: string): string | undefined {
-  if (pct === undefined || pct === null) return undefined
-  const top = Math.max(1, Math.round((1 - pct) * 100))
-  return `Top ${top}% of ${group}`
+  if (pct == null) return undefined
+  if (pct >= 0.50) {
+    return `Top ${Math.max(1, Math.round((1 - pct) * 100))}% of ${group}`
+  }
+  return `Bottom ${Math.max(1, Math.round(pct * 100))}% of ${group}`
 }
 
 // ---------------------------------------------------------------------------

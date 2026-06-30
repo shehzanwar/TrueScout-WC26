@@ -1,13 +1,15 @@
-import { getSimulations, getBrier } from "@/lib/server-data"
+import { getSimulations, getBrier, getAllMatchups, getTopPlayers } from "@/lib/server-data"
+import type { Matchup } from "@/lib/api"
 import HomeCards from "./components/HomeCards"
 
 export default async function HomePage() {
-  const [simData, brierData] = await Promise.all([
+  const [simData, brierData, allMatchups, topPlayers] = await Promise.all([
     getSimulations().catch(() => null),
     getBrier().catch(() => null),
+    getAllMatchups().catch(() => null),
+    getTopPlayers(5, 0.5).catch(() => []),
   ])
 
-  // Extract champions round (round === "W") for title favorites
   const championsRound = simData?.rounds.find((r) => r.round === "W")
   const champions = championsRound?.teams ?? simData?.rounds.at(-1)?.teams ?? []
 
@@ -24,6 +26,26 @@ export default async function HomePage() {
     brier_skill_vs_market: null,
   }
 
+  // Flatten all matches across rounds into one chronological list
+  const allMatches: Matchup[] = allMatchups
+    ? Object.values(allMatchups).flatMap((r) => r.matches)
+    : []
+
+  // MatchOfTheDay: earliest scheduled (not yet completed) match
+  const upcomingMatches = allMatches
+    .filter((m) => !m.is_completed)
+    .sort((a, b) => a.match_date.localeCompare(b.match_date))
+  const matchOfTheDay = upcomingMatches[0] ?? null
+
+  // InsightOfTheDay: biggest model vs market gap among upcoming matches
+  const insightMatch = upcomingMatches
+    .filter((m) => m.home.model_advance_prob != null && m.home.market_advance_prob != null)
+    .sort(
+      (a, b) =>
+        Math.abs((b.home.model_advance_prob ?? 0) - (b.home.market_advance_prob ?? 0)) -
+        Math.abs((a.home.model_advance_prob ?? 0) - (a.home.market_advance_prob ?? 0)),
+    )[0] ?? null
+
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       <div>
@@ -39,6 +61,9 @@ export default async function HomePage() {
         champions={champions}
         brierSummary={brierSummary}
         brierEntries={brierData?.entries ?? []}
+        matchOfTheDay={matchOfTheDay}
+        insightMatch={insightMatch}
+        topPlayers={topPlayers}
       />
     </div>
   )

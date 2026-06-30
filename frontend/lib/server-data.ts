@@ -47,3 +47,18 @@ export async function getPlayer(reep_id: string): Promise<PlayerResponse> {
   if (!player) throw new Error(`Player not found: ${reep_id}`)
   return player
 }
+
+export async function getAllMatchups(): Promise<Record<string, MatchupsResponse>> {
+  return readData<Record<string, MatchupsResponse>>("matchups.json")
+}
+
+export async function getTopPlayers(
+  limit = 5,
+  minConfidence = 0.5,
+): Promise<PlayerResponse[]> {
+  const players = readData<PlayerResponse[]>("players.json")
+  return players
+    .filter((p) => p.confidence_score >= minConfidence)
+    .sort((a, b) => b.posterior_mean - a.posterior_mean)
+    .slice(0, limit)
+}

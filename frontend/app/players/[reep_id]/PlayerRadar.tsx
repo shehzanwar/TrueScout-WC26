@@ -9,7 +9,8 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from "recharts"
-import type { RadarMetrics } from "@/lib/api"
+import type { RadarMetrics, FifaScore } from "@/lib/api"
+import { fifaBandColor } from "../FifaBadge"
 
 // Five FM-style attribute axes — fall back to these when radar_axes is absent.
 const DEFAULT_AXES: { key: keyof RadarMetrics; label: string; description: string }[] = [
@@ -40,13 +41,17 @@ const DEFAULT_AXES: { key: keyof RadarMetrics; label: string; description: strin
   },
 ]
 
-// Data keys in axis order (immutable)
+// Axis key order matches the 5-axis radar layout
 const AXIS_KEYS: Array<keyof RadarMetrics> = [
   "shooting", "creativity", "defending", "wc_form", "posterior_pct"
 ]
 
+// Map radar axis index → FIFA attr key (for tooltip sub-attr score)
+const AXIS_TO_ATTR_OUTFIELD: string[] = ["SHO", "PAS", "DEF", "WC_FORM", ""]
+const AXIS_TO_ATTR_GK: string[]       = ["DIV", "KIC", "HAN", "POS", ""]
+
 interface TooltipPayload {
-  payload?: { description: string }
+  payload?: { description: string; attrScore: number | null }
   value?: number
 }
 
@@ -62,22 +67,44 @@ function CustomTooltip({
   return (
     <div className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs shadow-xl">
       <p className="text-emerald-400 font-bold">{item.value}th percentile</p>
+      {item.payload?.attrScore != null && (
+        <p className="text-slate-300 font-semibold">{item.payload.attrScore}/99</p>
+      )}
       <p className="text-slate-400 mt-0.5">{item.payload?.description}</p>
     </div>
   )
 }
 
-export default function PlayerRadar({ radar }: { radar: RadarMetrics }) {
+export default function PlayerRadar({
+  radar,
+  fifa,
+}: {
+  radar: RadarMetrics
+  fifa?: FifaScore | null
+}) {
   // Use position-specific axis labels from the export when available
-  const axisLabels = radar.radar_axes ?? DEFAULT_AXES.map((a) => a.label)
+  const axisLabels       = radar.radar_axes ?? DEFAULT_AXES.map((a) => a.label)
   const axisDescriptions = DEFAULT_AXES.map((a) => a.description)
 
+  // Choose attr key map based on position (GK has DIV/HAN/POS/KIC; outfield has SHO/PAS/DEF/WC_FORM)
+  const isGk        = axisLabels[0] === "Shot Stopping"
+  const attrKeyMap  = isGk ? AXIS_TO_ATTR_GK : AXIS_TO_ATTR_OUTFIELD
+
   const data = AXIS_KEYS.map((key, i) => {
-    // 5th axis: prefer position-aware "overall" over posterior_pct
     const raw = key === "posterior_pct" ? (radar.overall ?? radar.posterior_pct) : radar[key]
     const value = raw != null ? Math.round((raw as number) * 100) : 0
-    return { axis: axisLabels[i] ?? DEFAULT_AXES[i].label, value, description: axisDescriptions[i] }
+    const attrKey   = attrKeyMap[i]
+    const attrScore = (attrKey && fifa?.attrs?.[attrKey]) ?? null
+    return {
+      axis:        axisLabels[i] ?? DEFAULT_AXES[i].label,
+      value,
+      description: axisDescriptions[i],
+      attrScore,
+    }
   })
+
+  // Radar fill + stroke derived from FIFA band (defaults to emerald when no FIFA data)
+  const bandColor = fifa ? fifaBandColor(fifa.band) : "#10b981"
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col">
@@ -107,25 +134,34 @@ export default function PlayerRadar({ radar }: { radar: RadarMetrics }) {
             <Radar
               name="Player"
               dataKey="value"
-              stroke="#10b981"
-              fill="#10b981"
+              stroke={bandColor}
+              fill={bandColor}
               fillOpacity={0.18}
               strokeWidth={2}
-              dot={{ fill: "#10b981", r: 3, strokeWidth: 0 }}
+              dot={{ fill: bandColor, r: 3, strokeWidth: 0 }}
             />
             <Tooltip content={<CustomTooltip />} />
           </RadarChart>
         </ResponsiveContainer>
       </div>
 
-      {/* Legend */}
+      {/* Legend — show FIFA sub-attr scores when available */}
       <div className="grid grid-cols-1 gap-1 mt-2 pt-3 border-t border-slate-800">
-        {axisLabels.map((label, i) => (
-          <div key={label} className="flex items-baseline gap-2">
-            <span className="text-[11px] font-medium text-slate-400 w-24 shrink-0">{label}</span>
-            <span className="text-[11px] text-slate-600">{axisDescriptions[i]}</span>
-          </div>
-        ))}
+        {axisLabels.map((label, i) => {
+          const attrKey   = attrKeyMap[i]
+          const attrScore = (attrKey && fifa?.attrs?.[attrKey]) ?? null
+          return (
+            <div key={label} className="flex items-baseline gap-2">
+              <span className="text-[11px] font-medium text-slate-400 w-24 shrink-0">{label}</span>
+              {attrScore != null && (
+                <span className="text-[11px] font-bold tabular-nums" style={{ color: bandColor }}>
+                  {attrScore}/99
+                </span>
+              )}
+              <span className="text-[11px] text-slate-600">{axisDescriptions[i]}</span>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
