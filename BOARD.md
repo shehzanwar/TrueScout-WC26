@@ -3,7 +3,7 @@
 > Simple Kanban, not a Gantt chart. Track daily progress here (or mirror to GitHub Projects / Trello /
 > Notion). Pairs with [`PRD.md`](PRD.md) and [`ARCHITECTURE.md`](ARCHITECTURE.md).
 >
-> **Last updated:** 2026-06-30 (Phase 4 complete — bug-fix sweep, bracket joint probability, FIFA score, rest/travel adjustment, narrative pre-generation, Compare Players, home insight cards)
+> **Last updated:** 2026-06-30 (Phase 4 complete — bug-fix sweep, bracket joint probability, FIFA score, rest/travel adjustment, Compare Players, home insight cards; narrative pre-gen reverted to live-only)
 
 ---
 
@@ -86,8 +86,9 @@ narrative pre-generation, Compare Players, home-page insight cards, sitewide too
 - [x] Data-quality audit script (`etl/audits/audit_player_data.py`, 4 checks)
 - [x] Rest/travel strength adjustment — `data/static/venues_2026.json` + rest-days penalty in sim
 - [x] `/about` "What our model can't yet capture" critique section
-- [x] Narrative pre-generation in nightly ETL (`etl/models/generate_narratives.py`) + frontend
-      cache short-circuit in `TacticalAnalysis.tsx`
+- [x] Standalone narrative CLI (`etl/models/generate_narratives.py`) — built; removed from nightly
+      pipeline (OpenRouter free-tier rate limits make automated batch impractical). Live on-demand
+      generation via "Generate Scouting Report" button remains the active path.
 - [x] Compare Players (`/compare`) — side-by-side rating/attribute comparison
 - [x] Home page insight cards — Next Match, Value Pick, Top Performers
 - [x] Templated (non-LLM) match preview line on `MatchCard`

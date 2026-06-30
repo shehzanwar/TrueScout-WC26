@@ -107,7 +107,6 @@ def run_pipeline() -> dict[str, bool]:
     from etl.models.monte_carlo_sim      import main as sim_main
     from etl.models.brier_tracker        import main as brier_main
     from etl.export_json                 import main as export_main
-    from etl.models.generate_narratives  import main as narratives_main
 
     results: dict[str, bool] = {}
 
@@ -172,12 +171,6 @@ def run_pipeline() -> dict[str, bool]:
         export_main,
     )
 
-    # Step 10 — Pre-generate AI narratives (soft-fail; skipped if API key absent)
-    results["10_generate_narratives"] = _step(
-        "Pre-generate player narratives",
-        narratives_main,
-    )
-
     return results
 
 
@@ -214,8 +207,7 @@ def main() -> None:
     # ── Exit logic: distinguish ingestion failures from pipeline failures ────
     # Ingestion steps (1–3) are non-critical: Sofascore is permanently blocked
     # on GitHub Actions datacenter IPs.  Only math/export failures are fatal.
-    _INGESTION = {"1_espn_pull", "2_sofascore_pull", "3_load_matches", "4_load_identity",
-                  "10_generate_narratives"}
+    _INGESTION = {"1_espn_pull", "2_sofascore_pull", "3_load_matches", "4_load_identity"}
     _CRITICAL  = {"5_build_features", "6_bayesian_ratings", "7_monte_carlo_sim",
                   "8_brier_tracker", "9_export_json"}
 

@@ -52,9 +52,9 @@ The MVP is successful if:
    "we beat the market" claim.
 5. **RAG "Tactical Storytelling."** A confidence-gated, role-aware narrative layer (OpenRouter free
    model). High-confidence players get a metrics-driven "Data Analyst" voice; sparse-data players get
-   a "Traditional Scout" voice that is explicitly forbidden from inventing stats. Reports are
-   **pre-generated nightly** for high-confidence players and served as static JSON; live generation
-   via the "Generate Report" button is the fallback for everyone else.
+   a "Traditional Scout" voice that is explicitly forbidden from inventing stats. Reports are generated
+   **on-demand** when the user clicks "Generate Scouting Report" — no nightly pre-generation (OpenRouter
+   free-tier rate limits make automated batch impractical).
 
 ---
 

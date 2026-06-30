@@ -17,7 +17,7 @@
 | **Database** | DuckDB (in-process OLAP) over Parquet cache files | Single file-based store. **PostgreSQL deferred** — unneeded for a single-user batch app. |
 | **Ingestion** | `understatapi` (club xG/xA priors) · `soccerdata` (Club Elo) · `curl_cffi` (Sofascore) · `httpx`/`requests` (ESPN) | FBref removed Jan 2026 (Opta data blackout) |
 | **Orchestration** | Nightly scheduled job (Windows Task Scheduler / cron / APScheduler) | Runs ETL → re-model → re-sim → Brier log. |
-| **LLM** | OpenRouter API (free model, currently `google/gemma-4-31b-it:free`) behind a thin RAG retriever + prompt layer | Model-agnostic; swappable without code changes via `OPENROUTER_MODEL` env var. Reports are pre-generated nightly for high-confidence players (`etl/models/generate_narratives.py`) and served as static JSON; live generation is a fallback only. |
+| **LLM** | OpenRouter API (free model, configurable via `OPENROUTER_MODEL` env var) behind a thin RAG retriever + prompt layer | Model-agnostic; swappable without code changes. Reports generated on-demand via the Next.js API route (`/api/narratives/[reep_id]`) when the user clicks "Generate Scouting Report" — no nightly pre-generation. |
 | **Hosting** | FastAPI on Render/Railway/Fly (or self-host) · Next.js on Vercel | DuckDB is file-based → backend stays on a single host. |
 
 ---
@@ -64,11 +64,8 @@ applied during ETL or read directly by the frontend):
 - `etl/utils/team_aliases.py` (+ `frontend/lib/teamAliases.ts` mirror) — canonical team-name mapping
   shared across the Monte Carlo sim, export pipeline, and audit script so "Türkiye"/"Turkey",
   "USA"/"United States" etc. never silently desync between Sofascore/ESPN/Reep sources.
-- `frontend/public/data/narratives/{reep_id}.json` — pre-generated AI scouting reports
-  (`{narrative, voice, generated_at}`), written nightly by `etl/models/generate_narratives.py` and
-  committed to git like the rest of `public/data/`. `national_team` (modal Sofascore lineup team,
-  distinct from Reep's bio `nationality`) is computed in `export_json.py` and embedded directly in
-  `players.json` rather than stored as a separate table.
+  `national_team` (modal Sofascore lineup team, distinct from Reep's bio `nationality`) is computed
+  in `export_json.py` and embedded directly in `players.json` rather than stored as a separate table.
 
 ---
 
