@@ -41,6 +41,7 @@ export interface MatchupTeam {
   model_advance_prob: number | null
   market_advance_prob: number | null
   rest_days: number | null
+  travel_km: number | null
 }
 
 export interface Matchup {
@@ -148,6 +149,8 @@ export interface PlayerResponse {
   name: string | null
   nationality: string | null
   national_team: string | null   // derived from Sofascore lineups — authoritative team membership
+  age_at_wc: number | null        // age on 2026-06-11 (tournament start)
+  age_cohort: "u21" | "22-26" | "27-31" | "32+" | null
   position_detail: string | null
   position_macro: string           // always present (GK/DEF/MID/FWD)
   position_micro: string | null
@@ -189,6 +192,10 @@ export interface PlayerResponse {
   wc_interceptions_per_90?: number
   wc_clearances_per_90?: number
   wc_saves_per_90?: number
+  wc_passes_completed_raw?: number
+  wc_passes_attempted_raw?: number
+  wc_passes_completed_per_90?: number
+  wc_pass_completion_pct?: number
   has_prior?: boolean
   prior_goals_per_90?: number
   prior_assists_per_90?: number
@@ -217,6 +224,45 @@ export interface PlayerSearchResult {
 export interface NarrativeResponse {
   narrative: string
   voice: "data_analyst" | "traditional_scout"
+}
+
+export interface InsightsFavorite {
+  team: string
+  title_prob: number | null
+}
+
+export interface InsightsValuePick {
+  event_id: string
+  match_date: string
+  home: string | null
+  away: string | null
+  model_home: number
+  market_home: number
+  edge: number
+}
+
+export interface InsightsPerformer {
+  reep_id: string
+  name: string | null
+  national_team: string | null
+  position: string | null
+  rating: number | null
+}
+
+export interface InsightsOvernight {
+  team: string
+  delta: number
+  title_prob: number
+}
+
+export interface InsightsResponse {
+  generated_at: string
+  run_date: string
+  top_favorites: InsightsFavorite[]
+  value_picks: InsightsValuePick[]
+  next_match: { event_id: string; match_date: string; home: string | null; away: string | null } | null
+  top_performers: InsightsPerformer[]
+  overnight: InsightsOvernight[]
 }
 
 // ---------------------------------------------------------------------------

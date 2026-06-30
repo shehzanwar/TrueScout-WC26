@@ -337,6 +337,22 @@ _TABLES: list[str] = [
     )
     """,
 
+    # ── Market odds archive (append-only; preserves pre-match odds) ─────────
+    # ESPN strips odds after kickoff. This table snapshots the *first* odds we
+    # see for each event so they're available even after the match completes.
+    # Populated in export_json.py from Bronze Parquets via INSERT OR IGNORE.
+    """
+    CREATE TABLE IF NOT EXISTS market_odds_archive (
+        event_id      VARCHAR NOT NULL,
+        first_seen    DATE    NOT NULL,
+        home_win_prob DOUBLE,
+        draw_prob     DOUBLE,
+        away_win_prob DOUBLE,
+        fetched_at    TIMESTAMP DEFAULT now(),
+        PRIMARY KEY (event_id)
+    )
+    """,
+
     # ── Simulation output (rewritten each nightly run, Phase 2) ─────────────
     """
     CREATE TABLE IF NOT EXISTS simulations (

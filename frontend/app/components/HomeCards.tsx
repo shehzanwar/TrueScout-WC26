@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { motion } from "framer-motion"
-import type { SimTeam, BrierSummary, BrierEntry, Matchup, PlayerResponse } from "@/lib/api"
+import type { SimTeam, BrierSummary, BrierEntry, Matchup, PlayerResponse, InsightsOvernight } from "@/lib/api"
 
 // ---------------------------------------------------------------------------
 // Animation variants
@@ -331,6 +331,64 @@ function TopPerformersCard({ players }: { players: PlayerResponse[] }) {
 }
 
 // ---------------------------------------------------------------------------
+// Overnight Deltas
+// ---------------------------------------------------------------------------
+
+function OvernightDeltasCard({ overnight }: { overnight: InsightsOvernight[] }) {
+  const sorted = overnight
+    .slice()
+    .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
+    .slice(0, 6)
+
+  return (
+    <SectionCard
+      title="Overnight Swings"
+      subtitle="Biggest title-probability shifts since yesterday's run"
+    >
+      {sorted.length === 0 ? (
+        <p className="text-sm text-slate-500 italic">No overnight delta data available.</p>
+      ) : (
+        <motion.ol variants={container} initial="hidden" animate="show" className="space-y-2.5">
+          {sorted.map((item) => {
+            const isUp   = item.delta >= 0
+            const absDelta = Math.abs(item.delta * 100)
+            const arrow  = isUp ? "▲" : "▼"
+            const deltaColor = isUp ? "text-emerald-400" : "text-rose-400"
+            const barColor   = isUp ? "bg-emerald-500" : "bg-rose-500"
+            return (
+              <motion.li key={item.team} variants={row} className="flex items-center gap-3">
+                <span className={`text-xs font-bold w-3 shrink-0 ${deltaColor}`}>{arrow}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-baseline mb-1">
+                    <span className="text-sm font-medium text-slate-200 truncate">
+                      {flag(item.team)} {item.team}
+                    </span>
+                    <div className="flex items-baseline gap-1.5 shrink-0 ml-2">
+                      <span className={`text-xs font-bold tabular-nums ${deltaColor}`}>
+                        {isUp ? "+" : "−"}{absDelta.toFixed(1)}pp
+                      </span>
+                      <span className="text-xs font-mono text-slate-500">
+                        {(item.title_prob * 100).toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                  <div className="h-1 bg-slate-800 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${barColor}`}
+                      style={{ width: `${Math.min(absDelta * 10, 100).toFixed(0)}%` }}
+                    />
+                  </div>
+                </div>
+              </motion.li>
+            )
+          })}
+        </motion.ol>
+      )}
+    </SectionCard>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Main export
 // ---------------------------------------------------------------------------
 
@@ -341,6 +399,7 @@ export default function HomeCards({
   matchOfTheDay,
   insightMatch,
   topPlayers,
+  overnight,
 }: {
   champions: SimTeam[]
   brierSummary: BrierSummary
@@ -348,6 +407,7 @@ export default function HomeCards({
   matchOfTheDay: Matchup | null
   insightMatch: Matchup | null
   topPlayers: PlayerResponse[]
+  overnight: InsightsOvernight[] | null
 }) {
   return (
     <motion.div
@@ -360,6 +420,7 @@ export default function HomeCards({
       <CalibrationCard summary={brierSummary} entries={brierEntries} />
       {matchOfTheDay && <MatchOfTheDayCard match={matchOfTheDay} />}
       {insightMatch && <InsightCard match={insightMatch} />}
+      {overnight && overnight.length > 0 && <OvernightDeltasCard overnight={overnight} />}
       <TopPerformersCard players={topPlayers} />
     </motion.div>
   )

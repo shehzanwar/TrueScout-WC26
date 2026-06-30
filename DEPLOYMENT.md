@@ -24,6 +24,7 @@ GitHub Actions (.github/workflows/nightly.yml)
     7. Monte Carlo bracket sim — includes rest/travel strength penalty (PR5b.1)
     8. Brier score tracker
     9. etl/export_json.py → frontend/public/data/*.json
+   9.5. etl/verify_outputs.py → hard assertions on exported JSON (hard-fail gate)
 
 Vercel
   auto-deploys on every push to master
@@ -53,10 +54,18 @@ Data flow on a page request:
 
 | Variable | Where to get it | Required? |
 |---|---|---|
-| `OPENROUTER_API_KEY` | [openrouter.ai/keys](https://openrouter.ai/keys) | Yes (for live "Generate Report" calls) |
-| `OPENROUTER_MODEL` | e.g. `google/gemma-4-31b-it:free` | No (has default) |
+| `OPENROUTER_API_KEY` | [openrouter.ai/keys](https://openrouter.ai/keys) | Yes (for "Generate Report" calls) |
+| `OPENROUTER_MODEL` | e.g. `poolside/laguna-m.1:free` | No (has default — set to override) |
 
 Add these under **Project Settings → Environment Variables**.
+
+> **AI route notes:**
+> - The narrative route sets `export const maxDuration = 60` — this only takes effect on Vercel **Pro**
+>   tier. On Hobby (10s cap) reasoning models like Laguna M.1 will hit the timeout; either upgrade to
+>   Pro or rely on the planned PR7 nightly pre-generation so runtime calls are rare.
+> - The route strips `<think>…</think>` reasoning preambles from model output automatically.
+> - On failure the route returns HTTP 502 with `{ error: "<reason>" }` (not a silent 200 fallback) —
+>   check Vercel function logs if users report errors.
 
 ### 3 — Enable GitHub Actions
 
