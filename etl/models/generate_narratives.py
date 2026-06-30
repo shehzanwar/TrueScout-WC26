@@ -1,11 +1,17 @@
 """
 etl/models/generate_narratives.py — Pre-generate AI scouting reports nightly.
 
+Anti-hallucination approach (PR7):
+  Python builds structured "fact bullets" for each player; the LLM only rephrases
+  them into prose. The system prompt bans inventing any number not in the bullets.
+  This yields reliable output even with free-tier models that can't see the player
+  data independently.
+
 Reads frontend/public/data/players.json and calls OpenRouter for players that
-don't already have a cached report, writing each result to
+don't already have a cached report, writing results to
 frontend/public/data/narratives/{reep_id}.json.
 
-Designed to run as optional step 10 of run_nightly.py (soft-fail — skips
+Designed to run as optional step 9.6 of run_nightly.py (soft-fail — skips
 gracefully when OPENROUTER_API_KEY is absent or rate-limit is hit).
 
 Usage
@@ -19,6 +25,7 @@ import argparse
 import json
 import logging
 import os
+import re
 import sys
 import time
 from datetime import datetime, timezone
@@ -29,60 +36,98 @@ sys.path.insert(0, str(ROOT))
 
 logger = logging.getLogger(__name__)
 
-OUTPUT_DIR = ROOT / "frontend" / "public" / "data" / "narratives"
+OUTPUT_DIR   = ROOT / "frontend" / "public" / "data" / "narratives"
 PLAYERS_JSON = ROOT / "frontend" / "public" / "data" / "players.json"
 
-CONFIDENCE_THRESHOLD = 0.7   # high-confidence voice gate (mirrors route.ts)
+CONFIDENCE_THRESHOLD = 0.7
 DEFAULT_LIMIT        = 100
-DEFAULT_MIN_CONF     = 0.3   # skip players with almost no data
+DEFAULT_MIN_CONF     = 0.3
 
-# OpenRouter free-tier (':free' suffix) models enforce a strict per-minute
-# rate limit (commonly ~20 req/min without purchased credits). 3s spacing
-# keeps sustained throughput under that; MAX_RETRIES + backoff absorbs bursts.
-CALL_DELAY_S  = 3.0
-MAX_RETRIES   = 4
+CALL_DELAY_S   = 3.0
+MAX_RETRIES    = 4
 BACKOFF_BASE_S = 5.0
+CIRCUIT_BREAKER = 3
+
+# Primary model from env; three hardcoded fallbacks tried in order on failure.
+# Must mirror the chain in frontend/app/api/narratives/[reep_id]/route.ts.
+_FALLBACK_MODELS = [
+    os.environ.get("OPENROUTER_MODEL", "poolside/laguna-m.1:free"),
+    "google/gemma-3-27b-it:free",
+    "nvidia/llama-3.1-nemotron-70b-instruct:free",
+    "meta-llama/llama-3.3-70b-instruct:free",
+]
+
+# ---------------------------------------------------------------------------
+# System prompts — anti-hallucination templated approach (PR7)
+# ---------------------------------------------------------------------------
+
+_ANTI_HALLUCINATION = (
+    "\n\nCRITICAL FACTUAL CONSTRAINT: You may ONLY use the numbers and facts "
+    "explicitly listed in the 'Facts' section of the user message. "
+    "Do NOT invent, extrapolate, or add any statistics, percentages, goals, "
+    "assists, ratings, or biographical details not stated there. "
+    "If a fact is not in the bullets, do not mention it."
+)
 
 _ANTI_YAPPING = (
-    "\n\nCRITICAL FORMATTING RULE: Do NOT output your chain of thought, reasoning "
-    "process, or internal monologue. Output ONLY the final scouting report in 2-3 "
-    "concise paragraphs. Do not use introductory filler like 'Here is the scouting "
-    "report' or 'Based on the data'. Just start the analysis directly with the "
-    "player's name or tactical role."
+    "\n\nFORMATTING: Output ONLY the final report in 2-3 short paragraphs. "
+    "No chain of thought, no introductory filler ('Here is…', 'Based on…'). "
+    "Start directly with the player's name or tactical role."
 )
 
 _JARGON_BAN = (
-    "\n\nSTRICT LANGUAGE RULE: Never use these words: 'posterior', 'HDI', "
-    "'Bayesian', 'shrinkage', 'percentile rank', 'confidence score', 'prior', "
-    "'credible interval'. Write as a football analyst speaks on TV — for someone "
-    "who watches games but does not read academic papers."
+    "\n\nLANGUAGE: Never use: 'posterior', 'HDI', 'Bayesian', 'shrinkage', "
+    "'percentile rank', 'confidence score', 'prior', 'credible interval'. "
+    "Write as a TV football analyst — clear, direct, accessible."
 )
 
 DATA_ANALYST_SYSTEM = (
     "You are an elite football scout covering FIFA World Cup 2026. "
     "Write a concise tactical scouting report in 3-4 short paragraphs. "
-    "Cite the specific numbers provided to explain the player's strengths, "
-    "weaknesses, and role in plain football language. Be direct and professional. "
-    "Do not invent any statistics not given to you."
-    + _ANTI_YAPPING + _JARGON_BAN
+    "Explain the player's strengths, weaknesses, and role using the "
+    "specific numbers provided. Be direct and professional."
+    + _ANTI_HALLUCINATION + _ANTI_YAPPING + _JARGON_BAN
 )
 
 TRADITIONAL_SCOUT_SYSTEM = (
     "You are a traditional football scout covering FIFA World Cup 2026. "
     "Match data for this player is limited — write an impressionistic scouting "
-    "report in 2-3 short paragraphs based on their position and playing style. "
-    "YOU ARE STRICTLY FORBIDDEN from inventing, hallucinating, or mentioning "
-    "specific statistical numbers, xG values, or ratings not explicitly provided. "
-    "Focus on their tactical role and positional characteristics."
-    + _ANTI_YAPPING + _JARGON_BAN
+    "report in 2-3 short paragraphs based only on what you are told. "
+    "YOU ARE STRICTLY FORBIDDEN from inventing statistical numbers, xG values, "
+    "ratings, or specific records. Focus on tactical role and playing style."
+    + _ANTI_HALLUCINATION + _ANTI_YAPPING + _JARGON_BAN
 )
 
 
-def _build_user_message(p: dict, high_confidence: bool) -> str:
+# ---------------------------------------------------------------------------
+# Fact-bullet builder — the anti-hallucination payload
+# ---------------------------------------------------------------------------
+
+def _build_fact_bullets(p: dict, high_confidence: bool) -> str:
+    """
+    Build a structured "fact bullets" user message.
+
+    For high-confidence players: includes rating, HDI-range, club/WC split,
+    minutes, and any raw WC stats present in the export.
+    For low-confidence players: position + playing style only — no invented numbers.
+    """
     name      = p.get("name") or p["reep_id"]
     nat       = p.get("nationality") or "nationality unknown"
     position  = p.get("position_detail") or p.get("position_macro") or "Unknown position"
     archetype = p.get("cluster_label") or position
+
+    if not high_confidence:
+        wc_mins = round(p.get("wc_minutes", 0))
+        return (
+            f"Write a scouting report for {name} ({nat}).\n\n"
+            f"Position: {position}\n"
+            f"Playing style: {archetype}\n"
+            f"World Cup minutes: {wc_mins}\n\n"
+            f"Facts (use only what is listed here):\n"
+            f"• Limited World Cup data — focus on typical tactical role for a {position.lower()}\n"
+            f"• Playing style cluster: {archetype}"
+        )
+
     shrinkage = p.get("shrinkage_weight", 0.5)
     wc_pct    = round((1.0 - shrinkage) * 100)
     club_pct  = 100 - wc_pct
@@ -93,36 +138,57 @@ def _build_user_message(p: dict, high_confidence: bool) -> str:
     post_mean = round(p.get("posterior_mean", 5.0), 2)
     wc_mins   = round(p.get("wc_minutes", 0))
 
-    if high_confidence:
-        return (
-            f"Generate a tactical scouting report for {name} ({nat}).\n\n"
-            f"Position: {position}\n"
-            f"Playing style: {archetype}\n\n"
-            f"Performance data:\n"
-            f"- Overall rating: {post_mean} out of 10"
-            f" — ranks in the top {pct_top}% of {position.lower()}s at this tournament\n"
-            f"- Rating likely between {hdi_low} and {hdi_high} (accounting for match sample size)\n"
-            f"- {club_pct}% of rating comes from club form (last 2 seasons);"
-            f" {wc_pct}% from this World Cup\n"
-            f"- Played {wc_mins} minutes at this World Cup\n"
-        )
+    bullets = [
+        f"• Overall rating: {post_mean} out of 10 — top {pct_top}% of {position.lower()}s at this tournament",
+        f"• Rating range: {hdi_low}–{hdi_high} (reflecting match sample size)",
+        f"• {club_pct}% of rating from club form (last 2 seasons); {wc_pct}% from this World Cup",
+        f"• World Cup minutes played: {wc_mins}",
+    ]
+
+    # Append any available raw WC stats
+    stat_labels: list[tuple[str, str]] = [
+        ("wc_goals_per_90",        "Goals per 90 min (WC)"),
+        ("wc_assists_per_90",      "Assists per 90 min (WC)"),
+        ("wc_xg_per_90",           "xG per 90 min (WC)"),
+        ("wc_xa_per_90",           "xA per 90 min (WC)"),
+        ("wc_shots_per_90",        "Shots per 90 min (WC)"),
+        ("wc_key_passes_per_90",   "Key passes per 90 min (WC)"),
+        ("wc_tackles_per_90",      "Tackles per 90 min (WC)"),
+        ("wc_interceptions_per_90","Interceptions per 90 min (WC)"),
+        ("wc_saves_per_90",        "Saves per 90 min (WC)"),
+        ("prior_goals_per_90",     "Goals per 90 min (club, last 2 seasons)"),
+        ("prior_assists_per_90",   "Assists per 90 min (club, last 2 seasons)"),
+        ("prior_xg_per_90",        "xG per 90 min (club, last 2 seasons)"),
+    ]
+    for col, label in stat_labels:
+        val = p.get(col)
+        if val is not None and isinstance(val, (int, float)) and val > 0:
+            bullets.append(f"• {label}: {round(float(val), 3)}")
+
+    bullets_text = "\n".join(bullets)
     return (
-        f"Write a scouting report for {name} ({nat}).\n\n"
+        f"Generate a tactical scouting report for {name} ({nat}).\n\n"
         f"Position: {position}\n"
-        f"Playing style: {archetype}\n"
-        f"World Cup minutes: {wc_mins}\n"
-        f"Note: Limited match data — describe their typical tactical role and"
-        f" positional characteristics only."
+        f"Playing style: {archetype}\n\n"
+        f"Facts (you may ONLY reference these numbers — do not invent any others):\n"
+        f"{bullets_text}"
     )
 
 
-def _call_openrouter(api_key: str, model: str, system: str, user: str) -> str | None:
-    """
-    Call OpenRouter chat completions. Returns narrative text or None on failure.
+# ---------------------------------------------------------------------------
+# OpenRouter caller with fallback chain
+# ---------------------------------------------------------------------------
 
-    Retries on HTTP 429 with exponential backoff (honouring a Retry-After
-    header when the API sends one) — free-tier models rate-limit aggressively
-    and a single retry-less attempt fails most calls in a tight loop.
+def _strip_reasoning_tags(text: str) -> str:
+    """Remove <think>…</think> and <reasoning>…</reasoning> preambles."""
+    text = re.sub(r"<think>[\s\S]*?</think>", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"<reasoning>[\s\S]*?</reasoning>", "", text, flags=re.IGNORECASE)
+    return text.strip()
+
+
+def _call_model(api_key: str, model: str, system: str, user: str) -> str | None:
+    """
+    Single model call with exponential backoff on 429. Returns text or None.
     """
     import urllib.request
     import urllib.error
@@ -133,7 +199,7 @@ def _call_openrouter(api_key: str, model: str, system: str, user: str) -> str | 
             {"role": "system", "content": system},
             {"role": "user",   "content": user},
         ],
-        "max_tokens":  450,
+        "max_tokens":  800,
         "temperature": 0.7,
     }).encode("utf-8")
 
@@ -141,10 +207,10 @@ def _call_openrouter(api_key: str, model: str, system: str, user: str) -> str | 
         "https://openrouter.ai/api/v1/chat/completions",
         data=payload,
         headers={
-            "Authorization":  f"Bearer {api_key}",
-            "Content-Type":   "application/json",
-            "HTTP-Referer":   "https://truescout.vercel.app",
-            "X-Title":        "TrueScout WC 2026",
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type":  "application/json",
+            "HTTP-Referer":  "https://truescout.vercel.app",
+            "X-Title":       "TrueScout WC 2026",
         },
         method="POST",
     )
@@ -152,28 +218,47 @@ def _call_openrouter(api_key: str, model: str, system: str, user: str) -> str | 
     backoff = BACKOFF_BASE_S
     for attempt in range(1, MAX_RETRIES + 1):
         try:
-            with urllib.request.urlopen(req, timeout=30) as resp:
+            with urllib.request.urlopen(req, timeout=60) as resp:
                 body = json.loads(resp.read().decode("utf-8"))
-            text = body["choices"][0]["message"]["content"]
-            return text.strip() if text else None
+            raw = body["choices"][0]["message"]["content"]
+            if not raw:
+                return None
+            return _strip_reasoning_tags(raw) or None
         except urllib.error.HTTPError as exc:
             if exc.code == 429 and attempt < MAX_RETRIES:
-                retry_after = exc.headers.get("Retry-After") if exc.headers else None
-                wait = float(retry_after) if retry_after else backoff
-                logger.warning(
-                    "OpenRouter rate-limited (429) — retry %d/%d in %.1fs",
-                    attempt, MAX_RETRIES - 1, wait,
-                )
+                retry_after = None
+                try:
+                    retry_after = float(exc.headers.get("Retry-After", ""))
+                except (TypeError, ValueError):
+                    pass
+                wait = retry_after if retry_after else backoff
+                logger.warning("429 from %s — retry %d/%d in %.1fs", model, attempt, MAX_RETRIES, wait)
                 time.sleep(wait)
                 backoff *= 2
                 continue
-            logger.warning("OpenRouter call failed: HTTP %d %s", exc.code, exc.reason)
+            logger.warning("Model %s HTTP error: %d %s", model, exc.code, exc.reason)
             return None
         except Exception as exc:
-            logger.warning("OpenRouter call failed: %s", exc)
+            logger.warning("Model %s failed: %s", model, exc)
             return None
     return None
 
+
+def _call_openrouter(api_key: str, system: str, user: str) -> tuple[str, str] | None:
+    """
+    Try each model in FALLBACK_MODELS in order. Returns (narrative, model_used) or None.
+    """
+    for model in _FALLBACK_MODELS:
+        narrative = _call_model(api_key, model, system, user)
+        if narrative:
+            return narrative, model
+        logger.warning("Model %s returned no content — trying next fallback", model)
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
 
 def main(
     limit: int = DEFAULT_LIMIT,
@@ -185,8 +270,6 @@ def main(
         logger.info("OPENROUTER_API_KEY not set — skipping narrative pre-generation.")
         return
 
-    model = os.environ.get("OPENROUTER_MODEL", "meta-llama/llama-3.1-8b-instruct:free")
-
     if not PLAYERS_JSON.exists():
         logger.warning("players.json not found at %s — run export_json.py first.", PLAYERS_JSON)
         return
@@ -194,7 +277,6 @@ def main(
     players = json.loads(PLAYERS_JSON.read_text(encoding="utf-8"))
     logger.info("Loaded %d players from players.json.", len(players))
 
-    # Filter and sort: most-confident first (they'll benefit most from a cached report)
     candidates = [
         p for p in players
         if (p.get("confidence_score") or 0) >= min_confidence
@@ -210,9 +292,6 @@ def main(
     generated = 0
     skipped   = 0
     consecutive_failures = 0
-    # 3 consecutive post-retry failures → daily cap hit or model blocked.
-    # Lowered from 8: at ~38s/failed call (MAX_RETRIES backoff), 8 burns 5+ min of CI.
-    CIRCUIT_BREAKER = 3
 
     for p in candidates:
         if generated >= limit:
@@ -228,65 +307,61 @@ def main(
         high_confidence = (p.get("confidence_score") or 0) >= CONFIDENCE_THRESHOLD
         voice  = "data_analyst" if high_confidence else "traditional_scout"
         system = DATA_ANALYST_SYSTEM if high_confidence else TRADITIONAL_SCOUT_SYSTEM
-        user   = _build_user_message(p, high_confidence)
+        user   = _build_fact_bullets(p, high_confidence)
 
-        narrative = _call_openrouter(api_key, model, system, user)
-        if not narrative:
+        result = _call_openrouter(api_key, system, user)
+        if not result:
             consecutive_failures += 1
-            logger.warning("No narrative returned for %s (%s) — skipping.", reep_id, p.get("name"))
+            logger.warning("No narrative for %s (%s)", reep_id, p.get("name"))
             if consecutive_failures >= CIRCUIT_BREAKER:
                 if generated == 0:
                     logger.warning(
-                        "%d consecutive failures with 0 narratives generated — "
-                        "model '%s' may require credits or no longer exist on OpenRouter. "
-                        "Check https://openrouter.ai/models for available free models and "
-                        "update OPENROUTER_MODEL env var if needed.",
-                        consecutive_failures, model,
+                        "%d consecutive all-model failures — all models may require credits "
+                        "or be unavailable. Check https://openrouter.ai/models",
+                        consecutive_failures,
                     )
                 else:
                     logger.warning(
-                        "%d consecutive failures after retry exhaustion — likely the OpenRouter "
-                        "daily free-tier cap (50 req/day without purchased credits). Stopping early; "
-                        "remaining players will be picked up on a future run.",
+                        "%d consecutive failures — likely daily cap hit. "
+                        "Stopping; remaining players picked up on next run.",
                         consecutive_failures,
                     )
                 break
             time.sleep(CALL_DELAY_S)
             continue
-        consecutive_failures = 0
+
+        narrative, model_used = result
+        consecutive_failures  = 0
 
         payload = {
             "narrative":    narrative,
             "voice":        voice,
+            "model":        model_used,
             "generated_at": datetime.now(timezone.utc).isoformat(),
         }
         out_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
         logger.info(
-            "[%d/%d] %s — %s — %d chars",
+            "[%d/%d] %s — %s — %s — %d chars",
             generated + 1, limit,
             p.get("name") or reep_id,
             voice,
+            model_used.split("/")[-1],
             len(narrative),
         )
         generated += 1
         time.sleep(CALL_DELAY_S)
 
     logger.info(
-        "Narrative generation complete: %d generated, %d already cached, %d skipped (no narrative).",
-        generated,
-        skipped,
-        len(candidates) - generated - skipped,
+        "Narrative generation complete: %d generated, %d already cached, %d skipped.",
+        generated, skipped, len(candidates) - generated - skipped,
     )
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(levelname)-8s %(message)s")
     parser = argparse.ArgumentParser(description="Pre-generate player scouting narratives.")
-    parser.add_argument("--limit",          type=int,   default=DEFAULT_LIMIT,
-                        help=f"Max new reports to generate (default {DEFAULT_LIMIT})")
-    parser.add_argument("--min-confidence", type=float, default=DEFAULT_MIN_CONF,
-                        help=f"Minimum confidence_score to include (default {DEFAULT_MIN_CONF})")
-    parser.add_argument("--force",          action="store_true",
-                        help="Overwrite existing cached reports")
+    parser.add_argument("--limit",          type=int,   default=DEFAULT_LIMIT)
+    parser.add_argument("--min-confidence", type=float, default=DEFAULT_MIN_CONF)
+    parser.add_argument("--force",          action="store_true")
     args = parser.parse_args()
     main(limit=args.limit, min_confidence=args.min_confidence, force=args.force)

@@ -1,10 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { generateNarrative, type NarrativeResponse } from "@/lib/api"
 
-type Status = "idle" | "generating" | "done" | "error"
+type Status = "loading" | "idle" | "generating" | "done" | "error"
 
 function VoiceBadge({ voice }: { voice: NarrativeResponse["voice"] }) {
   const label    = voice === "data_analyst" ? "Data Analyst" : "Traditional Scout"
@@ -22,9 +22,32 @@ function VoiceBadge({ voice }: { voice: NarrativeResponse["voice"] }) {
 }
 
 export default function TacticalAnalysis({ reepId }: { reepId: string }) {
-  const [status,   setStatus]   = useState<Status>("idle")
+  const [status,   setStatus]   = useState<Status>("loading")
   const [result,   setResult]   = useState<NarrativeResponse | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+  // On mount: probe for a pre-generated narrative JSON.
+  // If found, display instantly without requiring user interaction.
+  useEffect(() => {
+    let cancelled = false
+    async function probePregen() {
+      try {
+        const res = await fetch(`/data/narratives/${reepId}.json`, { cache: "no-store" })
+        if (cancelled) return
+        if (res.ok) {
+          const data = (await res.json()) as { narrative: string; voice: NarrativeResponse["voice"] }
+          if (data.narrative) {
+            setResult({ narrative: data.narrative, voice: data.voice ?? "data_analyst" })
+            setStatus("done")
+            return
+          }
+        }
+      } catch { /* file not found or network error — fall through to idle */ }
+      if (!cancelled) setStatus("idle")
+    }
+    probePregen()
+    return () => { cancelled = true }
+  }, [reepId])
 
   async function handleGenerate() {
     setStatus("generating")
@@ -42,6 +65,7 @@ export default function TacticalAnalysis({ reepId }: { reepId: string }) {
   const showNarrative = status === "done"
   const showButton    = status === "idle" || status === "error"
   const isGenerating  = status === "generating"
+  const isLoading     = status === "loading"
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
@@ -81,7 +105,7 @@ export default function TacticalAnalysis({ reepId }: { reepId: string }) {
 
       {/* Body */}
       <AnimatePresence mode="wait">
-        {isGenerating && (
+        {(isLoading || isGenerating) && (
           <motion.div
             key="skeleton"
             initial={{ opacity: 0 }}
@@ -164,7 +188,7 @@ export default function TacticalAnalysis({ reepId }: { reepId: string }) {
         )}
       </AnimatePresence>
 
-      {/* Generate button */}
+      {/* Generate button — shown only when no pre-gen available */}
       <AnimatePresence>
         {showButton && (
           <motion.button

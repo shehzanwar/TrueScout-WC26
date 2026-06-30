@@ -326,6 +326,18 @@ export default function MatchCard({ match }: { match: Matchup }) {
               {home.rest_days}d rest
             </span>
           )}
+          {home.travel_km != null && !is_completed && (
+            <span
+              className={`text-[10px] font-medium tabular-nums ${
+                home.travel_km >= 2000 ? "text-amber-500" : "text-slate-600"
+              }`}
+              title={`${home.travel_km.toLocaleString()} km travelled to this venue`}
+            >
+              {home.travel_km >= 1000
+                ? `${(home.travel_km / 1000).toFixed(1)}k km`
+                : `${home.travel_km} km`}
+            </span>
+          )}
         </div>
 
         {/* Score / vs */}
@@ -353,6 +365,18 @@ export default function MatchCard({ match }: { match: Matchup }) {
               title={`${away.rest_days}d since last match`}
             >
               {away.rest_days}d rest
+            </span>
+          )}
+          {away.travel_km != null && !is_completed && (
+            <span
+              className={`text-[10px] font-medium tabular-nums ${
+                away.travel_km >= 2000 ? "text-amber-500" : "text-slate-600"
+              }`}
+              title={`${away.travel_km.toLocaleString()} km travelled to this venue`}
+            >
+              {away.travel_km >= 1000
+                ? `${(away.travel_km / 1000).toFixed(1)}k km`
+                : `${away.travel_km} km`}
             </span>
           )}
         </div>

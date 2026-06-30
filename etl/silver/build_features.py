@@ -104,22 +104,24 @@ def _position_source(reep_pos: str | None, sc_pos: str | None, us_pos: str | Non
 
 _WC_AGG_SQL = """
 SELECT
-    CAST(player_id AS VARCHAR)          AS sofascore_id,
-    ANY_VALUE(player_name)              AS wc_player_name,
-    COUNT(*)                            AS wc_matches,
-    SUM(minutes_played)                 AS wc_minutes,
-    SUM(COALESCE(goals, 0))             AS wc_goals_raw,
-    SUM(COALESCE(assists, 0))           AS wc_assists_raw,
-    SUM(xg)                             AS wc_xg_raw,
-    SUM(xa)                             AS wc_xa_raw,
-    SUM(COALESCE(shots, 0))             AS wc_shots_raw,
-    SUM(COALESCE(shots_on_target, 0))   AS wc_sot_raw,
-    SUM(COALESCE(key_passes, 0))        AS wc_key_passes_raw,
-    SUM(COALESCE(tackles, 0))           AS wc_tackles_raw,
-    SUM(COALESCE(interceptions, 0))     AS wc_interceptions_raw,
-    SUM(COALESCE(clearances, 0))        AS wc_clearances_raw,
-    SUM(COALESCE(saves, 0))             AS wc_saves_raw,
-    AVG(rating)                         AS wc_rating_avg
+    CAST(player_id AS VARCHAR)              AS sofascore_id,
+    ANY_VALUE(player_name)                  AS wc_player_name,
+    COUNT(*)                                AS wc_matches,
+    SUM(minutes_played)                     AS wc_minutes,
+    SUM(COALESCE(goals, 0))                 AS wc_goals_raw,
+    SUM(COALESCE(assists, 0))               AS wc_assists_raw,
+    SUM(xg)                                 AS wc_xg_raw,
+    SUM(xa)                                 AS wc_xa_raw,
+    SUM(COALESCE(shots, 0))                 AS wc_shots_raw,
+    SUM(COALESCE(shots_on_target, 0))       AS wc_sot_raw,
+    SUM(COALESCE(key_passes, 0))            AS wc_key_passes_raw,
+    SUM(COALESCE(tackles, 0))               AS wc_tackles_raw,
+    SUM(COALESCE(interceptions, 0))         AS wc_interceptions_raw,
+    SUM(COALESCE(clearances, 0))            AS wc_clearances_raw,
+    SUM(COALESCE(saves, 0))                 AS wc_saves_raw,
+    SUM(COALESCE(passes_completed, 0))      AS wc_passes_completed_raw,
+    SUM(COALESCE(passes_attempted, 0))      AS wc_passes_attempted_raw,
+    AVG(rating)                             AS wc_rating_avg
 FROM read_parquet('{lineup_glob}', union_by_name=true)
 WHERE minutes_played > 0
 GROUP BY player_id
@@ -149,6 +151,7 @@ WHERE rn = 1
 _PER90_STATS = [
     "goals", "assists", "xg", "xa", "shots", "sot",
     "key_passes", "tackles", "interceptions", "clearances", "saves",
+    "passes_completed",
 ]
 
 
@@ -156,6 +159,7 @@ _PER90_CAPS: dict[str, float] = {
     "xg": 1.8, "goals": 2.5, "assists": 2.5, "xa": 1.8,
     "shots": 12.0, "sot": 8.0, "key_passes": 8.0,
     "tackles": 10.0, "interceptions": 10.0, "clearances": 15.0, "saves": 8.0,
+    "passes_completed": 120.0,
 }
 
 
@@ -164,6 +168,7 @@ def _per90(df: pd.DataFrame) -> pd.DataFrame:
 
     Caps prevent sub-3-minute appearances from producing physically impossible
     per-90 values (e.g. a player scoring once in 1 min → xg_per_90 ≈ 90).
+    Also computes wc_pass_completion_pct from raw sums.
     """
     mins = df["wc_minutes"].clip(lower=1e-6)
     for stat in _PER90_STATS:
@@ -174,6 +179,14 @@ def _per90(df: pd.DataFrame) -> pd.DataFrame:
             if cap is not None:
                 val = val.clip(upper=cap)
             df[f"wc_{stat}_per_90"] = val
+
+    # Pass completion % — derived from cumulative raw sums (not per-90)
+    if "wc_passes_completed_raw" in df.columns and "wc_passes_attempted_raw" in df.columns:
+        attempted = df["wc_passes_attempted_raw"].replace(0, float("nan"))
+        df["wc_pass_completion_pct"] = (
+            df["wc_passes_completed_raw"] / attempted * 100.0
+        ).clip(lower=0.0, upper=100.0)
+
     return df
 
 
@@ -183,7 +196,9 @@ _WC_AGG_COLS = [
     "sofascore_id", "wc_player_name", "wc_matches",
     "wc_minutes", "wc_goals_raw", "wc_assists_raw", "wc_xg_raw", "wc_xa_raw",
     "wc_shots_raw", "wc_sot_raw", "wc_key_passes_raw", "wc_tackles_raw",
-    "wc_interceptions_raw", "wc_clearances_raw", "wc_saves_raw", "wc_rating_avg",
+    "wc_interceptions_raw", "wc_clearances_raw", "wc_saves_raw",
+    "wc_passes_completed_raw", "wc_passes_attempted_raw",
+    "wc_rating_avg",
     "wc_sc_position",  # added by _WC_POS_SQL merge
 ]
 

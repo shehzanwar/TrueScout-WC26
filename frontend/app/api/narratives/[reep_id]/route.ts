@@ -14,7 +14,30 @@ import path from "path"
 import { NextRequest, NextResponse } from "next/server"
 import type { PlayerResponse } from "@/lib/api"
 
+export const runtime = "nodejs"
+export const maxDuration = 60
+export const dynamic = "force-dynamic"
+
 const CONFIDENCE_THRESHOLD = 0.7
+
+// Module-level cache — shared within a warm Lambda instance; avoids 4 MB reads per request
+let _playersCache: PlayerResponse[] | null = null
+function getPlayers(): PlayerResponse[] {
+  if (!_playersCache) {
+    const filePath = path.join(process.cwd(), "public", "data", "players.json")
+    _playersCache = JSON.parse(readFileSync(filePath, "utf-8")) as PlayerResponse[]
+  }
+  return _playersCache
+}
+
+// Primary model from env; three hardcoded fallbacks tried in order on failure
+const _ENV_MODEL = process.env.OPENROUTER_MODEL ?? "poolside/laguna-m.1:free"
+const FALLBACK_MODELS = [
+  _ENV_MODEL,
+  "google/gemma-3-27b-it:free",
+  "nvidia/llama-3.1-nemotron-70b-instruct:free",
+  "meta-llama/llama-3.3-70b-instruct:free",
+]
 
 const _ANTI_YAPPING =
   "\n\nCRITICAL FORMATTING RULE: Do NOT output your chain of thought, reasoning process, " +
@@ -46,6 +69,13 @@ const TRADITIONAL_SCOUT_SYSTEM =
   "Focus on their tactical role and positional characteristics." +
   _ANTI_YAPPING +
   _JARGON_BAN
+
+function stripReasoningTags(text: string): string {
+  return text
+    .replace(/<think>[\s\S]*?<\/think>/gi, "")
+    .replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, "")
+    .trim()
+}
 
 function buildUserMessage(p: PlayerResponse, highConfidence: boolean): string {
   const name        = p.name ?? p.reep_id
@@ -88,12 +118,10 @@ export async function POST(
 ) {
   const { reep_id } = await params
 
-  // ── Load player from static JSON ─────────────────────────────────────────
+  // ── Load player from static JSON (module-level cache) ────────────────────
   let player: PlayerResponse | undefined
   try {
-    const filePath = path.join(process.cwd(), "public", "data", "players.json")
-    const players  = JSON.parse(readFileSync(filePath, "utf-8")) as PlayerResponse[]
-    player         = players.find((p) => p.reep_id === reep_id)
+    player = getPlayers().find((p) => p.reep_id === reep_id)
   } catch (err) {
     console.error("[narratives] Failed to load players.json for", reep_id, err)
     return NextResponse.json(
@@ -120,52 +148,70 @@ export async function POST(
   const voice          = highConfidence ? "data_analyst" : "traditional_scout"
   const systemPrompt   = highConfidence ? DATA_ANALYST_SYSTEM : TRADITIONAL_SCOUT_SYSTEM
   const userMessage    = buildUserMessage(player, highConfidence)
-  const model = process.env.OPENROUTER_MODEL ?? "google/gemma-4-31b-it:free"
 
-  // ── Call OpenRouter ───────────────────────────────────────────────────────
-  let resp: Response
-  try {
-    resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization:  `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://truescout.vercel.app",
-        "X-Title":      "TrueScout WC 2026",
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user",   content: userMessage  },
-        ],
-        max_tokens:  450,
-        temperature: 0.7,
-      }),
-      signal: AbortSignal.timeout(25_000),
-    })
-  } catch (err) {
-    const reason = err instanceof Error ? err.message : "Network error"
-    console.error("[narratives] OpenRouter request failed for", reep_id, reason)
-    return NextResponse.json({ error: reason }, { status: 502 })
-  }
-
-  if (!resp.ok) {
-    let reason = `OpenRouter returned ${resp.status}`
+  // ── Fallback model chain ──────────────────────────────────────────────────
+  let lastError = ""
+  for (const model of FALLBACK_MODELS) {
+    let resp: Response
     try {
-      const errBody = await resp.json() as { error?: { message?: string } }
-      if (errBody?.error?.message) reason = errBody.error.message
-    } catch { /* ignore JSON parse failure */ }
-    console.error("[narratives] OpenRouter error for", reep_id, resp.status, reason)
-    return NextResponse.json({ error: reason }, { status: 502 })
+      resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization:  `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": "https://truescout.vercel.app",
+          "X-Title":      "TrueScout WC 2026",
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user",   content: userMessage  },
+          ],
+          max_tokens:  800,
+          temperature: 0.7,
+        }),
+        signal: AbortSignal.timeout(55_000),
+      })
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : "Network error"
+      console.warn("[narratives] Model", model, "network error:", lastError)
+      continue
+    }
+
+    if (!resp.ok) {
+      try {
+        const errBody = await resp.json() as { error?: { message?: string } }
+        lastError = errBody?.error?.message ?? `OpenRouter returned ${resp.status}`
+      } catch { lastError = `OpenRouter returned ${resp.status}` }
+      console.warn("[narratives] Model", model, "returned", resp.status, lastError)
+      continue
+    }
+
+    const data = (await resp.json()) as { choices?: { message?: { content?: string } }[] }
+    const raw  = data.choices?.[0]?.message?.content?.trim()
+    if (!raw) {
+      lastError = "empty response"
+      console.warn("[narratives] Model", model, "returned empty content for", reep_id)
+      continue
+    }
+
+    const narrative = stripReasoningTags(raw)
+    if (!narrative) {
+      lastError = "reasoning-only response (no content after stripping think tags)"
+      console.warn("[narratives] Model", model, ":", lastError, "for", reep_id)
+      continue
+    }
+
+    if (model !== FALLBACK_MODELS[0]) {
+      console.info("[narratives] Used fallback model", model, "for", reep_id)
+    }
+    return NextResponse.json({ narrative, voice })
   }
 
-  const data      = (await resp.json()) as { choices?: { message?: { content?: string } }[] }
-  const narrative = data.choices?.[0]?.message?.content?.trim()
-  if (!narrative) {
-    console.error("[narratives] OpenRouter returned empty content for", reep_id)
-    return NextResponse.json({ error: "OpenRouter returned empty response" }, { status: 502 })
-  }
-
-  return NextResponse.json({ narrative, voice })
+  console.error("[narratives] All models failed for", reep_id, "— last error:", lastError)
+  return NextResponse.json(
+    { error: lastError || "All AI models unavailable" },
+    { status: 502 }
+  )
 }

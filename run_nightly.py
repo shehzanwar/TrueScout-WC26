@@ -2,15 +2,17 @@
 TrueScout — Nightly Batch Orchestrator
 =======================================
 Runs the full pipeline in dependency order:
-  1. ESPN pull          (knockout matches + odds)
-  2. Sofascore pull     (knockout lineups / stats)
-  3. Load group stage   (upsert new matches to Silver)
-  4. Load identity      (Reep people.parquet → identity_players crosswalk)
-  5. Build features     (unified Silver feature matrix)
-  6. Bayesian ratings   (update posteriors with new WC likelihood)
-  7. Monte Carlo sim    (re-simulate remaining bracket)
-  8. Brier tracker      (grade model against new market odds)
-  9. Export JSON        (write frontend/public/data/*.json for Vercel)
+  1.   ESPN pull          (knockout matches + odds)
+  2.   Sofascore pull     (knockout lineups / stats)
+  3.   Load group stage   (upsert new matches to Silver)
+  4.   Load identity      (Reep people.parquet → identity_players crosswalk)
+  5.   Build features     (unified Silver feature matrix)
+  6.   Bayesian ratings   (update posteriors with new WC likelihood)
+  7.   Monte Carlo sim    (re-simulate remaining bracket)
+  8.   Brier tracker      (grade model against new market odds)
+  9.   Export JSON        (write frontend/public/data/*.json for Vercel)
+  9.5. Verify outputs     (hard assertions on exported JSON — hard-fail gate)
+  9.6. Narrative pre-gen  (OpenRouter; soft-fail — rate limits are expected)
 
 Designed for Windows Task Scheduler (single-user V1) and GitHub Actions.
 
@@ -107,6 +109,8 @@ def run_pipeline() -> dict[str, bool]:
     from etl.models.monte_carlo_sim      import main as sim_main
     from etl.models.brier_tracker        import main as brier_main
     from etl.export_json                 import main as export_main
+    from etl.verify_outputs              import main as verify_main
+    from etl.models.generate_narratives  import main as narratives_main
 
     results: dict[str, bool] = {}
 
@@ -171,6 +175,19 @@ def run_pipeline() -> dict[str, bool]:
         export_main,
     )
 
+    # Step 9.5 — Verify exported JSON (hard-fail: bad data must not reach Vercel)
+    results["9_verify_outputs"] = _step(
+        "Verify exported JSON",
+        verify_main,
+        hard_fail=True,
+    )
+
+    # Step 9.6 — Pre-generate narratives (soft-fail: free-tier rate limits are expected)
+    results["9_narratives"] = _step(
+        "Narrative pre-generation",
+        narratives_main,
+    )
+
     return results
 
 
@@ -207,9 +224,10 @@ def main() -> None:
     # ── Exit logic: distinguish ingestion failures from pipeline failures ────
     # Ingestion steps (1–3) are non-critical: Sofascore is permanently blocked
     # on GitHub Actions datacenter IPs.  Only math/export failures are fatal.
-    _INGESTION = {"1_espn_pull", "2_sofascore_pull", "3_load_matches", "4_load_identity"}
+    _INGESTION = {"1_espn_pull", "2_sofascore_pull", "3_load_matches", "4_load_identity",
+                  "9_narratives"}   # narrative pre-gen: soft-fail (rate limits expected)
     _CRITICAL  = {"5_build_features", "6_bayesian_ratings", "7_monte_carlo_sim",
-                  "8_brier_tracker", "9_export_json"}
+                  "8_brier_tracker", "9_export_json", "9_verify_outputs"}
 
     failed            = {k for k, ok in results.items() if not ok}
     critical_failures = failed & _CRITICAL

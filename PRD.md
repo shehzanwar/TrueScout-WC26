@@ -50,11 +50,12 @@ The MVP is successful if:
 4. **Brier-score tracker.** After each round, compares TrueScout's match probabilities to
    betting-market odds and logs the Brier score for both — a measured calibration check, not a
    "we beat the market" claim.
-5. **RAG "Tactical Storytelling."** A confidence-gated, role-aware narrative layer (OpenRouter free
-   model). High-confidence players get a metrics-driven "Data Analyst" voice; sparse-data players get
-   a "Traditional Scout" voice that is explicitly forbidden from inventing stats. Reports are generated
-   **on-demand** when the user clicks "Generate Scouting Report" — no nightly pre-generation (OpenRouter
-   free-tier rate limits make automated batch impractical).
+5. **RAG "Tactical Storytelling."** A confidence-gated, role-aware narrative layer (OpenRouter —
+   primary: Poolside Laguna M.1; fallback chain: Gemma 4 31B → Nemotron 3 Super 120B → Llama 3.3 70B).
+   High-confidence players get a metrics-driven "Data Analyst" voice; sparse-data players get a
+   "Traditional Scout" voice explicitly forbidden from inventing stats. Reports are generated
+   **on-demand** now; planned PR7 moves to nightly pre-generation with a templated anti-hallucination
+   pattern (Python builds fact bullets; LLM only rephrases — cannot invent numbers).
 
 ---
 
@@ -72,6 +73,26 @@ outcomes":
 - **Data-quality fixes** — national-team derivation from lineups (vs. bio nationality), position
   override file, team-name alias normalization, market-odds backfill, an audit script to catch
   future regressions of these classes of bug.
+
+## V2 — Phase 5 Feature Queue (planned, not yet shipped)
+
+Sequenced by the Phase 5 roadmap in `BOARD.md`:
+- **AI Analyst stabilization** — Vercel runtime config (`maxDuration = 60`), reasoning-tag strip,
+  fallback model chain (Laguna M.1 → Gemma 4 31B → Nemotron → Llama); `players.json` module-level
+  cache. Unblocks reliable narrative generation.
+- **Data-integrity completions** — Rating Breakdown jargon removed from UI; full `market_odds_archive`
+  (bookies odds visible on every completed match); standalone `verify_outputs.py` gate in nightly
+  pipeline; haversine travel-km chip on MatchCard.
+- **Narrative pre-generation (PR7)** — nightly `generate_narratives.py` with templated anti-hallucination
+  pattern; frontend instant-display for pre-gen players; runtime fallback for sparse-data players.
+- **LLM-polished story/preview cards** — "Story of the day" (overnight sim swing headlines) and
+  per-match 80-word AI previews generated each matchday.
+- **Untapped data utilization** — discipline (yellow/red card posterior + Cards Watch); age cohort
+  field; "Who plays like X?" similarity chip; pass completion / dribbles / duels; npxG vs xG
+  finishing decomposition; Golden Boot/Ball Monte Carlo projections.
+- **Engine extensions (deferred)** — time-aware Bayesian v2 (blocked on per-match data-flow refactor);
+  empirical hyperparameter calibration (blocked on ≥20 graded matches); team-level Bayesian posterior;
+  Dixon-Coles scoreline model.
 
 ---
 

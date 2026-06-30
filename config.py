@@ -20,7 +20,7 @@ class Settings(BaseSettings):
 
     # --- API keys ---
     openrouter_api_key: str = ""
-    openrouter_model: str = "nvidia/nemotron-3-ultra-550b-a55b:free"
+    openrouter_model: str = "poolside/laguna-m.1:free"
 
     # --- Storage ---
     duckdb_path: str = str(ROOT_DIR / "data" / "truescout.duckdb")

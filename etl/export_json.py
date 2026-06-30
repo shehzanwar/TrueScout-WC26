@@ -120,6 +120,109 @@ def export_simulations(conn) -> dict:
 # Rest-days helper for matchups (PR5b.1)
 # ---------------------------------------------------------------------------
 
+def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Great-circle distance in km between two (lat, lon) points."""
+    R = 6_371.0
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = (math.sin(dlat / 2) ** 2
+         + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2))
+         * math.sin(dlon / 2) ** 2)
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+def _venue_coords() -> dict[str, tuple[float, float]]:
+    """Load venues_2026.json and return {venue_name_lower: (lat, lon)}."""
+    venues_path = ROOT_DIR / "data" / "static" / "venues_2026.json"
+    try:
+        raw = json.loads(venues_path.read_text(encoding="utf-8"))
+        return {
+            k.lower(): (float(v["lat"]), float(v["lon"]))
+            for k, v in raw.get("venues", {}).items()
+        }
+    except Exception as exc:
+        print(f"Warning: could not load venues_2026.json: {exc}", file=sys.stderr)
+        return {}
+
+
+def _build_travel_km(matches_glob: str) -> dict[str, tuple[int | None, int | None]]:
+    """
+    For every match in Bronze, compute how far each team travelled since their
+    previous match (great-circle distance between venue coordinates).
+
+    Returns: {event_id_str: (home_travel_km, away_travel_km)}
+    Either element is None when the team's previous venue is unknown or the
+    current venue could not be resolved.
+    """
+    coords = _venue_coords()
+    if not coords:
+        return {}
+
+    import duckdb as _duckdb
+    try:
+        tmp = _duckdb.connect()
+        df = tmp.execute(f"""
+            SELECT
+                CAST(event_id AS VARCHAR) AS event_id,
+                home_team_name, away_team_name,
+                CAST(match_date AS DATE) AS match_date,
+                venue_name
+            FROM read_parquet('{matches_glob}', union_by_name=true)
+            WHERE match_date IS NOT NULL
+            ORDER BY match_date
+        """).df()
+        tmp.close()
+    except Exception:
+        return {}
+
+    if df.empty:
+        return {}
+
+    def _resolve_venue(name: str | None) -> tuple[float, float] | None:
+        if not name:
+            return None
+        key = name.lower().strip()
+        if key in coords:
+            return coords[key]
+        # Partial-match fallback: pick the venue whose name is a substring of the ESPN name
+        for venue_key, latlon in coords.items():
+            if venue_key in key or key in venue_key:
+                return latlon
+        return None
+
+    df["match_date"] = pd.to_datetime(df["match_date"])
+    df["home_norm"]  = df["home_team_name"].map(lambda n: _norm_team(n) or n)
+    df["away_norm"]  = df["away_team_name"].map(lambda n: _norm_team(n) or n)
+
+    # Track last venue coords per team (in match_date order)
+    team_last_venue: dict[str, tuple[float, float] | None] = {}
+    result: dict[str, tuple[int | None, int | None]] = {}
+
+    for _, row in df.sort_values("match_date").iterrows():
+        ev          = str(row["event_id"])
+        h_name      = str(row["home_norm"])
+        a_name      = str(row["away_norm"])
+        venue_latlon = _resolve_venue(row.get("venue_name"))
+
+        def _travel(team: str) -> int | None:
+            if venue_latlon is None:
+                return None
+            prev = team_last_venue.get(team)
+            if prev is None:
+                return None
+            km = _haversine_km(prev[0], prev[1], venue_latlon[0], venue_latlon[1])
+            return int(round(km))
+
+        result[ev] = (_travel(h_name), _travel(a_name))
+
+        # Update last venue for both teams after processing this match
+        if venue_latlon is not None:
+            team_last_venue[h_name] = venue_latlon
+            team_last_venue[a_name] = venue_latlon
+
+    return result
+
+
 def _build_rest_days(matches_glob: str) -> dict[str, tuple[int | None, int | None]]:
     """
     For every match in Bronze, compute how many days each team rested since
@@ -187,16 +290,69 @@ def _build_rest_days(matches_glob: str) -> dict[str, tuple[int | None, int | Non
 # Matchups  (all rounds in one object keyed by round code)
 # ---------------------------------------------------------------------------
 
+def _populate_market_odds_archive(conn, odds_glob: str) -> int:
+    """
+    Read all Bronze ESPN odds Parquets and INSERT OR IGNORE into market_odds_archive.
+
+    Uses "first seen wins" semantics — once odds are recorded for an event they
+    are never overwritten, so pre-match odds survive even if ESPN later strips them.
+    Returns the count of new rows inserted.
+    """
+    import duckdb as _duckdb
+    # Check if any odds parquets exist
+    odds_dir = Path(odds_glob.replace("/*.parquet", ""))
+    if not odds_dir.is_dir() or not list(odds_dir.glob("*.parquet")):
+        return 0
+    try:
+        result = conn.execute(f"""
+            INSERT OR IGNORE INTO market_odds_archive
+                (event_id, first_seen, home_win_prob, draw_prob, away_win_prob, fetched_at)
+            SELECT
+                CAST(o.event_id AS VARCHAR),
+                CAST(o.match_date AS DATE),
+                o.home_win_prob,
+                o.draw_prob,
+                o.away_win_prob,
+                COALESCE(CAST(o.fetched_at AS TIMESTAMP), now())
+            FROM read_parquet('{odds_glob}', union_by_name=true) o
+            WHERE o.home_win_prob IS NOT NULL
+              AND o.event_id IS NOT NULL
+        """)
+        return result.rowcount if hasattr(result, "rowcount") else 0
+    except Exception as exc:
+        print(f"Warning: market_odds_archive populate failed: {exc}", file=sys.stderr)
+        return 0
+
+
 def export_matchups(conn) -> dict:
     bronze       = Path(settings.parquet_bronze_dir)
     matches_glob = (bronze / "espn" / "matches" / "*.parquet").as_posix()
     odds_glob    = (bronze / "espn" / "odds"    / "*.parquet").as_posix()
 
-    # Pre-compute rest days for every match (PR5b.1)
-    rest_days_map = _build_rest_days(matches_glob)
+    # Snapshot all Bronze odds into the archive before reading (first-seen-wins)
+    _populate_market_odds_archive(conn, odds_glob)
 
-    # Build a fallback odds map from brier_log for completed matches whose
-    # live ESPN odds were stripped after kickoff (5a.5 — retrospective backfill).
+    # Pre-compute rest days and travel km for every match (PR5b.1 / PR5c.5)
+    rest_days_map  = _build_rest_days(matches_glob)
+    travel_km_map  = _build_travel_km(matches_glob)
+
+    # Build fallback odds maps for matches where live ESPN odds were stripped:
+    #   1. market_odds_archive — first-seen snapshot from any historical fetch
+    #   2. brier_log — market prob logged at match grading time
+    archive_odds: dict[str, tuple[float | None, float | None]] = {}
+    try:
+        arch_rows = conn.execute("""
+            SELECT event_id, home_win_prob, draw_prob, away_win_prob
+            FROM market_odds_archive
+        """).fetchall()
+        for ev, hw, dp, aw in arch_rows:
+            if ev is not None and hw is not None and aw is not None:
+                dp_f = float(dp) if dp is not None else 0.0
+                market_home = round(float(hw) + dp_f * 0.5, 4)
+                archive_odds[str(ev)] = (market_home, round(1.0 - market_home, 4))
+    except Exception:
+        pass
+
     brier_odds: dict[str, tuple[float | None, float | None]] = {}
     try:
         brier_rows = conn.execute("""
@@ -259,9 +415,12 @@ def export_matchups(conn) -> dict:
                 except (TypeError, ValueError):
                     pass
 
-            # 5a.5 — backfill from brier_log when ESPN stripped live odds
-            if market_home is None and str(event_id) in brier_odds:
-                market_home, market_away = brier_odds[str(event_id)]
+            # Backfill from archive then brier_log when ESPN stripped live odds
+            ev_str = str(event_id)
+            if market_home is None and ev_str in archive_odds:
+                market_home, market_away = archive_odds[ev_str]
+            if market_home is None and ev_str in brier_odds:
+                market_home, market_away = brier_odds[ev_str]
 
             model_home = sim_map.get(h_norm)
             model_away = sim_map.get(a_norm)
@@ -270,7 +429,8 @@ def export_matchups(conn) -> dict:
             if model_away is not None:
                 model_away = round(model_away, 4)
 
-            h_rest, a_rest = rest_days_map.get(str(event_id), (None, None))
+            h_rest, a_rest   = rest_days_map.get(str(event_id), (None, None))
+            h_km,   a_km     = travel_km_map.get(str(event_id), (None, None))
 
             matches.append({
                 "event_id":    str(event_id),
@@ -284,6 +444,7 @@ def export_matchups(conn) -> dict:
                     "model_advance_prob": model_home,
                     "market_advance_prob": market_home,
                     "rest_days":          h_rest,
+                    "travel_km":          h_km,
                 },
                 "away": {
                     "name":               a_norm,
@@ -292,6 +453,7 @@ def export_matchups(conn) -> dict:
                     "model_advance_prob": model_away,
                     "market_advance_prob": market_away,
                     "rest_days":          a_rest,
+                    "travel_km":          a_km,
                 },
             })
 
@@ -583,10 +745,12 @@ _RAW_STAT_COLS: list[str] = [
     "wc_matches", "wc_goals_raw", "wc_assists_raw", "wc_xg_raw", "wc_xa_raw",
     "wc_shots_raw", "wc_sot_raw", "wc_key_passes_raw",
     "wc_tackles_raw", "wc_interceptions_raw", "wc_clearances_raw", "wc_saves_raw",
+    "wc_passes_completed_raw", "wc_passes_attempted_raw",
     "wc_goals_per_90", "wc_assists_per_90", "wc_xg_per_90", "wc_xa_per_90",
     "wc_shots_per_90", "wc_sot_per_90", "wc_key_passes_per_90",
     "wc_tackles_per_90", "wc_interceptions_per_90", "wc_clearances_per_90",
-    "wc_saves_per_90", "wc_rating_adjusted",
+    "wc_saves_per_90", "wc_passes_completed_per_90", "wc_pass_completion_pct",
+    "wc_rating_adjusted",
     "has_prior", "prior_goals_per_90", "prior_assists_per_90",
     "prior_xg_per_90", "prior_xa_per_90", "prior_shots_per_90",
     "prior_key_passes_per_90", "prior_minutes",
@@ -908,6 +1072,7 @@ def export_players(conn) -> list:
             pr.reep_id,
             ip.name,
             ip.nationality,
+            ip.date_of_birth,
             ip.position_detail,
             pr.position_macro,
             pr.position_micro,
@@ -932,8 +1097,10 @@ def export_players(conn) -> list:
     """).fetchall()
 
     players = []
+    WC_START = pd.Timestamp("2026-06-11")  # FIFA WC 2026 opening match
+
     for row in rows:
-        (reep_id, name, nationality, position_detail,
+        (reep_id, name, nationality, date_of_birth, position_detail,
          position_macro, position_micro, cluster_id, cluster_label, position_bucket,
          prior_mean, posterior_mean, posterior_std, hdi_low, hdi_high,
          shrinkage_weight, wc_minutes, confidence_score, percentile_rank, prior_pct) = row
@@ -945,11 +1112,31 @@ def export_players(conn) -> list:
         log = match_logs.get(reep_id)
         nt  = national_teams.get(reep_id)
 
+        # Age at tournament start
+        age_at_wc: int | None = None
+        age_cohort: str | None = None
+        if date_of_birth is not None:
+            try:
+                dob = pd.Timestamp(date_of_birth)
+                age_at_wc = int((WC_START - dob).days // 365.25)
+                if age_at_wc <= 21:
+                    age_cohort = "u21"
+                elif age_at_wc <= 26:
+                    age_cohort = "22-26"
+                elif age_at_wc <= 31:
+                    age_cohort = "27-31"
+                else:
+                    age_cohort = "32+"
+            except Exception:
+                pass
+
         p: dict = {
             "reep_id":          reep_id,
             "name":             _safe_str(name),
             "nationality":      _safe_str(nationality),
             "national_team":    nt,
+            "age_at_wc":        age_at_wc,
+            "age_cohort":       age_cohort,
             "position_detail":  _safe_str(position_detail),
             "position_macro":   position_macro,
             "position_micro":   _safe_str(position_micro),
@@ -1010,6 +1197,134 @@ def export_players(conn) -> list:
 
 
 # ---------------------------------------------------------------------------
+# Insights  (Story of the day — top favorites, value picks, overnight deltas)
+# ---------------------------------------------------------------------------
+
+def export_insights(
+    sims: dict,
+    matchups: dict,
+    players: list,
+    prev_sims: dict | None = None,
+) -> dict:
+    """
+    Build insights.json: a compact summary of the current tournament state for
+    the home-page insight cards.
+
+    Sections:
+      - top_favorites:  top-5 teams by title_prob from the earliest sim round
+      - value_picks:    up to 3 matchups where |model - market| >= 5pp (home advantage)
+      - next_match:     the next scheduled (not yet completed) fixture
+      - overnight:      list of biggest title_prob swings vs prev_sims (may be empty)
+    """
+    from datetime import datetime as _dt, timezone as _tz
+
+    # ── Top favorites ────────────────────────────────────────────────────────
+    first_round_teams: list[dict] = []
+    if sims.get("rounds"):
+        first_round_teams = sims["rounds"][0].get("teams", [])
+    top_favorites = [
+        {"team": t["team_id"], "title_prob": t["title_prob"]}
+        for t in sorted(first_round_teams, key=lambda x: -(x.get("title_prob") or 0))
+        if t.get("title_prob") is not None
+    ][:5]
+
+    # ── Value picks  (|model - market| >= 5pp on upcoming matches) ──────────
+    value_picks: list[dict] = []
+    for rnd_code, rnd in matchups.items():
+        for m in rnd.get("matches", []):
+            if m.get("is_completed"):
+                continue
+            h = m.get("home", {})
+            a = m.get("away", {})
+            mp = h.get("model_advance_prob")
+            bk = h.get("market_advance_prob")
+            if mp is None or bk is None:
+                continue
+            edge = round(mp - bk, 4)
+            if abs(edge) >= 0.05:
+                value_picks.append({
+                    "event_id":    m["event_id"],
+                    "match_date":  m["match_date"],
+                    "home":        h.get("name"),
+                    "away":        a.get("name"),
+                    "model_home":  mp,
+                    "market_home": bk,
+                    "edge":        edge,
+                })
+    value_picks.sort(key=lambda x: -abs(x["edge"]))
+    value_picks = value_picks[:3]
+
+    # ── Next match ───────────────────────────────────────────────────────────
+    next_match: dict | None = None
+    upcoming = []
+    for rnd_code, rnd in matchups.items():
+        for m in rnd.get("matches", []):
+            if not m.get("is_completed") and m.get("match_date"):
+                upcoming.append(m)
+    if upcoming:
+        upcoming.sort(key=lambda m: m["match_date"])
+        nm = upcoming[0]
+        next_match = {
+            "event_id":   nm["event_id"],
+            "match_date": nm["match_date"],
+            "home":       nm["home"].get("name"),
+            "away":       nm["away"].get("name"),
+        }
+
+    # ── Top performers  (highest posterior_mean with ≥ 180 WC minutes) ──────
+    top_performers = []
+    eligible = [
+        p for p in players
+        if (p.get("wc_minutes") or 0) >= 180
+        and p.get("posterior_mean") is not None
+    ]
+    eligible.sort(key=lambda p: -(p["posterior_mean"] or 0))
+    for p in eligible[:5]:
+        top_performers.append({
+            "reep_id":       p["reep_id"],
+            "name":          p.get("name"),
+            "national_team": p.get("national_team") or p.get("nationality"),
+            "position":      p.get("position_detail") or p.get("position_macro"),
+            "rating":        p.get("posterior_mean"),
+        })
+
+    # ── Overnight deltas ─────────────────────────────────────────────────────
+    overnight: list[dict] = []
+    if prev_sims and prev_sims.get("rounds") and sims.get("rounds"):
+        # Build prev title_prob map
+        prev_map: dict[str, float] = {}
+        for rnd in prev_sims.get("rounds", []):
+            for t in rnd.get("teams", []):
+                if t.get("title_prob") is not None:
+                    prev_map[t["team_id"]] = float(t["title_prob"])
+
+        curr_map: dict[str, float] = {}
+        for rnd in sims.get("rounds", []):
+            for t in rnd.get("teams", []):
+                if t.get("title_prob") is not None:
+                    curr_map.setdefault(t["team_id"], float(t["title_prob"]))
+
+        for team_id, curr_tp in curr_map.items():
+            prev_tp = prev_map.get(team_id)
+            if prev_tp is not None:
+                delta = round(curr_tp - prev_tp, 4)
+                if abs(delta) >= 0.003:
+                    overnight.append({"team": team_id, "delta": delta, "title_prob": curr_tp})
+        overnight.sort(key=lambda x: -abs(x["delta"]))
+        overnight = overnight[:5]
+
+    return {
+        "generated_at":   _dt.now(_tz.utc).isoformat(),
+        "run_date":        sims.get("run_date", ""),
+        "top_favorites":   top_favorites,
+        "value_picks":     value_picks,
+        "next_match":      next_match,
+        "top_performers":  top_performers,
+        "overnight":       overnight,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
@@ -1018,6 +1333,15 @@ def main():
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     conn = get_write_conn()
+
+    # Read current simulations.json BEFORE overwriting — used for overnight delta
+    prev_sims: dict | None = None
+    _prev_sims_path = OUTPUT_DIR / "simulations.json"
+    if _prev_sims_path.exists():
+        try:
+            prev_sims = json.loads(_prev_sims_path.read_text(encoding="utf-8"))
+        except Exception:
+            pass
 
     print("Exporting simulations.json …")
     sims = export_simulations(conn)
@@ -1047,6 +1371,14 @@ def main():
         json.dumps(players, separators=(",", ":")), encoding="utf-8"
     )
     print(f"  ✓  {len(players)} players")
+
+    print("Exporting insights.json …")
+    insights = export_insights(sims, matchups, players, prev_sims=prev_sims)
+    (OUTPUT_DIR / "insights.json").write_text(
+        json.dumps(insights, separators=(",", ":")), encoding="utf-8"
+    )
+    n_deltas = len(insights.get("overnight", []))
+    print(f"  ✓  {len(insights['top_favorites'])} favorites, {len(insights['value_picks'])} value picks, {n_deltas} overnight deltas")
 
     print("Export complete →", OUTPUT_DIR)
 

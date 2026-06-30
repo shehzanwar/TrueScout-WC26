@@ -3,7 +3,7 @@
 > Simple Kanban, not a Gantt chart. Track daily progress here (or mirror to GitHub Projects / Trello /
 > Notion). Pairs with [`PRD.md`](PRD.md) and [`ARCHITECTURE.md`](ARCHITECTURE.md).
 >
-> **Last updated:** 2026-06-30 (Phase 4 complete — bug-fix sweep, bracket joint probability, FIFA score, rest/travel adjustment, Compare Players, home insight cards; narrative pre-gen reverted to live-only)
+> **Last updated:** 2026-06-30 (Phase 4 complete; Phase 5 queued — AI Analyst stabilization, data-integrity gaps, LLM-polished narrative features, untapped data utilization)
 
 ---
 
@@ -28,6 +28,12 @@ Next.js dashboard, OpenRouter RAG narratives, bug-fixing, deployment.
 Joint bracket probability, FIFA-style score, data-quality bug fixes, rest/travel modeling,
 narrative pre-generation, Compare Players, home-page insight cards, sitewide tooltips.
 
+### Phase 5 — Reliability, Narratives & Fan Features (Round 3)
+AI Analyst stabilization (Poolside Laguna M.1, Vercel timeout fix, fallback chain), remaining
+data-integrity gaps (Rating Breakdown jargon, market odds archive, verify_outputs gate), LLM-polished
+narrative pre-generation (templated anti-hallucination pattern), story/preview cards, untapped data
+utilization (discipline, similarity, age cohorts, more raw stats).
+
 ---
 
 ## Board
@@ -47,9 +53,35 @@ narrative pre-generation, Compare Players, home-page insight cards, sitewide too
 - [ ] PostgreSQL for relational data (only if multi-user/concurrent writes appear)
 - [ ] Multi-user auth
 - [ ] Walk-forward CV / LOTO / PSIS-LOO full validation suite
-- [ ] Time-aware Bayesian ratings v2 — blocked on a Silver→model data-flow refactor
-- [ ] Empirical calibration of model probabilities — blocked on ≥20 graded knockout matches
-      (currently 3; revisit once enough Brier-log history accumulates)
+- [ ] **Time-aware Bayesian ratings v2** — blocked on Silver→model per-match data-flow refactor
+      (requires `match_log.parquet` parallel to the per-player aggregate; 2–3 day refactor, high regression risk)
+- [ ] **Empirical calibration** (grid-search PRIOR_PULL/OPPONENT_ALPHA/LOGISTIC_SCALE + isotonic regression) —
+      blocked on ≥20 graded knockout matches (currently 3; ETA: SF/Final week)
+- [ ] **Dixon-Coles scoreline model** — depends on per-match data flow (above)
+- [ ] **Player similarity** ("Who plays like X?") — K-Means cosine distance within cluster; `similar_players` field in `players.json`; chip strip on player profile
+- [ ] **Discipline posterior + Cards Watch** — yellow/red card rate per 90; homepage leaderboard of highest-risk active players
+- [ ] **Age cohort narratives** — propagate Reep `date_of_birth` to export; compute age + cohort percentile (u-21, 22-26, 27-31, 32+); powers breakout/veteran story hooks
+- [ ] **Golden Boot / Golden Ball Monte Carlo** — per-player expected goals + rating × minutes accumulated across 10k sims; `awards.json` with top 20 candidates + 90% CI
+- [ ] **Day-over-day title prob deltas** — diff today's vs yesterday's `simulations.json` (git history); "+0.3%" arrows on Favorites leaderboard
+- [ ] **"What-if" bracket explorer** — click a slot to eliminate a team; title probs re-aggregate from existing 10k sims
+- [ ] **Pass completion %, dribbles, duels** — aggregate from Sofascore `statistics` Parquet → per-90 + win-rate; add to raw stats panel
+- [ ] **npxG vs xG finishing decomp** — "Finishing: +0.12 G above non-penalty xG/90 (top 10% of forwards)"
+- [ ] **Team-level Bayesian posterior** — replace `mean(top-15)` team strength with pooled Normal prior + squad-form posterior; honest uncertainty propagation into Monte Carlo
+- [ ] **Attendance × home-crowd boost** — logistic regression on ESPN `attendance` field vs match outcome
+- [ ] **Key duels per match** — LLM 1-sentence narration per position overlap pair (FR-RB vs SP-LW etc.)
+- [ ] RAPM (opponent-adjusted plus-minus)
+- [ ] Live minute-by-minute firehose
+- [ ] KNN "statistical twin" cross-league imputation
+- [ ] Monte Carlo **full fatigue model** (minutes-played load, travel distance via haversine on
+      `data/static/venues_2026.json` coordinates, squad rotation signal) — needs parameter
+      calibration before use. **Partially superseded:** a simple, uncalibrated rest-days penalty
+      shipped in Phase 4 (`-0.10 × max(0, 3 - rest_days)` in `monte_carlo_sim.py`) — see Phase 4 Done.
+- [ ] WebGL / deck.gl hexbin pitch-event rendering
+- [ ] Custom D3 pizza charts + pass networks
+- [ ] PostgreSQL for relational data (only if multi-user/concurrent writes appear)
+- [ ] Multi-user auth
+- [ ] Walk-forward CV / LOTO / PSIS-LOO full validation suite
+- [ ] Evaluate `wreq` Python HTTP client (BoringSSL/JA4) as `curl_cffi` escalation if Cloudflare fingerprint check tightens again
 
 ### 📋 To Do (V1 — this week)
 **Phase 1** ✅ complete
@@ -94,6 +126,40 @@ narrative pre-generation, Compare Players, home-page insight cards, sitewide too
 - [x] Templated (non-LLM) match preview line on `MatchCard`
 - [x] Bracket share button (copy link)
 - [x] Sitewide tooltips wired into player profile Rating Breakdown
+
+**Phase 5**
+
+PR5c — finish data-integrity gaps (blocking — ship first):
+- [x] Strip jargon from Rating Breakdown card — labels already clean in `page.tsx` (done Phase 4)
+- [x] Full `market_odds_archive`: new DuckDB table in `init_db.py`; `_populate_market_odds_archive()` in `export_json.py` populates from Bronze odds Parquets (first-seen-wins); archive + brier_log fallback chain in `export_matchups()`
+- [x] Frontend `teamAliases.ts` — already existed and mirrors ETL `team_aliases.py` exactly
+- [x] Standalone `etl/verify_outputs.py` as step 9.5 in nightly pipeline (hard-fail on title_prob sum, player count, confidence range, matchup structure)
+- [x] Travel km chip on MatchCard — haversine `_build_travel_km()` in `export_json.py`; `travel_km` field in `MatchupTeam` type; chip displayed below rest_days chip (amber ≥ 2000 km)
+
+PR5d — AI Analyst stabilization (urgent):
+- [x] Vercel route: `export const runtime = "nodejs"`, `maxDuration = 60`, `dynamic = "force-dynamic"`
+- [x] Reasoning-tag strip (`<think>…</think>`, `<reasoning>…</reasoning>`) via `stripReasoningTags()`
+- [x] `max_tokens` raised to 800; abort timeout raised to 55s
+- [x] Fallback model chain: env primary → `google/gemma-3-27b-it:free` → `nvidia/llama-3.1-nemotron-70b-instruct:free` → `meta-llama/llama-3.3-70b-instruct:free`
+- [x] Module-level `players.json` cache via `getPlayers()` (shared across warm starts)
+- [x] `config.py` default model → `poolside/laguna-m.1:free`
+
+PR7 — Narrative pre-gen (re-implement after PR5d, with hardened approach):
+- [ ] `etl/models/generate_narratives.py` wired into nightly step 9.6 with Laguna M.1 primary
+- [ ] Templated anti-hallucination pattern: Python emits structured fact bullets; LLM only rephrases; system prompt bans inventing numbers
+- [ ] Frontend short-circuit: pre-gen narrative → instant display; sparse-data players keep "Generate" button
+
+PR8 extras — story/insight features (after PR7):
+- [ ] Story of the day: ETL diffs overnight sim swings + largest model–market gap; LLM polishes 1-sentence headline; writes `insights.json`
+- [ ] LLM-polished pre-match preview cards (~32 calls/matchday): Python templates top creator + scoreline + rest delta; LLM polishes to 80-word preview
+
+PR9 — Untapped data utilization:
+- [ ] Discipline posterior + Cards Watch leaderboard
+- [ ] Age cohort field + cohort percentile from Reep DOB
+- [ ] Player similarity chip ("Who plays like X?") from K-Means cosine distance
+- [ ] Pass completion %, dribbles, aerial duels from Sofascore statistics
+- [ ] npxG vs xG finishing decomposition
+- [ ] Golden Boot / Golden Ball Monte Carlo projections
 
 ### 🔨 In Progress (today)
 - _(empty — pull from To Do)_

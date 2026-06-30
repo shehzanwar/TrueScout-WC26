@@ -14,11 +14,20 @@ import type {
   MatchupsResponse,
   BrierResponse,
   PlayerResponse,
+  InsightsResponse,
 } from "./api"
 
 function readData<T>(filename: string): T {
   const filePath = path.join(process.cwd(), "public", "data", filename)
   return JSON.parse(readFileSync(filePath, "utf-8")) as T
+}
+
+function readDataOrNull<T>(filename: string): T | null {
+  try {
+    return readData<T>(filename)
+  } catch {
+    return null
+  }
 }
 
 export async function getSimulations(): Promise<SimulationsResponse> {
@@ -61,4 +70,8 @@ export async function getTopPlayers(
     .filter((p) => p.confidence_score >= minConfidence)
     .sort((a, b) => b.posterior_mean - a.posterior_mean)
     .slice(0, limit)
+}
+
+export async function getInsights(): Promise<InsightsResponse | null> {
+  return readDataOrNull<InsightsResponse>("insights.json")
 }
