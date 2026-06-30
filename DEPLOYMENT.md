@@ -14,7 +14,7 @@ GitHub repo
        │  git push  [skip ci]
        │
 GitHub Actions (.github/workflows/nightly.yml)
-  runs daily at 02:00 UTC (run_nightly.py, 10 steps):
+  runs daily at 02:00 UTC (run_nightly.py, 9 steps):
     1. ESPN pull (knockout) → Bronze Parquet
     2. Sofascore pull (all rounds) → Bronze Parquet
     3. Load matches (group stage + knockout)
@@ -24,8 +24,6 @@ GitHub Actions (.github/workflows/nightly.yml)
     7. Monte Carlo bracket sim — includes rest/travel strength penalty (PR5b.1)
     8. Brier score tracker
     9. etl/export_json.py → frontend/public/data/*.json
-    10. generate_narratives.py → frontend/public/data/narratives/{reep_id}.json
-        (pre-generated AI scouting reports; soft-fail if OPENROUTER_API_KEY absent)
 
 Vercel
   auto-deploys on every push to master
@@ -36,9 +34,8 @@ Vercel
 Data flow on a page request:
 - Server Components (page.tsx) read JSON from disk via `lib/server-data.ts`
 - Client Components download `/data/players.json` once and cache it (player search, `/compare`)
-- `TacticalAnalysis.tsx` first probes `/data/narratives/{reep_id}.json` (pre-generated, instant —
-  CDN-served, no LLM call); falls back to the "Generate Scouting Report" button → `/api/narratives/[reep_id]`
-  (same-origin, no CORS) only when no cached report exists
+- `TacticalAnalysis.tsx` shows a "Generate Scouting Report" button → clicks call
+  `/api/narratives/[reep_id]` (Next.js API route, same-origin, no CORS) → OpenRouter
 
 ---
 
@@ -65,10 +62,7 @@ Add these under **Project Settings → Environment Variables**.
 
 1. In the GitHub repo → **Settings → Actions → General** → ensure "Allow all actions" is on.
 2. The `GITHUB_TOKEN` secret is auto-provisioned — no manual setup needed.
-3. Add `OPENROUTER_API_KEY` as a **repo secret** (Settings → Secrets and variables → Actions) so step
-   10 (narrative pre-generation) can run in CI. Without it, step 10 skips silently — the live
-   "Generate Report" button on Vercel still works as long as the Vercel env var (above) is set.
-4. To trigger the first real data run: go to **Actions → Nightly ETL + Static Export → Run workflow**.
+3. To trigger the first real data run: go to **Actions → Nightly ETL + Static Export → Run workflow**.
 
 After it succeeds, Vercel will auto-deploy with real data.
 

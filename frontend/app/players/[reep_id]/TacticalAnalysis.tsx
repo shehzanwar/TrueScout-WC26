@@ -1,21 +1,17 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { generateNarrative, type NarrativeResponse } from "@/lib/api"
 
-type Status = "loading" | "cached" | "idle" | "generating" | "done" | "error"
+type Status = "idle" | "generating" | "done" | "error"
 
-function VoiceBadge({ voice, cached }: { voice: NarrativeResponse["voice"]; cached?: boolean }) {
-  const label = cached ? "Pre-generated" : voice === "data_analyst" ? "Data Analyst" : "Traditional Scout"
-  const color  = cached
-    ? "bg-slate-700/60 text-slate-400 border-slate-600/40"
-    : voice === "data_analyst"
-      ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/20"
-      : "bg-amber-500/15 text-amber-400 border-amber-500/20"
-  const dotColor = cached
-    ? "bg-slate-500"
-    : voice === "data_analyst" ? "bg-emerald-400" : "bg-amber-400"
+function VoiceBadge({ voice }: { voice: NarrativeResponse["voice"] }) {
+  const label    = voice === "data_analyst" ? "Data Analyst" : "Traditional Scout"
+  const color    = voice === "data_analyst"
+    ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/20"
+    : "bg-amber-500/15 text-amber-400 border-amber-500/20"
+  const dotColor = voice === "data_analyst" ? "bg-emerald-400" : "bg-amber-400"
 
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${color}`}>
@@ -26,32 +22,13 @@ function VoiceBadge({ voice, cached }: { voice: NarrativeResponse["voice"]; cach
 }
 
 export default function TacticalAnalysis({ reepId }: { reepId: string }) {
-  const [status,   setStatus]   = useState<Status>("loading")
+  const [status,   setStatus]   = useState<Status>("idle")
   const [result,   setResult]   = useState<NarrativeResponse | null>(null)
-  const [cached,   setCached]   = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
-
-  // On mount: try static cached narrative before showing the button
-  useEffect(() => {
-    let cancelled = false
-    fetch(`/data/narratives/${reepId}.json`, { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
-      .then((data: { narrative: string; voice: NarrativeResponse["voice"] }) => {
-        if (cancelled) return
-        setResult({ narrative: data.narrative, voice: data.voice })
-        setCached(true)
-        setStatus("cached")
-      })
-      .catch(() => {
-        if (!cancelled) setStatus("idle")
-      })
-    return () => { cancelled = true }
-  }, [reepId])
 
   async function handleGenerate() {
     setStatus("generating")
     setErrorMsg(null)
-    setCached(false)
     try {
       const data = await generateNarrative(reepId)
       setResult(data)
@@ -62,10 +39,9 @@ export default function TacticalAnalysis({ reepId }: { reepId: string }) {
     }
   }
 
-  const showNarrative = status === "cached" || status === "done"
+  const showNarrative = status === "done"
   const showButton    = status === "idle" || status === "error"
   const isGenerating  = status === "generating"
-  const isLoading     = status === "loading"
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
@@ -88,7 +64,7 @@ export default function TacticalAnalysis({ reepId }: { reepId: string }) {
               exit={{ opacity: 0, scale: 0.9 }}
               transition={{ duration: 0.2 }}
             >
-              <VoiceBadge voice={result.voice} cached={cached} />
+              <VoiceBadge voice={result.voice} />
             </motion.div>
           ) : (
             <motion.span
@@ -97,7 +73,7 @@ export default function TacticalAnalysis({ reepId }: { reepId: string }) {
               exit={{ opacity: 0 }}
               className="text-xs text-slate-600 border border-slate-800 px-2.5 py-1 rounded-full"
             >
-              {isGenerating ? "Generating…" : isLoading ? "…" : "AI Scout · OpenRouter"}
+              {isGenerating ? "Generating…" : "AI Scout · OpenRouter"}
             </motion.span>
           )}
         </AnimatePresence>
@@ -105,7 +81,7 @@ export default function TacticalAnalysis({ reepId }: { reepId: string }) {
 
       {/* Body */}
       <AnimatePresence mode="wait">
-        {(isLoading || isGenerating) && (
+        {isGenerating && (
           <motion.div
             key="skeleton"
             initial={{ opacity: 0 }}
@@ -159,14 +135,6 @@ export default function TacticalAnalysis({ reepId }: { reepId: string }) {
                 {para.trim()}
               </motion.p>
             ))}
-            {cached && (
-              <button
-                onClick={handleGenerate}
-                className="text-[11px] text-slate-600 hover:text-slate-400 transition-colors underline underline-offset-2 mt-1"
-              >
-                Regenerate live
-              </button>
-            )}
           </motion.div>
         )}
 
@@ -196,7 +164,7 @@ export default function TacticalAnalysis({ reepId }: { reepId: string }) {
         )}
       </AnimatePresence>
 
-      {/* Generate button — only shown when no cache and not loading */}
+      {/* Generate button */}
       <AnimatePresence>
         {showButton && (
           <motion.button
