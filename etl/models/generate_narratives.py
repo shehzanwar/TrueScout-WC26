@@ -35,7 +35,13 @@ PLAYERS_JSON = ROOT / "frontend" / "public" / "data" / "players.json"
 CONFIDENCE_THRESHOLD = 0.7   # high-confidence voice gate (mirrors route.ts)
 DEFAULT_LIMIT        = 100
 DEFAULT_MIN_CONF     = 0.3   # skip players with almost no data
-CALL_DELAY_S         = 1.2   # seconds between OpenRouter calls (free-tier safety)
+
+# OpenRouter free-tier (':free' suffix) models enforce a strict per-minute
+# rate limit (commonly ~20 req/min without purchased credits). 3s spacing
+# keeps sustained throughput under that; MAX_RETRIES + backoff absorbs bursts.
+CALL_DELAY_S  = 3.0
+MAX_RETRIES   = 4
+BACKOFF_BASE_S = 5.0
 
 _ANTI_YAPPING = (
     "\n\nCRITICAL FORMATTING RULE: Do NOT output your chain of thought, reasoning "
@@ -111,8 +117,16 @@ def _build_user_message(p: dict, high_confidence: bool) -> str:
 
 
 def _call_openrouter(api_key: str, model: str, system: str, user: str) -> str | None:
-    """Call OpenRouter chat completions. Returns narrative text or None on failure."""
+    """
+    Call OpenRouter chat completions. Returns narrative text or None on failure.
+
+    Retries on HTTP 429 with exponential backoff (honouring a Retry-After
+    header when the API sends one) — free-tier models rate-limit aggressively
+    and a single retry-less attempt fails most calls in a tight loop.
+    """
     import urllib.request
+    import urllib.error
+
     payload = json.dumps({
         "model":       model,
         "messages":    [
@@ -135,14 +149,30 @@ def _call_openrouter(api_key: str, model: str, system: str, user: str) -> str | 
         method="POST",
     )
 
-    try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            body = json.loads(resp.read().decode("utf-8"))
-        text = body["choices"][0]["message"]["content"]
-        return text.strip() if text else None
-    except Exception as exc:
-        logger.warning("OpenRouter call failed: %s", exc)
-        return None
+    backoff = BACKOFF_BASE_S
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                body = json.loads(resp.read().decode("utf-8"))
+            text = body["choices"][0]["message"]["content"]
+            return text.strip() if text else None
+        except urllib.error.HTTPError as exc:
+            if exc.code == 429 and attempt < MAX_RETRIES:
+                retry_after = exc.headers.get("Retry-After") if exc.headers else None
+                wait = float(retry_after) if retry_after else backoff
+                logger.warning(
+                    "OpenRouter rate-limited (429) — retry %d/%d in %.1fs",
+                    attempt, MAX_RETRIES - 1, wait,
+                )
+                time.sleep(wait)
+                backoff *= 2
+                continue
+            logger.warning("OpenRouter call failed: HTTP %d %s", exc.code, exc.reason)
+            return None
+        except Exception as exc:
+            logger.warning("OpenRouter call failed: %s", exc)
+            return None
+    return None
 
 
 def main(
@@ -179,6 +209,8 @@ def main(
 
     generated = 0
     skipped   = 0
+    consecutive_failures = 0
+    CIRCUIT_BREAKER = 8   # consecutive failures after retry exhaustion → likely daily cap hit
 
     for p in candidates:
         if generated >= limit:
@@ -198,9 +230,19 @@ def main(
 
         narrative = _call_openrouter(api_key, model, system, user)
         if not narrative:
+            consecutive_failures += 1
             logger.warning("No narrative returned for %s (%s) — skipping.", reep_id, p.get("name"))
+            if consecutive_failures >= CIRCUIT_BREAKER:
+                logger.warning(
+                    "%d consecutive failures after retry exhaustion — likely the OpenRouter "
+                    "daily free-tier cap (50 req/day without purchased credits). Stopping early; "
+                    "remaining players will be picked up on a future run.",
+                    consecutive_failures,
+                )
+                break
             time.sleep(CALL_DELAY_S)
             continue
+        consecutive_failures = 0
 
         payload = {
             "narrative":    narrative,

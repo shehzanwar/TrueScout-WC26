@@ -244,9 +244,19 @@ def _load_bracket(conn: duckdb.DuckDBPyConnection) -> list[str]:
 
     # Pair each orphaned R32 index with the corresponding missing R32 index
     # so the bracket stays at exactly 32 unique teams.
+    #
+    # NOTE: orphaned indices are, by construction, always a subset of
+    # (all_r32_indices - used_r32) — they were deliberately never added to
+    # used_r32. That means an orphaned index always also appears in `missing`.
+    # If we zip(orphaned_u, missing) directly, sorted() can place the SAME
+    # index at position 0 of both lists, producing a degenerate self-pair
+    # (e.g. (3, 3)) that duplicates that match's two teams in the bracket
+    # while silently dropping whichever index was the real missing partner.
+    # Exclude orphaned indices from the missing-partner pool to prevent this.
     all_r32_indices = set(range(len(r32_fixtures)))
     missing    = sorted(all_r32_indices - used_r32)
     orphaned_u = sorted(set(orphaned) - used_r32)
+    missing_partners = sorted(set(missing) - set(orphaned_u))
 
     if orphaned_u or missing:
         logger.warning(
@@ -254,7 +264,13 @@ def _load_bracket(conn: duckdb.DuckDBPyConnection) -> list[str]:
             "%d missing R32 index(es) %s.",
             len(orphaned_u), orphaned_u, len(missing), missing,
         )
-        for orph, miss in zip(orphaned_u, missing):
+        if len(orphaned_u) != len(missing_partners):
+            raise RuntimeError(
+                f"Bracket repair imbalance: {len(orphaned_u)} orphaned index(es) "
+                f"{orphaned_u} vs {len(missing_partners)} available missing-partner "
+                f"index(es) {missing_partners}. Check Bronze R16 fixture data."
+            )
+        for orph, miss in zip(orphaned_u, missing_partners):
             r16_pairs.append((orph, miss))
             used_r32.add(orph)
             used_r32.add(miss)
