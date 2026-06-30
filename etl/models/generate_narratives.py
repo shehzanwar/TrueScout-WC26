@@ -185,7 +185,7 @@ def main(
         logger.info("OPENROUTER_API_KEY not set — skipping narrative pre-generation.")
         return
 
-    model = os.environ.get("OPENROUTER_MODEL", "google/gemma-4-31b-it:free")
+    model = os.environ.get("OPENROUTER_MODEL", "meta-llama/llama-3.1-8b-instruct:free")
 
     if not PLAYERS_JSON.exists():
         logger.warning("players.json not found at %s — run export_json.py first.", PLAYERS_JSON)
@@ -210,7 +210,9 @@ def main(
     generated = 0
     skipped   = 0
     consecutive_failures = 0
-    CIRCUIT_BREAKER = 8   # consecutive failures after retry exhaustion → likely daily cap hit
+    # 3 consecutive post-retry failures → daily cap hit or model blocked.
+    # Lowered from 8: at ~38s/failed call (MAX_RETRIES backoff), 8 burns 5+ min of CI.
+    CIRCUIT_BREAKER = 3
 
     for p in candidates:
         if generated >= limit:
@@ -233,12 +235,21 @@ def main(
             consecutive_failures += 1
             logger.warning("No narrative returned for %s (%s) — skipping.", reep_id, p.get("name"))
             if consecutive_failures >= CIRCUIT_BREAKER:
-                logger.warning(
-                    "%d consecutive failures after retry exhaustion — likely the OpenRouter "
-                    "daily free-tier cap (50 req/day without purchased credits). Stopping early; "
-                    "remaining players will be picked up on a future run.",
-                    consecutive_failures,
-                )
+                if generated == 0:
+                    logger.warning(
+                        "%d consecutive failures with 0 narratives generated — "
+                        "model '%s' may require credits or no longer exist on OpenRouter. "
+                        "Check https://openrouter.ai/models for available free models and "
+                        "update OPENROUTER_MODEL env var if needed.",
+                        consecutive_failures, model,
+                    )
+                else:
+                    logger.warning(
+                        "%d consecutive failures after retry exhaustion — likely the OpenRouter "
+                        "daily free-tier cap (50 req/day without purchased credits). Stopping early; "
+                        "remaining players will be picked up on a future run.",
+                        consecutive_failures,
+                    )
                 break
             time.sleep(CALL_DELAY_S)
             continue
