@@ -82,6 +82,76 @@ export default function AboutPage() {
             page tracks accuracy in real time as the tournament progresses.
           </p>
         </section>
+        {/* Section 4 — Critique */}
+        <section className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-4">
+          <div className="flex items-center gap-2">
+            <span className="w-6 h-6 rounded-full bg-slate-700/60 border border-slate-600/40 flex items-center justify-center text-slate-400 text-xs font-bold shrink-0">
+              4
+            </span>
+            <h2 className="text-base font-semibold text-slate-100">What our model can&apos;t yet capture</h2>
+          </div>
+          <p className="text-sm text-slate-500 leading-relaxed">
+            We believe in transparency. Here are the real limitations of the current system:
+          </p>
+          <ul className="space-y-3">
+            <li className="flex gap-3">
+              <span className="mt-0.5 w-1.5 h-1.5 rounded-full bg-slate-600 shrink-0 mt-[7px]" />
+              <div>
+                <p className="text-sm text-slate-300 font-medium">Small World Cup sample</p>
+                <p className="text-xs text-slate-500 leading-relaxed mt-0.5">
+                  Many players have played only 2–4 matches in this tournament. The model leans
+                  heavily on club-season data to fill that gap, but club form doesn&apos;t always
+                  transfer — especially for players from leagues outside Europe&apos;s top five.
+                </p>
+              </div>
+            </li>
+            <li className="flex gap-3">
+              <span className="mt-0.5 w-1.5 h-1.5 rounded-full bg-slate-600 shrink-0 mt-[7px]" />
+              <div>
+                <p className="text-sm text-slate-300 font-medium">Sofascore ratings are a black box</p>
+                <p className="text-xs text-slate-500 leading-relaxed mt-0.5">
+                  We use Sofascore match ratings as an input, but Sofascore doesn&apos;t publish how
+                  they compute them. A keeper who makes 8 saves in a 1–0 win may rate lower than a
+                  striker who scores in a 4–0 win — the defensive contribution is underweighted in
+                  their algorithm.
+                </p>
+              </div>
+            </li>
+            <li className="flex gap-3">
+              <span className="mt-0.5 w-1.5 h-1.5 rounded-full bg-slate-600 shrink-0 mt-[7px]" />
+              <div>
+                <p className="text-sm text-slate-300 font-medium">No injury or squad news feed</p>
+                <p className="text-xs text-slate-500 leading-relaxed mt-0.5">
+                  If a key player picks up an injury after the nightly export runs, the model won&apos;t
+                  know until the next update. Team strength estimates reflect the declared squad, not
+                  real-time availability.
+                </p>
+              </div>
+            </li>
+            <li className="flex gap-3">
+              <span className="mt-0.5 w-1.5 h-1.5 rounded-full bg-slate-600 shrink-0 mt-[7px]" />
+              <div>
+                <p className="text-sm text-slate-300 font-medium">Penalty shootouts are 50/50</p>
+                <p className="text-xs text-slate-500 leading-relaxed mt-0.5">
+                  For matches that go to penalties, the simulation currently gives each team an equal
+                  coin-flip chance. Penalty conversion records exist in the data, but we haven&apos;t
+                  built that model yet.
+                </p>
+              </div>
+            </li>
+            <li className="flex gap-3">
+              <span className="mt-0.5 w-1.5 h-1.5 rounded-full bg-slate-600 shrink-0 mt-[7px]" />
+              <div>
+                <p className="text-sm text-slate-300 font-medium">No tactical or manager signal</p>
+                <p className="text-xs text-slate-500 leading-relaxed mt-0.5">
+                  The model knows nothing about formations, pressing intensity, set-piece routines, or
+                  whether a manager tends to out-prepare a particular opponent. Pure player-quality
+                  aggregates miss a meaningful share of what decides tight knockout matches.
+                </p>
+              </div>
+            </li>
+          </ul>
+        </section>
       </div>
 
       {/* Footer links */}

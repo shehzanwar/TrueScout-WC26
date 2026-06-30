@@ -48,6 +48,8 @@ jobs:
           "
 
       - name: Run nightly pipeline
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: python run_nightly.py
 
       - name: Export static JSON

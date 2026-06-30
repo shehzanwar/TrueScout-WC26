@@ -3,7 +3,7 @@
 > **Source of truth.** If it's not in this PRD, we aren't building it yet. Lives in the repo
 > alongside the code so scope and reality never drift apart.
 >
-> **Status:** V1 — "Knockout Stage Intelligence Dashboard" · **Last updated:** 2026-06-27
+> **Status:** V1 — "Knockout Stage Intelligence Dashboard" · **Last updated:** 2026-06-30
 
 ---
 
@@ -52,7 +52,26 @@ The MVP is successful if:
    "we beat the market" claim.
 5. **RAG "Tactical Storytelling."** A confidence-gated, role-aware narrative layer (OpenRouter free
    model). High-confidence players get a metrics-driven "Data Analyst" voice; sparse-data players get
-   a "Traditional Scout" voice that is explicitly forbidden from inventing stats.
+   a "Traditional Scout" voice that is explicitly forbidden from inventing stats. Reports are
+   **pre-generated nightly** for high-confidence players and served as static JSON; live generation
+   via the "Generate Report" button is the fallback for everyone else.
+
+---
+
+## V1.x — Post-Launch Feature Expansion
+
+Shipped after the initial V1 launch, still within the original problem statement and target user —
+not a scope change, just deeper coverage of "judge a player's true quality" and "predict knockout
+outcomes":
+- **Compare Players** (`/compare`) — side-by-side rating and attribute comparison between any two players.
+- **Home-page insight cards** — Next Match, Value Pick (biggest model-vs-bookies gap), Top Performers.
+- **Templated match previews** — pure-logic, non-LLM one-line blurbs on each matchup card.
+- **Rest-days strength adjustment** — a simple, explicitly uncalibrated penalty for short turnarounds
+  between matches (`-0.10 × max(0, 3 - rest_days)`). This is **not** the full fatigue model in
+  `BOARD.md` Backlog (which would add travel distance and minutes-load); see Out-of-Scope below.
+- **Data-quality fixes** — national-team derivation from lineups (vs. bio nationality), position
+  override file, team-name alias normalization, market-odds backfill, an audit script to catch
+  future regressions of these classes of bug.
 
 ---
 
@@ -63,7 +82,9 @@ Explicitly **not** building in V1 — parked in `BOARD.md` Backlog so they're de
 - **No KNN "statistical twin" imputation** — we will not fabricate missing advanced metrics; the
   confidence score routes sparse players to the no-stats LLM path instead.
 - **No WebGL / deck.gl hexbin pitch-event rendering** — lightweight radar/charts only.
-- **No Monte Carlo fatigue model** — the unvalidated fatigue parameters are deferred until calibrated.
+- **No full Monte Carlo fatigue model** — minutes-load and travel-distance fatigue parameters are
+  deferred until calibrated. (A simple, uncalibrated rest-days penalty shipped in V1.x — see above —
+  but it is not a substitute for the calibrated model.)
 - **No multi-user auth** — single-user local/self-hosted app, no login.
 - **No PostgreSQL** — DuckDB + Parquet only in V1.
 - **No native mobile app** — responsive web only.

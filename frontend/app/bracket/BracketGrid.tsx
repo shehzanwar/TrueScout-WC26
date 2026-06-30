@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { motion } from "framer-motion"
 import type { BracketData } from "@/lib/bracket"
 import { getFlag } from "@/lib/flags"
@@ -170,32 +171,72 @@ function HeaderRow({ rounds }: { rounds: BracketData["rounds"] }) {
 // Legend
 // ---------------------------------------------------------------------------
 
+function ShareButton() {
+  const [copied, setCopied] = useState(false)
+
+  async function handleShare() {
+    try {
+      await navigator.clipboard.writeText(window.location.href)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1800)
+    } catch {
+      // Clipboard API unavailable — silently ignore
+    }
+  }
+
+  return (
+    <button
+      onClick={handleShare}
+      className="flex items-center gap-1.5 text-[11px] text-slate-500 hover:text-slate-300 border border-slate-800 hover:border-slate-700 rounded-full px-3 py-1.5 transition-colors shrink-0"
+    >
+      {copied ? (
+        <>
+          <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 text-emerald-400">
+            <path fillRule="evenodd" d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z" clipRule="evenodd" />
+          </svg>
+          <span className="text-emerald-400">Link copied</span>
+        </>
+      ) : (
+        <>
+          <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
+            <path d="M11 2a2.5 2.5 0 1 0-2.466 2.5l-3.07 3.07a2.5 2.5 0 1 0 0 .86l3.07 3.07a2.5 2.5 0 1 0 .53-.53l-3.07-3.07a2.5 2.5 0 0 0 0-.86l3.07-3.07c.286.18.62.3.98.34A2.5 2.5 0 0 0 11 2Z" />
+          </svg>
+          Share bracket
+        </>
+      )}
+    </button>
+  )
+}
+
 function Legend() {
   return (
-    <div className="flex flex-wrap items-center gap-4 text-[11px] text-slate-500 mb-4">
-      <div className="flex items-center gap-1.5">
-        <div className="w-8 h-3 bg-slate-900 border border-slate-700/80 rounded" />
-        Confirmed fixture
-      </div>
-      <div className="flex items-center gap-1.5">
-        <div className="w-8 h-3 bg-slate-900 border border-slate-800/60 border-dashed rounded" />
-        Monte Carlo projection
-      </div>
-      <div className="flex items-center gap-1.5">
-        <div className="flex gap-0.5">
-          <div className="w-4 h-2 bg-emerald-500 rounded-sm" />
-          <div className="w-3 h-2 bg-amber-500 rounded-sm" />
-          <div className="w-2 h-2 bg-slate-500 rounded-sm" />
+    <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+      <div className="flex flex-wrap items-center gap-4 text-[11px] text-slate-500">
+        <div className="flex items-center gap-1.5">
+          <div className="w-8 h-3 bg-slate-900 border border-slate-700/80 rounded" />
+          Confirmed fixture
         </div>
-        Match-win prob (high / mid / low)
-      </div>
-      <div className="flex items-center gap-1.5">
-        <div className="flex items-center gap-0.5">
-          <div className="w-6 h-1.5 bg-rose-500 rounded-full" />
-          <span className="text-rose-400 text-[9px]">%</span>
+        <div className="flex items-center gap-1.5">
+          <div className="w-8 h-3 bg-slate-900 border border-slate-800/60 border-dashed rounded" />
+          Monte Carlo projection
         </div>
-        Chaos meter (avg match entropy)
+        <div className="flex items-center gap-1.5">
+          <div className="flex gap-0.5">
+            <div className="w-4 h-2 bg-emerald-500 rounded-sm" />
+            <div className="w-3 h-2 bg-amber-500 rounded-sm" />
+            <div className="w-2 h-2 bg-slate-500 rounded-sm" />
+          </div>
+          Match-win prob (high / mid / low)
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-0.5">
+            <div className="w-6 h-1.5 bg-rose-500 rounded-full" />
+            <span className="text-rose-400 text-[9px]">%</span>
+          </div>
+          Chaos meter (avg match entropy)
+        </div>
       </div>
+      <ShareButton />
     </div>
   )
 }

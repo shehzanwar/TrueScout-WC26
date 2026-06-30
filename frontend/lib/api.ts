@@ -40,6 +40,7 @@ export interface MatchupTeam {
   score: number | null
   model_advance_prob: number | null
   market_advance_prob: number | null
+  rest_days: number | null
 }
 
 export interface Matchup {
@@ -91,6 +92,19 @@ export interface BrierResponse {
   entries: BrierEntry[]
 }
 
+// FIFA-style 0-99 dual display (PR6)
+export interface FifaAttrs {
+  // Outfield: SHO, PAS, DEF, WC_FORM
+  // GK:       DIV, HAN, POS, KIC
+  [key: string]: number | null
+}
+
+export interface FifaScore {
+  overall: number | null
+  band: string
+  attrs: FifaAttrs
+}
+
 export interface RadarMetrics {
   // FM-style attribute percentiles (0.0–1.0 within position group)
   shooting:   number | null   // goals, xG, shots per-90 (GKs: shot-stopping)
@@ -133,6 +147,7 @@ export interface PlayerResponse {
   reep_id: string
   name: string | null
   nationality: string | null
+  national_team: string | null   // derived from Sofascore lineups — authoritative team membership
   position_detail: string | null
   position_macro: string           // always present (GK/DEF/MID/FWD)
   position_micro: string | null
@@ -183,17 +198,20 @@ export interface PlayerResponse {
   prior_key_passes_per_90?: number
   match_log?: MatchLogEntry[]
   position_source?: string
+  fifa?: FifaScore
 }
 
 export interface PlayerSearchResult {
   reep_id: string
   name: string | null
   nationality: string | null
+  national_team: string | null
   position_micro: string | null
   position_macro: string
   posterior_mean: number
   confidence_score: number
   percentile_rank: number
+  fifa?: { overall: number | null; band: string }
 }
 
 export interface NarrativeResponse {
@@ -250,11 +268,13 @@ export async function searchPlayers(q: string): Promise<PlayerSearchResult[]> {
       reep_id:          p.reep_id,
       name:             p.name,
       nationality:      p.nationality,
+      national_team:    p.national_team ?? null,
       position_micro:   p.position_micro,
       position_macro:   p.position_macro,
       posterior_mean:   p.posterior_mean,
       confidence_score: p.confidence_score,
       percentile_rank:  p.percentile_rank,
+      fifa:             p.fifa ? { overall: p.fifa.overall, band: p.fifa.band } : undefined,
     }))
 }
 

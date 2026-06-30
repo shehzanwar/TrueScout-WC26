@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
 import { searchPlayers, type PlayerSearchResult } from "@/lib/api"
+import FifaBadge from "./FifaBadge"
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -65,12 +66,13 @@ function SearchResultRow({ player }: { player: PlayerSearchResult }) {
         </p>
       </div>
 
-      {/* Posterior rating */}
-      <div className="text-right shrink-0">
-        <p className={`text-sm font-bold tabular-nums ${ratingColor(player.percentile_rank)}`}>
-          {player.posterior_mean.toFixed(2)}
+      {/* FIFA badge + posterior rating */}
+      <div className="flex flex-col items-end gap-0.5 shrink-0">
+        <FifaBadge fifa={player.fifa} size="sm" />
+        <p className={`text-[11px] tabular-nums ${ratingColor(player.percentile_rank)}`}>
+          {player.posterior_mean.toFixed(2)}/10
         </p>
-        <p className={`text-[11px] ${conf.color}`}>{conf.label}</p>
+        <p className={`text-[10px] ${conf.color}`}>{conf.label}</p>
       </div>
 
       <svg

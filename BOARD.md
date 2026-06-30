@@ -3,7 +3,7 @@
 > Simple Kanban, not a Gantt chart. Track daily progress here (or mirror to GitHub Projects / Trello /
 > Notion). Pairs with [`PRD.md`](PRD.md) and [`ARCHITECTURE.md`](ARCHITECTURE.md).
 >
-> **Last updated:** 2026-06-29 (Phase 3 complete — all features live + static-export deployment pattern implemented)
+> **Last updated:** 2026-06-30 (Phase 4 complete — bug-fix sweep, bracket joint probability, FIFA score, rest/travel adjustment, narrative pre-generation, Compare Players, home insight cards)
 
 ---
 
@@ -24,6 +24,10 @@ Bayesian ratings, archetypes, Monte Carlo sim, Brier tracker, FastAPI endpoints,
 ### Phase 3 — Polish, LLM & Deploy
 Next.js dashboard, OpenRouter RAG narratives, bug-fixing, deployment.
 
+### Phase 4 — Feature Expansion (PR4–PR8)
+Joint bracket probability, FIFA-style score, data-quality bug fixes, rest/travel modeling,
+narrative pre-generation, Compare Players, home-page insight cards, sitewide tooltips.
+
 ---
 
 ## Board
@@ -34,12 +38,18 @@ Next.js dashboard, OpenRouter RAG narratives, bug-fixing, deployment.
 - [ ] Dixon-Coles scoreline model
 - [ ] Live minute-by-minute firehose
 - [ ] KNN "statistical twin" cross-league imputation
-- [ ] Monte Carlo **fatigue model** (needs parameter calibration before use)
+- [ ] Monte Carlo **full fatigue model** (minutes-played load, travel distance via haversine on
+      `data/static/venues_2026.json` coordinates, squad rotation signal) — needs parameter
+      calibration before use. **Partially superseded:** a simple, uncalibrated rest-days penalty
+      shipped in Phase 4 (`-0.10 × max(0, 3 - rest_days)` in `monte_carlo_sim.py`) — see Phase 4 Done.
 - [ ] WebGL / deck.gl hexbin pitch-event rendering
 - [ ] Custom D3 pizza charts + pass networks
 - [ ] PostgreSQL for relational data (only if multi-user/concurrent writes appear)
 - [ ] Multi-user auth
 - [ ] Walk-forward CV / LOTO / PSIS-LOO full validation suite
+- [ ] Time-aware Bayesian ratings v2 — blocked on a Silver→model data-flow refactor
+- [ ] Empirical calibration of model probabilities — blocked on ≥20 graded knockout matches
+      (currently 3; revisit once enough Brier-log history accumulates)
 
 ### 📋 To Do (V1 — this week)
 **Phase 1** ✅ complete
@@ -63,6 +73,26 @@ Next.js dashboard, OpenRouter RAG narratives, bug-fixing, deployment.
 - [x] Interactive Knockout Tree (`/bracket`) — CSS flex bracket, proportional-flex connector lines (25%/75% arm geometry), Framer Motion whileInView prob bars, confirmed-fixture vs ghosted-projection styling, champion card
 - [x] Brier-tracker panel (`/brier`) — 4 summary cards (Brier/skill-score/log-loss/count), sortable MatchLogTable with edge/upset row highlighting, Recharts ComposedChart scatter (model vs market, favorites + upsets, y=x diagonal reference line)
 - [x] Deploy: Static JSON export (GitHub Actions nightly) + Next.js API route (Vercel) — see `DEPLOYMENT.md`
+
+**Phase 4**
+- [x] Joint bracket-slot probability distribution (vs marginal advance_prob) — `_compute_bracket_slots()`
+- [x] FIFA-style 0-99 dual display score (60% absolute + 40% relative percentile)
+- [x] National team derivation from Sofascore lineups (separate from Reep bio nationality)
+- [x] Percentile label fix ("Top X%" only ≥50th percentile, else "Bottom X%")
+- [x] Position override file + ETL hook (`data/static/position_overrides.json`)
+- [x] AI narrative jargon removal (posterior/HDI/shrinkage → plain football language)
+- [x] Market odds backfill from `brier_log` for completed matches ESPN stripped
+- [x] Team alias normalization — shared Python/TypeScript module
+- [x] Data-quality audit script (`etl/audits/audit_player_data.py`, 4 checks)
+- [x] Rest/travel strength adjustment — `data/static/venues_2026.json` + rest-days penalty in sim
+- [x] `/about` "What our model can't yet capture" critique section
+- [x] Narrative pre-generation in nightly ETL (`etl/models/generate_narratives.py`) + frontend
+      cache short-circuit in `TacticalAnalysis.tsx`
+- [x] Compare Players (`/compare`) — side-by-side rating/attribute comparison
+- [x] Home page insight cards — Next Match, Value Pick, Top Performers
+- [x] Templated (non-LLM) match preview line on `MatchCard`
+- [x] Bracket share button (copy link)
+- [x] Sitewide tooltips wired into player profile Rating Breakdown
 
 ### 🔨 In Progress (today)
 - _(empty — pull from To Do)_

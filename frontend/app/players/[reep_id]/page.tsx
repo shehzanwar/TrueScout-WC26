@@ -5,6 +5,8 @@ import PlayerRadar from "./PlayerRadar"
 import TacticalAnalysis from "./TacticalAnalysis"
 import RawStats from "./RawStats"
 import MatchTimeline from "./MatchTimeline"
+import FifaBadge from "../FifaBadge"
+import { LabelWithInfo } from "../../components/Tooltip"
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -51,7 +53,7 @@ function StatRow({
   value,
   sub,
 }: {
-  label: string
+  label: React.ReactNode
   value: string
   sub?: string
 }) {
@@ -156,9 +158,12 @@ export default async function PlayerProfilePage({
       {/* ── Header ─────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-100">
-            {player.name ?? reep_id}
-          </h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-2xl font-bold text-slate-100">
+              {player.name ?? reep_id}
+            </h1>
+            <FifaBadge fifa={player.fifa} size="lg" />
+          </div>
           <p className="mt-1 text-sm text-slate-500">
             {[
               player.nationality,
@@ -167,6 +172,11 @@ export default async function PlayerProfilePage({
             ]
               .filter(Boolean)
               .join(" · ")}
+            {player.posterior_mean != null && (
+              <span className="ml-2 text-slate-600">
+                {player.posterior_mean.toFixed(2)}/10
+              </span>
+            )}
           </p>
         </div>
         <ConfidenceBadge score={player.confidence_score} />
@@ -182,32 +192,62 @@ export default async function PlayerProfilePage({
           </h2>
 
           <StatRow
-            label="Overall Rating"
+            label={
+              <LabelWithInfo
+                label="Overall Rating"
+                tip="A weighted blend of club form (last 2 seasons) and World Cup performance, on a 0-10 scale."
+              />
+            }
             value={player.posterior_mean.toFixed(2)}
             sub={pctLabel}
           />
           <StatRow
-            label="Rating Range"
+            label={
+              <LabelWithInfo
+                label="Rating Range"
+                tip="Accounting for sample size, the player's true rating almost certainly falls within this range."
+              />
+            }
             value={`${hdiLow} – ${hdiHigh}`}
             sub={`likely between these two values`}
           />
           <StatRow
-            label="From club (last 2 seasons)"
+            label={
+              <LabelWithInfo
+                label="From club (last 2 seasons)"
+                tip="Performance at club level before this World Cup — the baseline before in-tournament form is factored in."
+              />
+            }
             value={player.prior_mean.toFixed(2)}
             sub={`${clubPct} of rating`}
           />
           <StatRow
-            label="From World Cup form"
+            label={
+              <LabelWithInfo
+                label="From World Cup form"
+                tip="How much weight this World Cup's matches carry in the final rating — more minutes played means more weight."
+              />
+            }
             value={wcPct}
             sub={`${Math.round(player.wc_minutes)} min played`}
           />
           <StatRow
-            label={`Rank among ${positionGroupLabel}`}
+            label={
+              <LabelWithInfo
+                label={`Rank among ${positionGroupLabel}`}
+                tip={`Where this rating places among all ${positionGroupLabel} at this World Cup.`}
+              />
+            }
             value={getOrdinalSuffix(pctRank)}
             sub={`percentile`}
           />
           <StatRow
-            label="Player Style"
+            label={
+              <LabelWithInfo
+                label="Player Style"
+                tip="The closest statistical playing-style archetype, based on a clustering of similar players' attributes."
+              />
+            }
             value={archetypeLabel ?? player.position_macro}
             sub={player.position_bucket}
           />
@@ -236,7 +276,7 @@ export default async function PlayerProfilePage({
         </div>
 
         {/* Radar chart */}
-        <PlayerRadar radar={player.radar} />
+        <PlayerRadar radar={player.radar} fifa={player.fifa} />
       </div>
 
       {/* ── Raw Stats ──────────────────────────────────────────────── */}

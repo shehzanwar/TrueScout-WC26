@@ -13,6 +13,10 @@ espn …).  Every downstream math step depends on it:
   • monte_carlo_sim._build_team_strengths()    — same join
   • export_json.export_players()               — player name / nationality
 
+After loading, applies manual overrides from data/static/position_overrides.json
+to correct known corrupted Reep position/position_detail fields (e.g. a striker
+labelled "Full Back" in the Reep register).
+
 The DuckDB file is .gitignored (rebuilt from scratch on every CI run).  Without
 this step running in CI, identity_players stays empty, WC Parquets can't be
 bridged to player_ratings, and team-strength queries return 0 teams → every
@@ -21,6 +25,7 @@ bracket team gets FALLBACK_STRENGTH and the sim becomes a coin-flip.
 Run:
     python -m etl.load.load_identity
 """
+import json
 import logging
 from pathlib import Path
 
@@ -29,7 +34,8 @@ from etl.db.connection import write_conn
 
 logger = logging.getLogger(__name__)
 
-_PEOPLE_PARQUET = Path(settings.parquet_bronze_dir) / "reep" / "people" / "people.parquet"
+_PEOPLE_PARQUET   = Path(settings.parquet_bronze_dir) / "reep" / "people" / "people.parquet"
+_OVERRIDES_FILE   = Path(__file__).parent.parent.parent / "data" / "static" / "position_overrides.json"
 
 
 def load_identity() -> int:
@@ -113,10 +119,53 @@ def load_identity() -> int:
             FROM identity_players
         """).fetchone()
 
+    # Apply manual position overrides (data/static/position_overrides.json)
+    n_overridden = _apply_position_overrides()
+    if n_overridden:
+        logger.info("position_overrides: applied %d manual overrides", n_overridden)
+
     logger.info(
         "identity_players: %d total rows  (%d with key_sofascore)", total, with_sc
     )
     return with_sc
+
+
+def _apply_position_overrides() -> int:
+    """
+    Apply manual position overrides from data/static/position_overrides.json.
+
+    Overrides are applied as UPDATE statements on identity_players, correcting
+    known-bad position / position_detail values from the Reep Bronze register.
+
+    Returns number of rows updated.
+    """
+    if not _OVERRIDES_FILE.exists():
+        return 0
+    try:
+        data = json.loads(_OVERRIDES_FILE.read_text(encoding="utf-8"))
+        overrides: dict = data.get("overrides", {})
+    except Exception as exc:
+        logger.warning("position_overrides: failed to load %s — %s", _OVERRIDES_FILE, exc)
+        return 0
+
+    if not overrides:
+        return 0
+
+    updated = 0
+    with write_conn() as conn:
+        for reep_id, fields in overrides.items():
+            set_parts = []
+            if "position" in fields:
+                set_parts.append(f"position = '{fields['position']}'")
+            if "position_detail" in fields:
+                set_parts.append(f"position_detail = '{fields['position_detail']}'")
+            if not set_parts:
+                continue
+            sql = f"UPDATE identity_players SET {', '.join(set_parts)} WHERE reep_id = '{reep_id}'"
+            conn.execute(sql)
+            updated += 1
+
+    return updated
 
 
 def main() -> None:

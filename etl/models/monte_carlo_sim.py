@@ -50,6 +50,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from config import settings
+from etl.utils.team_aliases import TEAM_ALIASES, normalize as _alias_normalize
 
 logger = logging.getLogger(__name__)
 
@@ -66,33 +67,13 @@ FALLBACK_STRENGTH = 7.0   # used when a team has no valid posterior ratings
 
 ROUNDS = ["R32", "R16", "QF", "SF", "F", "W"]
 
-# ---------------------------------------------------------------------------
-# Team name normalisation
-#
-# ESPN and Sofascore use different spellings for several national teams.
-# This dict maps ANY variant → the canonical name used in player_ratings
-# (which comes from Sofascore event home_team_name / away_team_name).
-# ---------------------------------------------------------------------------
-
-_NAME_ALIASES: dict[str, str] = {
-    # ESPN → Sofascore variants
-    "Bosnia-Herzegovina":           "Bosnia & Herzegovina",
-    "Bosnia and Herzegovina":       "Bosnia & Herzegovina",
-    # Sofascore → canonical (already canonical)
-    "Cabo Verde":                   "Cape Verde",
-    # Fallback variants
-    "Côte d'Ivoire":                "Ivory Coast",
-    "Cote d'Ivoire":                "Ivory Coast",
-    "DR Congo":                     "Congo DR",
-    "Democratic Republic of Congo": "Congo DR",
-    "Congo, DR":                    "Congo DR",
-    "USA":                          "United States",
-}
+# Keep local reference for direct dict access (used by _R32_SQL glob expansions)
+_NAME_ALIASES: dict[str, str] = TEAM_ALIASES
 
 
 def _normalize(name: str) -> str:
     """Map any known team name variant to the canonical Sofascore name."""
-    return _NAME_ALIASES.get(name, name)
+    return _alias_normalize(name) or name
 
 
 # ---------------------------------------------------------------------------
@@ -394,6 +375,94 @@ def _build_team_strengths(
 
 
 # ---------------------------------------------------------------------------
+# Rest / travel adjustment  (PR5b.1)
+# ---------------------------------------------------------------------------
+
+def _compute_rest_adjustments(
+    conn: duckdb.DuckDBPyConnection,
+    bracket_order: list[str],
+) -> dict[str, float]:
+    """
+    Penalise teams with fewer than 3 rest days before their R32 fixture.
+
+    Formula: delta = -0.10 * max(0, 3 - rest_days)
+      0 rest days → -0.30
+      1 rest day  → -0.20
+      2 rest days → -0.10
+      3+ rest days → 0.0 (no penalty)
+
+    Returns {canonical_team_name: strength_delta}.
+    Only teams with a non-zero delta are included.
+    """
+    bronze = Path(settings.parquet_bronze_dir)
+    espn_glob = (bronze / "espn" / "matches" / "*.parquet").as_posix()
+
+    try:
+        all_df = conn.execute(f"""
+            SELECT
+                home_team_name, away_team_name,
+                CAST(match_date AS DATE) AS match_date,
+                round_name
+            FROM read_parquet('{espn_glob}', union_by_name=true)
+            WHERE match_date IS NOT NULL
+        """).df()
+    except Exception as exc:
+        logger.warning("Rest adjustment: cannot read ESPN matches: %s", exc)
+        return {}
+
+    if all_df.empty:
+        return {}
+
+    all_df["match_date"] = pd.to_datetime(all_df["match_date"])
+    all_df["home_norm"] = all_df["home_team_name"].map(_normalize)
+    all_df["away_norm"] = all_df["away_team_name"].map(_normalize)
+
+    # Team → R32 date
+    r32_df = all_df[all_df["round_name"] == "Round of 32"]
+    team_r32_date: dict[str, pd.Timestamp] = {}
+    for _, row in r32_df.iterrows():
+        for team in (row["home_norm"], row["away_norm"]):
+            if pd.notna(team) and team not in team_r32_date:
+                team_r32_date[team] = row["match_date"]
+
+    # Long-form: (team, date) for all non-R32 matches
+    pre_rows: list[tuple[str, pd.Timestamp]] = []
+    for _, row in all_df[all_df["round_name"] != "Round of 32"].iterrows():
+        dt = row["match_date"]
+        if pd.notna(row["home_norm"]):
+            pre_rows.append((row["home_norm"], dt))
+        if pd.notna(row["away_norm"]):
+            pre_rows.append((row["away_norm"], dt))
+
+    if not pre_rows:
+        logger.info("Rest adjustment: no pre-R32 matches found — skipping.")
+        return {}
+
+    hist = pd.DataFrame(pre_rows, columns=["team", "match_date"])
+
+    adjustments: dict[str, float] = {}
+    for team in bracket_order:
+        r32_date = team_r32_date.get(team)
+        if r32_date is None:
+            continue
+        prev = hist[(hist["team"] == team) & (hist["match_date"] < r32_date)]
+        if prev.empty:
+            continue
+        last_date = prev["match_date"].max()
+        rest_days = int((r32_date - last_date).days)
+        delta = -0.10 * max(0, 3 - rest_days)
+        if delta != 0.0:
+            adjustments[team] = delta
+            logger.info(
+                "Rest adj: %-28s  rest=%dd  delta=%.2f", team, rest_days, delta
+            )
+        else:
+            logger.debug("Rest adj: %-28s  rest=%dd  delta=0.00 (no penalty)", team, rest_days)
+
+    return adjustments
+
+
+# ---------------------------------------------------------------------------
 # Vectorised single-elimination tournament
 # ---------------------------------------------------------------------------
 
@@ -641,6 +710,16 @@ def main() -> None:
             )
             for t in missing:
                 strengths_map[t] = fallback
+
+        # 3c. Rest/travel penalty  (PR5b.1)
+        rest_adj = _compute_rest_adjustments(conn, bracket_order)
+        if rest_adj:
+            for team, delta in rest_adj.items():
+                if team in strengths_map:
+                    strengths_map[team] = max(1.0, strengths_map[team] + delta)
+            logger.info("Applied rest adjustments to %d team(s).", len(rest_adj))
+        else:
+            logger.info("No rest adjustments applied (3+ rest days for all teams).")
 
         # 4. Ordered strength vector
         strengths_vec = np.array(

@@ -22,55 +22,63 @@ const _ANTI_YAPPING =
   "Do not use introductory filler like 'Here is the scouting report' or 'Based on the data'. " +
   "Just start the analysis directly with the player's name or tactical role."
 
+const _JARGON_BAN =
+  "\n\nSTRICT LANGUAGE RULE: Never use these words: 'posterior', 'HDI', 'Bayesian', " +
+  "'shrinkage', 'percentile rank', 'confidence score', 'prior', 'credible interval'. " +
+  "Write as a football analyst speaks on TV — for someone who watches games but " +
+  "does not read academic papers."
+
 const DATA_ANALYST_SYSTEM =
-  "You are an elite Data Analyst scout for FIFA World Cup 2026. " +
+  "You are an elite football scout covering FIFA World Cup 2026. " +
   "Write a concise tactical scouting report in 3–4 short paragraphs. " +
-  "Base your evaluation STRICTLY on the provided Bayesian metrics — cite the specific " +
-  "numbers to explain the player's strengths, weaknesses, and role. " +
-  "Be direct, professional, and data-driven. Do not invent any statistics not provided." +
-  _ANTI_YAPPING
+  "Cite the specific numbers provided to explain the player's strengths, weaknesses, " +
+  "and role in plain football language. Be direct and professional. " +
+  "Do not invent any statistics not given to you." +
+  _ANTI_YAPPING +
+  _JARGON_BAN
 
 const TRADITIONAL_SCOUT_SYSTEM =
-  "You are a Traditional Scout for FIFA World Cup 2026. " +
-  "The quantitative data for this player is sparse or low-confidence. " +
-  "Write an impressionistic scouting report in 2–3 short paragraphs based on their " +
-  "position and archetype cluster. " +
+  "You are a traditional football scout covering FIFA World Cup 2026. " +
+  "Match data for this player is limited — write an impressionistic scouting report " +
+  "in 2–3 short paragraphs based on their position and playing style. " +
   "YOU ARE STRICTLY FORBIDDEN from inventing, hallucinating, or mentioning specific " +
-  "statistical numbers, xG values, percentiles, or ratings not explicitly provided. " +
-  "Focus on their typical tactical role and archetypal positional characteristics." +
-  _ANTI_YAPPING
+  "statistical numbers, xG values, or ratings not explicitly provided. " +
+  "Focus on their tactical role and positional characteristics." +
+  _ANTI_YAPPING +
+  _JARGON_BAN
 
 function buildUserMessage(p: PlayerResponse, highConfidence: boolean): string {
-  const name          = p.name ?? p.reep_id
-  const nat           = p.nationality ?? "nationality unknown"
-  const position      = p.position_detail ?? p.position_macro ?? "Unknown position"
-  const archetype     = p.cluster_label ?? `Cluster ${p.cluster_id}`
-  const wcWeightPct   = ((1.0 - p.shrinkage_weight) * 100).toFixed(0)
+  const name        = p.name ?? p.reep_id
+  const nat         = p.nationality ?? "nationality unknown"
+  const position    = p.position_detail ?? p.position_macro ?? "Unknown position"
+  const archetype   = p.cluster_label ?? position
+  const wcPct       = Math.round((1.0 - p.shrinkage_weight) * 100)
+  const clubPct     = 100 - wcPct
+  const pctRankTop  = Math.max(1, Math.round((1 - p.percentile_rank) * 100))
+  const hdiLow      = p.hdi_low.toFixed(2)
+  const hdiHigh     = p.hdi_high.toFixed(2)
 
   if (highConfidence) {
     return (
       `Generate a tactical scouting report for ${name} (${nat}).\n\n` +
       `Position: ${position}\n` +
-      `Archetype: ${archetype}\n\n` +
-      `Bayesian Posterior Metrics:\n` +
-      `- Overall rating: ${p.posterior_mean.toFixed(3)}` +
-      ` (p${(p.percentile_rank * 100).toFixed(0)} within position group)\n` +
-      `- 90% HDI: ${p.hdi_low.toFixed(3)} – ${p.hdi_high.toFixed(3)}` +
-      `  (uncertainty: ±${p.posterior_std.toFixed(3)})\n` +
-      `- Club prior rating: ${p.prior_mean.toFixed(3)}` +
-      ` — weighted ${(p.shrinkage_weight * 100).toFixed(0)}% of posterior\n` +
-      `- World Cup data contribution: ${wcWeightPct}% of posterior` +
-      ` (${p.wc_minutes.toFixed(0)} minutes played)\n` +
-      `- Confidence score: ${p.confidence_score.toFixed(2)}/1.00\n`
+      `Playing style: ${archetype}\n\n` +
+      `Performance data:\n` +
+      `- Overall rating: ${p.posterior_mean.toFixed(2)} out of 10` +
+      ` — ranks in the top ${pctRankTop}% of ${position.toLowerCase()}s at this tournament\n` +
+      `- Rating likely between ${hdiLow} and ${hdiHigh} (accounting for match sample size)\n` +
+      `- ${clubPct}% of rating comes from club form (last 2 seasons);` +
+      ` ${wcPct}% from this World Cup\n` +
+      `- Played ${Math.round(p.wc_minutes)} minutes at this World Cup\n`
     )
   }
   return (
     `Write a scouting report for ${name} (${nat}).\n\n` +
     `Position: ${position}\n` +
-    `Archetype: ${archetype}\n` +
-    `World Cup minutes: ${p.wc_minutes.toFixed(0)}\n` +
-    `Data note: Limited match data (confidence ${p.confidence_score.toFixed(2)}/1.00).\n` +
-    `Describe their typical tactical role and positional characteristics only.`
+    `Playing style: ${archetype}\n` +
+    `World Cup minutes: ${Math.round(p.wc_minutes)}\n` +
+    `Note: Limited match data — describe their typical tactical role and` +
+    ` positional characteristics only.`
   )
 }
 
@@ -112,7 +120,7 @@ export async function POST(
   const voice          = highConfidence ? "data_analyst" : "traditional_scout"
   const systemPrompt   = highConfidence ? DATA_ANALYST_SYSTEM : TRADITIONAL_SCOUT_SYSTEM
   const userMessage    = buildUserMessage(player, highConfidence)
-  const model = process.env.OPENROUTER_MODEL ?? "nvidia/nemotron-3-ultra-550b-a55b:free"
+  const model = process.env.OPENROUTER_MODEL ?? "google/gemma-4-31b-it:free"
 
   // ── Call OpenRouter ───────────────────────────────────────────────────────
   let resp: Response

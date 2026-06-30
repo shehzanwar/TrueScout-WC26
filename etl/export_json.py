@@ -23,6 +23,7 @@ sys.path.insert(0, str(ROOT_DIR))
 
 from config import settings  # noqa: E402 — after sys.path fix
 from etl.db.connection import get_write_conn  # noqa: E402
+from etl.utils.team_aliases import TEAM_ALIASES, normalize as _norm_team  # noqa: E402
 
 OUTPUT_DIR = ROOT_DIR / "frontend" / "public" / "data"
 
@@ -43,15 +44,7 @@ ROUND_MAP = {
     "F":   "Final",
 }
 NEXT_ROUND = {"R32": "R16", "R16": "QF", "QF": "SF", "SF": "F", "F": "W"}
-NAME_ALIASES = {
-    "Bosnia-Herzegovina":     "Bosnia & Herzegovina",
-    "Bosnia and Herzegovina": "Bosnia & Herzegovina",
-    "Cabo Verde":             "Cape Verde",
-    "Côte d'Ivoire":          "Ivory Coast",
-    "Cote d'Ivoire":          "Ivory Coast",
-    "DR Congo":               "Congo DR",
-    "USA":                    "United States",
-}
+NAME_ALIASES = TEAM_ALIASES
 COIN_BRIER   = 0.25
 COIN_LOGLOSS = math.log(2)  # ≈ 0.6931
 
@@ -124,6 +117,73 @@ def export_simulations(conn) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Rest-days helper for matchups (PR5b.1)
+# ---------------------------------------------------------------------------
+
+def _build_rest_days(matches_glob: str) -> dict[str, tuple[int | None, int | None]]:
+    """
+    For every match in Bronze, compute how many days each team rested since
+    their previous match.
+
+    Returns: {event_id_str: (home_rest_days, away_rest_days)}
+    Either element may be None if no previous match can be found for that team.
+    """
+    import duckdb as _duckdb
+    try:
+        tmp = _duckdb.connect()
+        df = tmp.execute(f"""
+            SELECT
+                CAST(event_id AS VARCHAR) AS event_id,
+                home_team_name, away_team_name,
+                CAST(match_date AS DATE) AS match_date
+            FROM read_parquet('{matches_glob}', union_by_name=true)
+            WHERE match_date IS NOT NULL
+            ORDER BY match_date
+        """).df()
+        tmp.close()
+    except Exception:
+        return {}
+
+    if df.empty:
+        return {}
+
+    df["match_date"] = pd.to_datetime(df["match_date"])
+    df["home_norm"]  = df["home_team_name"].map(lambda n: _norm_team(n) or n)
+    df["away_norm"]  = df["away_team_name"].map(lambda n: _norm_team(n) or n)
+
+    # Build chronological list of (team, date, event_id)
+    events: list[tuple[str, pd.Timestamp, str]] = []
+    for _, row in df.iterrows():
+        events.append((row["home_norm"], row["match_date"], row["event_id"]))
+        events.append((row["away_norm"], row["match_date"], row["event_id"]))
+
+    # For each (team, event) find the most recent prior event date
+    # (sort by date; for each entry, look backwards in team's history)
+    team_history: dict[str, list[pd.Timestamp]] = {}
+    event_map: dict[str, dict[str, int | None]] = {}  # event_id → {team → rest_days}
+
+    for team, dt, ev in sorted(events, key=lambda x: x[1]):
+        prev_dates = team_history.get(team, [])
+        if prev_dates:
+            last_dt   = max(d for d in prev_dates if d < dt) if any(d < dt for d in prev_dates) else None
+            rest_days = int((dt - last_dt).days) if last_dt is not None else None
+        else:
+            rest_days = None
+        event_map.setdefault(ev, {})[team] = rest_days
+        team_history.setdefault(team, []).append(dt)
+
+    result: dict[str, tuple[int | None, int | None]] = {}
+    for _, row in df.iterrows():
+        ev = row["event_id"]
+        h  = row["home_norm"]
+        a  = row["away_norm"]
+        em = event_map.get(ev, {})
+        result[ev] = (em.get(h), em.get(a))
+
+    return result
+
+
+# ---------------------------------------------------------------------------
 # Matchups  (all rounds in one object keyed by round code)
 # ---------------------------------------------------------------------------
 
@@ -131,6 +191,24 @@ def export_matchups(conn) -> dict:
     bronze       = Path(settings.parquet_bronze_dir)
     matches_glob = (bronze / "espn" / "matches" / "*.parquet").as_posix()
     odds_glob    = (bronze / "espn" / "odds"    / "*.parquet").as_posix()
+
+    # Pre-compute rest days for every match (PR5b.1)
+    rest_days_map = _build_rest_days(matches_glob)
+
+    # Build a fallback odds map from brier_log for completed matches whose
+    # live ESPN odds were stripped after kickoff (5a.5 — retrospective backfill).
+    brier_odds: dict[str, tuple[float | None, float | None]] = {}
+    try:
+        brier_rows = conn.execute("""
+            SELECT event_id, model_prob AS home_adv, market_prob
+            FROM brier_log
+            WHERE market_prob IS NOT NULL
+        """).fetchall()
+        for ev, home_adv, mkt in brier_rows:
+            if ev is not None and mkt is not None:
+                brier_odds[str(ev)] = (float(mkt), round(1.0 - float(mkt), 4))
+    except Exception:
+        pass
 
     result: dict = {}
     for round_code, round_name in ROUND_MAP.items():
@@ -181,12 +259,18 @@ def export_matchups(conn) -> dict:
                 except (TypeError, ValueError):
                     pass
 
+            # 5a.5 — backfill from brier_log when ESPN stripped live odds
+            if market_home is None and str(event_id) in brier_odds:
+                market_home, market_away = brier_odds[str(event_id)]
+
             model_home = sim_map.get(h_norm)
             model_away = sim_map.get(a_norm)
             if model_home is not None:
                 model_home = round(model_home, 4)
             if model_away is not None:
                 model_away = round(model_away, 4)
+
+            h_rest, a_rest = rest_days_map.get(str(event_id), (None, None))
 
             matches.append({
                 "event_id":    str(event_id),
@@ -199,6 +283,7 @@ def export_matchups(conn) -> dict:
                     "score":              int(h_score) if h_score is not None else None,
                     "model_advance_prob": model_home,
                     "market_advance_prob": market_home,
+                    "rest_days":          h_rest,
                 },
                 "away": {
                     "name":               a_norm,
@@ -206,6 +291,7 @@ def export_matchups(conn) -> dict:
                     "score":              int(a_score) if a_score is not None else None,
                     "model_advance_prob": model_away,
                     "market_advance_prob": market_away,
+                    "rest_days":          a_rest,
                 },
             })
 
@@ -305,6 +391,64 @@ _RADAR_AXES: dict[str, list[str]] = {
     "FWD": ["Shooting",      "Playmaking",   "Defending",  "WC Form", "Overall"],
 }
 _DEFAULT_AXES: list[str] = ["Shooting", "Playmaking", "Defending", "WC Form", "Overall"]
+
+
+# ---------------------------------------------------------------------------
+# FIFA-style 0-99 score  (PR6)
+# ---------------------------------------------------------------------------
+
+# Band thresholds and labels (highest first for easy lookup)
+_FIFA_BANDS: list[tuple[int, str]] = [
+    (90, "World Class"),
+    (85, "Elite"),
+    (80, "Top Tier"),
+    (75, "Quality"),
+    (70, "Good"),
+    (65, "Decent"),
+    (0,  "Squad"),
+]
+
+
+def _fifa_score(posterior_mean: float | None, percentile_rank: float | None) -> int | None:
+    """
+    Blend absolute skill + relative rank into a FIFA-style 0-99 integer.
+    60% absolute (posterior_mean 1-10 → 10-99) + 40% relative (percentile 0-1 → 10-99).
+    """
+    if posterior_mean is None or percentile_rank is None:
+        return None
+    absolute = 10 + (posterior_mean - 1.0) * (89.0 / 9.0)
+    relative = 10 + percentile_rank * 89.0
+    return int(round(max(10.0, min(99.0, 0.60 * absolute + 0.40 * relative))))
+
+
+def _fifa_band(score: int | None) -> str:
+    if score is None:
+        return "Squad"
+    for threshold, label in _FIFA_BANDS:
+        if score >= threshold:
+            return label
+    return "Squad"
+
+
+def _fifa_attrs(fm: dict, pos: str) -> dict[str, int | None]:
+    """
+    Convert per-axis percentiles (0-1) to 10-99 FIFA sub-attribute integers.
+    Outfield: SHO, PAS, DEF, WC_FORM
+    GK: DIV (shot-stopping), HAN (handling/defending), POS (positioning/WC form), KIC (kicking/creativity)
+    """
+    def pct_to_score(p: float | None) -> int | None:
+        if p is None:
+            return None
+        return int(round(max(10.0, min(99.0, 10 + p * 89.0))))
+
+    sho = pct_to_score(fm.get("shooting"))
+    pas = pct_to_score(fm.get("creativity"))
+    dfe = pct_to_score(fm.get("defending"))
+    wcf = pct_to_score(fm.get("wc_form"))
+
+    if pos == "GK":
+        return {"DIV": sho, "HAN": dfe, "POS": wcf, "KIC": pas}
+    return {"SHO": sho, "PAS": pas, "DEF": dfe, "WC_FORM": wcf}
 
 
 def _load_fm_radar(silver_dir: str) -> dict[str, dict]:
@@ -489,6 +633,85 @@ def _load_raw_stats(silver_dir: str) -> dict[str, dict]:
 
 
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# National team derivation  (5a.1 — modal Sofascore team per reep_id)
+# ---------------------------------------------------------------------------
+
+def _build_national_teams(conn) -> dict[str, str]:
+    """
+    Derive the authoritative national team for each WC player from Sofascore
+    lineup data — more reliable than Reep's `nationality` field, which contains
+    historical / bio nationality (e.g. Wissa = "France" bio; plays for Congo DR).
+
+    Returns dict: reep_id → canonical national team name.
+    Falls back to empty dict when Bronze Parquets are absent.
+    """
+    lineup_dir = Path(settings.parquet_bronze_dir) / "sofascore" / "lineups"
+    events_dir = Path(settings.parquet_bronze_dir) / "sofascore" / "events"
+
+    if not (lineup_dir.is_dir() and list(lineup_dir.glob("*.parquet"))):
+        return {}
+    if not (events_dir.is_dir() and list(events_dir.glob("*.parquet"))):
+        return {}
+
+    lineup_glob = (lineup_dir / "*.parquet").as_posix()
+    events_glob = (events_dir / "*.parquet").as_posix()
+
+    try:
+        bridge_rows = conn.execute("""
+            SELECT CAST(key_sofascore AS VARCHAR) AS sofascore_id, reep_id
+            FROM identity_players
+            WHERE key_sofascore IS NOT NULL AND key_sofascore != ''
+        """).fetchall()
+    except Exception:
+        return {}
+    sc_to_reep = {str(sc): str(r) for sc, r in bridge_rows}
+
+    import duckdb as _duckdb
+    tmp = _duckdb.connect()
+    try:
+        lineups = tmp.execute(f"""
+            SELECT
+                CAST(player_id AS VARCHAR) AS sofascore_id,
+                CAST(event_id  AS BIGINT)  AS event_id,
+                team_side
+            FROM read_parquet('{lineup_glob}', union_by_name=true)
+        """).df()
+
+        events = tmp.execute(f"""
+            SELECT
+                CAST(event_id AS BIGINT) AS event_id,
+                home_team_name,
+                away_team_name
+            FROM read_parquet('{events_glob}', union_by_name=true)
+        """).df()
+    except Exception as exc:
+        print(f"Warning: national_team lookup failed: {exc}", file=sys.stderr)
+        return {}
+    finally:
+        tmp.close()
+
+    if lineups.empty or events.empty:
+        return {}
+
+    merged = lineups.merge(events, on="event_id", how="left")
+    merged["team_name"] = np.where(
+        merged["team_side"] == "home",
+        merged["home_team_name"],
+        merged["away_team_name"],
+    )
+    merged["reep_id"] = merged["sofascore_id"].map(sc_to_reep)
+
+    result: dict[str, str] = {}
+    for rid, grp in merged.dropna(subset=["reep_id", "team_name"]).groupby("reep_id"):
+        modal = grp["team_name"].mode()
+        if not modal.empty:
+            raw = str(modal.iloc[0])
+            result[str(rid)] = _norm_team(raw) or raw
+
+    return result
+
+
 # Per-match log builder  (3.4 — populates MatchTimeline.tsx)
 # ---------------------------------------------------------------------------
 
@@ -667,9 +890,10 @@ def _build_match_logs(conn) -> dict[str, list[dict]]:
 # ---------------------------------------------------------------------------
 
 def export_players(conn) -> list:
-    fm_radar   = _load_fm_radar(settings.parquet_silver_dir)
-    raw_stats  = _load_raw_stats(settings.parquet_silver_dir)
-    match_logs = _build_match_logs(conn)
+    fm_radar       = _load_fm_radar(settings.parquet_silver_dir)
+    raw_stats      = _load_raw_stats(settings.parquet_silver_dir)
+    match_logs     = _build_match_logs(conn)
+    national_teams = _build_national_teams(conn)
 
     rows = conn.execute("""
         WITH prior_rank AS (
@@ -719,11 +943,13 @@ def export_players(conn) -> list:
         fm  = fm_radar.get(reep_id, {})
         rs  = raw_stats.get(reep_id, {})
         log = match_logs.get(reep_id)
+        nt  = national_teams.get(reep_id)
 
         p: dict = {
             "reep_id":          reep_id,
             "name":             _safe_str(name),
             "nationality":      _safe_str(nationality),
+            "national_team":    nt,
             "position_detail":  _safe_str(position_detail),
             "position_macro":   position_macro,
             "position_micro":   _safe_str(position_micro),
@@ -761,6 +987,14 @@ def export_players(conn) -> list:
             },
         }
 
+        # FIFA-style 0-99 dual display (PR6)
+        fs = _fifa_score(_safe_float(posterior_mean), _safe_float(percentile_rank))
+        p["fifa"] = {
+            "overall": fs,
+            "band":    _fifa_band(fs),
+            "attrs":   _fifa_attrs(fm, str(position_bucket or "")),
+        }
+
         # Raw WC stats (from features.parquet — populated once WC Parquets exist)
         for col in _RAW_STAT_COLS:
             if col in rs:
@@ -780,6 +1014,8 @@ def export_players(conn) -> list:
 # ---------------------------------------------------------------------------
 
 def main():
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     conn = get_write_conn()
 
