@@ -32,7 +32,7 @@ function getPlayers(): PlayerResponse[] {
 
 // Primary model from env — MUST end in ":free" to prevent accidental credit drain.
 // If someone sets OPENROUTER_MODEL to a paid slug on Vercel, silently override to free.
-const _ENV_MODEL = process.env.OPENROUTER_MODEL ?? "meta-llama/llama-3.3-70b-instruct:free"
+const _ENV_MODEL = process.env.OPENROUTER_MODEL ?? "poolside/laguna-m.1:free"
 const _SAFE_MODEL = _ENV_MODEL.endsWith(":free")
   ? _ENV_MODEL
   : "poolside/laguna-m.1:free"
@@ -48,9 +48,8 @@ if (!_ENV_MODEL.endsWith(":free")) {
 const FALLBACK_MODELS = [...new Set([
   _SAFE_MODEL,
   "meta-llama/llama-3.3-70b-instruct:free",
-  "google/gemma-3-27b-it:free",
-  "mistralai/mistral-7b-instruct:free",
-  "deepseek/deepseek-r1:free",
+  "nvidia/nemotron-3-ultra-550b-a55b:free",
+  "google/gemma-4-31b-it:free",
 ])]
 
 const _ANTI_YAPPING =
