@@ -1,7 +1,8 @@
 /**
  * POST /api/narratives/[reep_id]
  *
- * OpenRouter proxy — keeps OPENROUTER_API_KEY server-side (never in browser).
+ * Google AI Studio (Gemini) proxy — keeps GOOGLE_AI_API_KEY server-side.
+ * Uses the OpenAI-compatible endpoint so the request shape is unchanged.
  * Mirrors the confidence-gated routing logic from api/routes/narratives.py:
  *   confidence_score >= 0.7  → Data Analyst voice (cites Bayesian metrics)
  *   confidence_score < 0.7   → Traditional Scout voice (qualitative only)
@@ -30,27 +31,13 @@ function getPlayers(): PlayerResponse[] {
   return _playersCache
 }
 
-// Primary model from env — MUST end in ":free" to prevent accidental credit drain.
-// If someone sets OPENROUTER_MODEL to a paid slug on Vercel, silently override to free.
-const _ENV_MODEL = process.env.OPENROUTER_MODEL ?? "poolside/laguna-m.1:free"
-const _SAFE_MODEL = _ENV_MODEL.endsWith(":free")
-  ? _ENV_MODEL
-  : "poolside/laguna-m.1:free"
+// Google AI Studio OpenAI-compatible endpoint
+const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
 
-if (!_ENV_MODEL.endsWith(":free")) {
-  console.warn(
-    "[narratives] OPENROUTER_MODEL =", _ENV_MODEL, "is not a :free model —",
-    "overriding to", _SAFE_MODEL, "to prevent credit drain."
-  )
-}
-
-// Fallback chain — deduped (in case env model matches a fallback)
-const FALLBACK_MODELS = [...new Set([
-  _SAFE_MODEL,
-  "meta-llama/llama-3.3-70b-instruct:free",
-  "nvidia/nemotron-3-ultra-550b-a55b:free",
-  "google/gemma-4-31b-it:free",
-])]
+// Model chain: 2.0-flash primary, 1.5-flash fallback
+const PRIMARY_MODEL  = process.env.GOOGLE_AI_MODEL ?? "gemini-2.0-flash"
+const FALLBACK_MODEL = "gemini-1.5-flash"
+const MODELS = [...new Set([PRIMARY_MODEL, FALLBACK_MODEL])]
 
 const _ANTI_YAPPING =
   "\n\nCRITICAL FORMATTING RULE: Do NOT output your chain of thought, reasoning process, " +
@@ -148,9 +135,9 @@ export async function POST(
   }
 
   // ── API key check ─────────────────────────────────────────────────────────
-  const apiKey = process.env.OPENROUTER_API_KEY
+  const apiKey = process.env.GOOGLE_AI_API_KEY
   if (!apiKey) {
-    console.error("[narratives] OPENROUTER_API_KEY is not set")
+    console.error("[narratives] GOOGLE_AI_API_KEY is not set")
     return NextResponse.json(
       { error: "AI service not configured (missing API key)" },
       { status: 503 }
@@ -162,18 +149,16 @@ export async function POST(
   const systemPrompt   = highConfidence ? DATA_ANALYST_SYSTEM : TRADITIONAL_SCOUT_SYSTEM
   const userMessage    = buildUserMessage(player, highConfidence)
 
-  // ── Fallback model chain ──────────────────────────────────────────────────
+  // ── Model chain: gemini-2.0-flash → gemini-1.5-flash ─────────────────────
   let lastError = ""
-  for (const model of FALLBACK_MODELS) {
+  for (const model of MODELS) {
     let resp: Response
     try {
-      resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      resp = await fetch(GEMINI_ENDPOINT, {
         method: "POST",
         headers: {
           Authorization:  `Bearer ${apiKey}`,
           "Content-Type": "application/json",
-          "HTTP-Referer": "https://truescout.vercel.app",
-          "X-Title":      "TrueScout WC 2026",
         },
         body: JSON.stringify({
           model,
@@ -183,7 +168,6 @@ export async function POST(
           ],
           max_tokens:  800,
           temperature: 0.7,
-          reasoning: { exclude: true },  // strips <think> blocks for reasoning models; ignored by non-reasoning models
         }),
         signal: AbortSignal.timeout(45_000),
       })
@@ -196,8 +180,8 @@ export async function POST(
     if (!resp.ok) {
       try {
         const errBody = await resp.json() as { error?: { message?: string } }
-        lastError = errBody?.error?.message ?? `OpenRouter returned ${resp.status}`
-      } catch { lastError = `OpenRouter returned ${resp.status}` }
+        lastError = errBody?.error?.message ?? `Gemini returned ${resp.status}`
+      } catch { lastError = `Gemini returned ${resp.status}` }
       console.warn("[narratives] Model", model, "returned", resp.status, lastError)
       continue
     }
@@ -217,7 +201,7 @@ export async function POST(
       continue
     }
 
-    if (model !== FALLBACK_MODELS[0]) {
+    if (model !== MODELS[0]) {
       console.info("[narratives] Fallback model used:", model, "for", reep_id)
     } else {
       console.info("[narratives] Primary model succeeded:", model, "for", reep_id)
@@ -227,7 +211,7 @@ export async function POST(
 
   console.error("[narratives] All models failed for", reep_id, "— last error:", lastError)
   return NextResponse.json(
-    { error: lastError || "All AI models unavailable" },
+    { error: lastError || "Gemini unavailable" },
     { status: 502 }
   )
 }
