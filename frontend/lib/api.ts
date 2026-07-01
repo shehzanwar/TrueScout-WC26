@@ -32,6 +32,7 @@ export interface SimulationsResponse {
   n_iterations: number
   rounds: SimRound[]
   bracket_slots?: BracketSlotEntry[]  // absent until PR4 pipeline runs
+  pairings?: Record<string, [number, number][]>  // R16/QF/SF/F slot pairings
 }
 
 export interface MatchupTeam {
@@ -331,7 +332,8 @@ export async function searchPlayers(q: string): Promise<PlayerSearchResult[]> {
  */
 export async function generateNarrative(reep_id: string): Promise<NarrativeResponse> {
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 30_000)
+  let timedOut = false
+  const timer = setTimeout(() => { timedOut = true; controller.abort() }, 54_000)
   try {
     const res = await fetch(`/api/narratives/${encodeURIComponent(reep_id)}`, {
       method: "POST",
@@ -343,6 +345,15 @@ export async function generateNarrative(reep_id: string): Promise<NarrativeRespo
       throw new Error(body?.error ?? `Error ${res.status}`)
     }
     return res.json() as Promise<NarrativeResponse>
+  } catch (err) {
+    if (controller.signal.aborted) {
+      throw new Error(
+        timedOut
+          ? "The AI model is busy — it took too long. Try again in a moment."
+          : "Request cancelled."
+      )
+    }
+    throw err
   } finally {
     clearTimeout(timer)
   }

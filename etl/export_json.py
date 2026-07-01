@@ -104,15 +104,20 @@ def export_simulations(conn) -> dict:
         if by_round[rnd]
     ]
 
-    # Merge per-slot joint distributions written by monte_carlo_sim.py (PR4)
+    # Merge per-slot joint distributions and pairings from monte_carlo_sim.py
     bracket_slots_path = Path(settings.parquet_silver_dir) / "bracket_slots.json"
     bracket_slots = None
+    pairings = None
     if bracket_slots_path.exists():
-        bracket_slots = json.loads(bracket_slots_path.read_text(encoding="utf-8")).get("slots")
+        bracket_slots_raw = json.loads(bracket_slots_path.read_text(encoding="utf-8"))
+        bracket_slots = bracket_slots_raw.get("slots")
+        pairings = bracket_slots_raw.get("pairings")
 
     out: dict = {"run_date": run_date, "n_iterations": n_iterations, "rounds": rounds}
     if bracket_slots is not None:
         out["bracket_slots"] = bracket_slots
+    if pairings is not None:
+        out["pairings"] = pairings
     return out
 
 

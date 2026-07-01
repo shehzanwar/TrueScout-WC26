@@ -106,7 +106,9 @@ def _parse_r32_num(name: str) -> int | None:
     return int(m.group(1)) if m else None
 
 
-def _load_bracket(conn: duckdb.DuckDBPyConnection) -> list[str]:
+def _load_bracket(
+    conn: duckdb.DuckDBPyConnection,
+) -> tuple[list[str], list[tuple[int, int]]]:
     """
     Build the 32-slot bracket position list from Bronze ESPN fixture data.
 
@@ -134,7 +136,11 @@ def _load_bracket(conn: duckdb.DuckDBPyConnection) -> list[str]:
 
     Returns
     -------
-    List of 32 canonical team names in bracket position order.
+    (bracket, r16_pairs)
+        bracket   : 32 canonical team names in bracket position order
+        r16_pairs : 8 (r32_idx_a, r32_idx_b) tuples using chronological
+                    ESPN match indices — i.e. r16_pairs[i] says which two
+                    ESPN R32 matches feed R16 slot i.
     """
     bronze = Path(settings.parquet_bronze_dir)
     espn_glob = (bronze / "espn" / "matches" / "*.parquet").as_posix()
@@ -294,7 +300,7 @@ def _load_bracket(conn: duckdb.DuckDBPyConnection) -> list[str]:
     assert len(set(bracket)) == 32, f"Duplicate teams in bracket: {sorted(bracket)}"
 
     logger.info("Bracket loaded from Bronze (16 R32 + 8 R16 fixtures).")
-    return bracket
+    return bracket, r16_pairs
 
 
 # ---------------------------------------------------------------------------
@@ -555,6 +561,7 @@ def _compute_bracket_slots(
     bracket_order: list[str],
     n_sim: int,
     run_date: date,
+    r16_pairs: list[tuple[int, int]],
 ) -> dict:
     """
     Convert per-sim slot-winner arrays into a JSON-serialisable distribution.
@@ -563,20 +570,33 @@ def _compute_bracket_slots(
     with their probability of winning that specific match slot.  The frontend
     uses this to fix the Colombia-over-Argentina bracket-coherence bug.
 
+    R32 slots are exported using ESPN chronological match indices so they align
+    with the matchups API response (r32.matches[j]).  R16+ slots use the
+    natural bracket slot indices (already sequential).
+
+    Also exports `pairings` so the frontend can correctly pair R32 matches
+    into R16 slots without assuming sequential ESPN order.
+
     Output shape
     ------------
     {
       "run_date": "2026-06-30",
-      "slots": [
-        {"round":"R32","slot_idx":0,"top":{"team":"Canada","prob":0.607},
-         "alt":[{"team":"South Africa","prob":0.393}]},
-        {"round":"R16","slot_idx":7,
-         "top":{"team":"Argentina","prob":0.543},
-         "alt":[{"team":"Colombia","prob":0.412},{"team":"Cape Verde","prob":0.045}]},
-        ...
-      ]
+      "slots": [...],
+      "pairings": {
+        "R16": [[0,2],[3,5],...],   # ESPN R32 match indices feeding each R16 slot
+        "QF":  [[0,1],[2,3],[4,5],[6,7]],
+        "SF":  [[0,1],[2,3]],
+        "F":   [[0,1]]
+      }
     }
     """
+    # Map bracket_match_j → espn_match_idx for R32
+    # bracket match 2i and 2i+1 come from r16_pairs[i] = (a, b)
+    bracket_to_espn: dict[int, int] = {}
+    for i, (a, b) in enumerate(r16_pairs):
+        bracket_to_espn[2 * i]     = a
+        bracket_to_espn[2 * i + 1] = b
+
     n_teams = len(bracket_order)
     slots: list[dict] = []
 
@@ -594,14 +614,24 @@ def _compute_bracket_slots(
                 if counts[t] > 0
             ]
             if entries:
+                # R32: export by ESPN chronological index so the frontend's
+                # r32.matches[j] aligns with slotMap["R32:j"] without remapping.
+                export_idx = bracket_to_espn.get(slot_j, slot_j) if round_code == "R32" else slot_j
                 slots.append({
                     "round":    round_code,
-                    "slot_idx": int(slot_j),
+                    "slot_idx": int(export_idx),
                     "top":      entries[0],
                     "alt":      entries[1:3],   # up to 2 alternates
                 })
 
-    return {"run_date": str(run_date), "slots": slots}
+    pairings = {
+        "R16": [[a, b] for a, b in r16_pairs],  # ESPN R32 match indices
+        "QF":  [[0, 1], [2, 3], [4, 5], [6, 7]],
+        "SF":  [[0, 1], [2, 3]],
+        "F":   [[0, 1]],
+    }
+
+    return {"run_date": str(run_date), "slots": slots, "pairings": pairings}
 
 
 # ---------------------------------------------------------------------------
@@ -704,7 +734,7 @@ def main() -> None:
         t0 = time.perf_counter()
 
         # 1. Load actual bracket from Bronze
-        bracket_order = _load_bracket(conn)
+        bracket_order, r16_pairs = _load_bracket(conn)
 
         # 2. Team strengths from player_ratings
         strengths_map, strength_df = _build_team_strengths(conn)
@@ -769,6 +799,7 @@ def main() -> None:
             bracket_order=bracket_order,
             n_sim=args.n_sim,
             run_date=today,
+            r16_pairs=r16_pairs,
         )
 
         # 7. Validate
@@ -782,6 +813,10 @@ def main() -> None:
                 strength_df["team"].isin(bracket_order)
             ].sort_values("strength", ascending=False)
             print(bracket_strength.to_string(index=False))
+            print("\n=== R16 bracket pairings (R32 ESPN match indices) ===")
+            for i, (a, b) in enumerate(r16_pairs):
+                print(f"  R16[{i}]: R32[{a}] ({bracket_order[2*i]}) vs R32[{b}] ({bracket_order[2*i+1]})")
+            print(f"\n  pairings.R16 = {bracket_slots_data['pairings']['R16']}")
             print("\n=== Advance probabilities by round ===")
             pivot = (
                 results.pivot(index="team_id", columns="round", values="advance_prob")
