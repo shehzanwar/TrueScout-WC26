@@ -23,11 +23,56 @@ function nameColor(team: BracketTeam): string {
 // TeamRow — one team within the slot
 // slotProb (joint match-win probability) drives the bar when available;
 // advanceProb (marginal) is the fallback.
+// When isWinner=true the row shows a green "Advanced" badge instead of the bar.
 // ---------------------------------------------------------------------------
 
-function TeamRow({ team, delay }: { team: BracketTeam; delay: number }) {
+function TeamRow({
+  team,
+  delay,
+  isWinner = false,
+  isLoser = false,
+}: {
+  team: BracketTeam
+  delay: number
+  isWinner?: boolean
+  isLoser?: boolean
+}) {
   const displayProb = team.slotProb ?? team.advanceProb
   const pct         = Math.round(displayProb * 100)
+
+  if (isWinner) {
+    return (
+      <div className="px-2.5 pt-1.5 pb-1 border-l-2 border-emerald-500/60">
+        <div className="flex items-center gap-1.5">
+          <span className="leading-none w-5 shrink-0 flex items-center justify-center">
+            <FlagIcon name={team.name} size={18} />
+          </span>
+          <span className="flex-1 text-[11px] font-semibold leading-tight truncate text-slate-100">
+            {team.name}
+          </span>
+          <span className="text-[9px] font-medium text-emerald-400 uppercase tracking-wide shrink-0">
+            ✓ Advanced
+          </span>
+        </div>
+      </div>
+    )
+  }
+
+  if (isLoser) {
+    return (
+      <div className="px-2.5 pt-1.5 pb-1 opacity-40">
+        <div className="flex items-center gap-1.5">
+          <span className="leading-none w-5 shrink-0 flex items-center justify-center">
+            <FlagIcon name={team.name} size={18} />
+          </span>
+          <span className="flex-1 text-[11px] font-medium leading-tight truncate text-slate-500">
+            {team.name}
+          </span>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className={`px-2.5 pt-1.5 pb-1 ${team.isProjected ? "opacity-60" : ""}`}>
       {/* Name row */}
@@ -73,24 +118,35 @@ export default function BracketSlot({
 }) {
   const [showAlts, setShowAlts] = useState(false)
   const isAllProjected = slot.top.isProjected && slot.bottom.isProjected
-  const hasAlts = slot.alts.length > 0
+  const hasAlts        = slot.alts.length > 0
+  const done           = slot.isCompleted ?? false
 
   return (
     <div
       className={[
         "w-full bg-slate-900 rounded-lg overflow-hidden",
-        isAllProjected
-          ? "border border-slate-800/60 border-dashed"
-          : "border border-slate-700/80",
+        done
+          ? "border border-emerald-900/40"
+          : isAllProjected
+            ? "border border-slate-800/60 border-dashed"
+            : "border border-slate-700/80",
       ].join(" ")}
     >
+      {/* Score chip for completed matches */}
+      {done && slot.score && (
+        <div className="px-2.5 pt-1 pb-0 flex items-center gap-1">
+          <span className="text-[9px] text-emerald-600 uppercase tracking-widest">FT</span>
+          <span className="text-[10px] font-bold tabular-nums text-slate-300">{slot.score}</span>
+        </div>
+      )}
+
       {/* Top team */}
       <div className="border-b border-slate-800/60">
-        <TeamRow team={slot.top} delay={animDelay} />
+        <TeamRow team={slot.top} delay={animDelay} isWinner={done} />
       </div>
 
       {/* Bottom team */}
-      <TeamRow team={slot.bottom} delay={animDelay + 0.05} />
+      <TeamRow team={slot.bottom} delay={animDelay + 0.05} isLoser={done} />
 
       {/* Alt-team expansion — dark horses who occasionally win this slot */}
       {hasAlts && (

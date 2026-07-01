@@ -38,6 +38,7 @@ Usage
 import argparse
 import json
 import logging
+import math
 import re
 import sys
 import time
@@ -314,6 +315,12 @@ def _build_team_strengths(
     lineup_glob = (bronze / "sofascore" / "lineups" / "*.parquet").as_posix()
     events_glob = (bronze / "sofascore" / "events"  / "*.parquet").as_posix()
 
+    # Check whether market_value_eur has been populated (script may not have run yet)
+    existing_cols = {row[0] for row in conn.execute("DESCRIBE identity_players").fetchall()}
+    has_mv = "market_value_eur" in existing_cols
+
+    mv_select = "COALESCE(ip.market_value_eur, 0)" if has_mv else "0"
+
     sql = f"""
     WITH wc_players AS (
         SELECT DISTINCT
@@ -330,10 +337,16 @@ def _build_team_strengths(
         SELECT
             wc.national_team,
             ip.reep_id,
-            pr.posterior_mean
+            pr.posterior_mean,
+            {mv_select} AS market_value_eur
         FROM wc_players wc
         JOIN identity_players ip ON wc.sofascore_id = ip.key_sofascore
         JOIN player_ratings   pr ON ip.reep_id       = pr.reep_id
+    ),
+    squad_values AS (
+        SELECT national_team, SUM(market_value_eur) AS squad_value_eur
+        FROM player_national
+        GROUP BY national_team
     ),
     ranked AS (
         SELECT
@@ -346,20 +359,53 @@ def _build_team_strengths(
         FROM player_national
     )
     SELECT
-        national_team       AS team,
-        AVG(posterior_mean) AS strength,
-        COUNT(*)            AS n_players
-    FROM ranked
-    WHERE rn <= {TOP_N_PLAYERS}
-    GROUP BY national_team
+        r.national_team       AS team,
+        AVG(r.posterior_mean) AS strength,
+        COUNT(*)              AS n_players,
+        MAX(sv.squad_value_eur) AS squad_value_eur
+    FROM ranked r
+    JOIN squad_values sv ON r.national_team = sv.national_team
+    WHERE r.rn <= {TOP_N_PLAYERS}
+    GROUP BY r.national_team
     ORDER BY strength DESC
     """
 
     df = conn.execute(sql).df()
-    df["team"] = df["team"].map(_normalize)   # Sofascore Cabo Verde → Cape Verde etc.
+    df["team"]            = df["team"].map(_normalize)
+    df["squad_value_eur"] = df["squad_value_eur"].fillna(0)
 
     strengths = dict(zip(df["team"], df["strength"].astype(float)))
     logger.info("Strength computed for %d teams (top-%d avg posterior).", len(df), TOP_N_PLAYERS)
+
+    # Squad market-value prior adjustment: log-normalised [-0.3, +0.5] range.
+    # Gracefully skipped when market_value_eur hasn't been populated yet (all zeros).
+    squad_val_map  = dict(zip(df["team"], df["squad_value_eur"].astype(float)))
+    positive_vals  = [v for v in squad_val_map.values() if v > 0]
+    if len(positive_vals) >= 5:
+        log_vals = [math.log(max(v, 1_000_000) / 1_000_000) for v in positive_vals]
+        min_log, max_log = min(log_vals), max(log_vals)
+        squad_adjustments: dict[str, float] = {}
+        for team in strengths:
+            sv = squad_val_map.get(team, 0)
+            if sv > 0:
+                log_sv     = math.log(max(sv, 1_000_000) / 1_000_000)
+                normalized = (log_sv - min_log) / max(0.01, max_log - min_log)
+                squad_adjustments[team] = -0.3 + normalized * 0.8   # [-0.3, +0.5]
+            else:
+                squad_adjustments[team] = -0.2   # no coverage → mild penalty
+        for team, adj in squad_adjustments.items():
+            strengths[team] = strengths[team] + adj
+        top5 = sorted(squad_adjustments.items(), key=lambda x: -x[1])[:5]
+        bot5 = sorted(squad_adjustments.items(), key=lambda x:  x[1])[:5]
+        logger.info("Squad-value adjustments applied (%d teams with data).", len(positive_vals))
+        for t, a in top5:
+            logger.info("  %s: %+.3f (squad=€%.0fM)", t, a, squad_val_map.get(t, 0) / 1e6)
+        logger.info("  …")
+        for t, a in bot5:
+            logger.info("  %s: %+.3f (squad=€%.0fM)", t, a, squad_val_map.get(t, 0) / 1e6)
+    else:
+        logger.info("Squad market-value data absent — strength adjustment skipped.")
+
     return strengths, df
 
 
