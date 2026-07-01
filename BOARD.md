@@ -3,7 +3,7 @@
 > Simple Kanban, not a Gantt chart. Track daily progress here (or mirror to GitHub Projects / Trello /
 > Notion). Pairs with [`PRD.md`](PRD.md) and [`ARCHITECTURE.md`](ARCHITECTURE.md).
 >
-> **Last updated:** 2026-06-30 (Phase 4 complete; Phase 5 queued — AI Analyst stabilization, data-integrity gaps, LLM-polished narrative features, untapped data utilization)
+> **Last updated:** 2026-07-01 (Senior audit TS-WC26-001 received; Phase 6 audit remediation sprint started — 3 critical gaps + 8 tournament-safe items)
 
 ---
 
@@ -160,6 +160,29 @@ PR9 — Untapped data utilization:
 - [ ] Pass completion %, dribbles, aerial duels from Sofascore statistics
 - [ ] npxG vs xG finishing decomposition
 - [ ] Golden Boot / Golden Ball Monte Carlo projections
+
+**Phase 6 — Audit Remediation (TS-WC26-001, 2026-07-01)**
+
+Critical gaps (§9.2 — genuinely new work not in the PR plan):
+- [x] **Gap 1** — Mobile sidebar collapse: `hidden lg:flex` on `<aside>`, new `SidebarClient.tsx` (sticky top bar + hamburger + slide-in drawer + auto-close on nav)
+- [x] **Gap 2** — Add Compare to sidebar nav: one entry in `Sidebar.tsx` NAV array + `SidebarClient.tsx` NAV array (~1h)
+- [x] **Gap 3** — Brier 90-min draw-skip fix: resolve ET/pens winner from Sofascore `home_score_et`/`away_score_et` instead of `continue`; de-dup stale `_NAME_ALIASES` in `brier_tracker.py:65-75` + `matchups.py:59-67` → import canonical `TEAM_ALIASES` (~4h)
+
+Tournament-safe items (§10.2 — no math core changes):
+- [ ] Keyboard-accessible sort buttons + `aria-sort` on `MatchLogTable.tsx` (~4h)
+- [ ] Parameterised SQL in `load_identity._apply_position_overrides` (`load_identity.py:159-165`) (~1h)
+- [ ] Nightly failure alerting — Slack/Discord webhook on critical step failure in `run_nightly.py` (~2h)
+- [ ] Remove dead deps (`pymc`, `apscheduler`, `rich`) + pin critical-path deps with `~=` in `requirements.txt` (~1h)
+- [ ] Move `fbref_pull.py` → `etl/sources/_archive/`; delete empty `etl/matching/` stub (~30m)
+- [ ] Hedge Value Pick card + add storyline tags to Title Favorites in `HomeCards.tsx` (~1h)
+- [ ] Add venue names to `MatchCard.tsx` from `venues_2026.json` (~1h)
+- [ ] PWA wrapper (`manifest.json` + service worker for offline-tolerant nav) (~4h)
+
+Deferred (§10.3 — touch math core, ship after tournament):
+- [ ] Remove WC-floor override (`monte_carlo_sim.py:321-329`) — needs calibration run vs PR 5.4 output
+- [ ] Propagate per-player posterior uncertainty into Monte Carlo (`monte_carlo_sim.py:521-535`)
+- [ ] Refactor monolithic `export_json.py` (1,388 lines) into `etl/export/*`
+- [ ] Replace recharts radar with hand-rolled SVG polygon (`PlayerRadar.tsx`)
 
 ### 🔨 In Progress (today)
 - _(empty — pull from To Do)_

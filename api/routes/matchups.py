@@ -29,6 +29,7 @@ from pydantic import BaseModel
 
 from api.deps import get_db
 from config import settings
+from etl.utils.team_aliases import normalize as _norm
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/matchups", tags=["matchups"])
@@ -54,23 +55,6 @@ _NEXT_ROUND: dict[str, str] = {
     "SF":  "F",
     "F":   "W",
 }
-
-# Team name aliases (ESPN displayName → canonical simulations.team_id)
-_NAME_ALIASES: dict[str, str] = {
-    "Bosnia-Herzegovina":           "Bosnia & Herzegovina",
-    "Bosnia and Herzegovina":       "Bosnia & Herzegovina",
-    "Cabo Verde":                   "Cape Verde",
-    "Côte d'Ivoire":                "Ivory Coast",
-    "Cote d'Ivoire":                "Ivory Coast",
-    "DR Congo":                     "Congo DR",
-    "USA":                          "United States",
-}
-
-
-def _norm(name: str | None) -> str | None:
-    if name is None:
-        return None
-    return _NAME_ALIASES.get(name, name)
 
 
 # ---------------------------------------------------------------------------

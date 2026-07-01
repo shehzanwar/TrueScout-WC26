@@ -25,8 +25,11 @@ _MIN_PLAYERS = 50
 # Title probabilities must sum to this ± tolerance
 _TITLE_PROB_SUM_TOLERANCE = 0.05
 
-# All valid position_macro values
-_VALID_POSITIONS = {"GK", "DEF", "MID", "FWD"}
+# All valid position_macro values — UNK is intentional for players
+# whose position cannot be resolved from any of the three sources
+# (Reep, Understat, Sofascore modal); they are excluded from
+# percentile ranking but remain in the export.
+_VALID_POSITIONS = {"GK", "DEF", "MID", "FWD", "UNK"}
 
 
 class VerificationError(Exception):
