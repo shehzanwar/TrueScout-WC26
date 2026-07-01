@@ -1,0 +1,17 @@
+{
+  "_note": "Pre-match odds not captured by the ESPN scraper. Values estimated from market context and calibrated against other R32 lines. Home/draw/away in implied-probability form (sum ≈ 1.0, vig removed). market_home = home_win_prob + draw_prob * 0.5 (ESPN knockout advance-prob convention).",
+  "events": {
+    "760486": {
+      "match": "South Africa vs Canada (2026-06-28 R32)",
+      "home_win_prob": 0.30,
+      "draw_prob":     0.10,
+      "away_win_prob": 0.60
+    },
+    "760487": {
+      "match": "Brazil vs Japan (2026-06-29 R32)",
+      "home_win_prob": 0.71,
+      "draw_prob":     0.18,
+      "away_win_prob": 0.11
+    }
+  }
+}

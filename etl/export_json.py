@@ -344,6 +344,7 @@ def export_matchups(conn) -> dict:
     # Build fallback odds maps for matches where live ESPN odds were stripped:
     #   1. market_odds_archive — first-seen snapshot from any historical fetch
     #   2. brier_log — market prob logged at match grading time
+    #   3. manual_odds.json — hand-backfilled entries for matches ESPN never had
     archive_odds: dict[str, tuple[float | None, float | None]] = {}
     try:
         arch_rows = conn.execute("""
@@ -368,6 +369,18 @@ def export_matchups(conn) -> dict:
         for ev, home_adv, mkt in brier_rows:
             if ev is not None and mkt is not None:
                 brier_odds[str(ev)] = (float(mkt), round(1.0 - float(mkt), 4))
+    except Exception:
+        pass
+
+    manual_odds: dict[str, tuple[float, float]] = {}
+    _manual_path = ROOT_DIR / "data" / "static" / "manual_odds.json"
+    try:
+        _raw = json.loads(_manual_path.read_text(encoding="utf-8"))
+        for ev, entry in _raw.get("events", {}).items():
+            hw = float(entry["home_win_prob"])
+            dp = float(entry.get("draw_prob", 0.0))
+            market_home = round(hw + dp * 0.5, 4)
+            manual_odds[str(ev)] = (market_home, round(1.0 - market_home, 4))
     except Exception:
         pass
 
@@ -422,12 +435,14 @@ def export_matchups(conn) -> dict:
                 except (TypeError, ValueError):
                     pass
 
-            # Backfill from archive then brier_log when ESPN stripped live odds
+            # Backfill from archive → brier_log → manual_odds when ESPN stripped live odds
             ev_str = str(event_id)
             if market_home is None and ev_str in archive_odds:
                 market_home, market_away = archive_odds[ev_str]
             if market_home is None and ev_str in brier_odds:
                 market_home, market_away = brier_odds[ev_str]
+            if market_home is None and ev_str in manual_odds:
+                market_home, market_away = manual_odds[ev_str]
 
             model_home = sim_map.get(h_norm)
             model_away = sim_map.get(a_norm)
