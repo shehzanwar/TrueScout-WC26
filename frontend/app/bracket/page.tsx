@@ -3,12 +3,15 @@ import { buildBracket } from "@/lib/bracket"
 import BracketGrid from "./BracketGrid"
 
 export default async function BracketPage() {
-  const [simData, r32Data] = await Promise.all([
+  const [simData, r32Data, r16Data] = await Promise.all([
     getSimulations().catch(() => null),
     getMatchups("R32").catch(() => null),
+    getMatchups("R16").catch(() => null),
   ])
 
-  const bracket = simData && r32Data ? buildBracket(simData, r32Data) : null
+  const bracket = simData && r32Data
+    ? buildBracket(simData, r32Data, r16Data ?? undefined)
+    : null
 
   return (
     <div className="space-y-5">
