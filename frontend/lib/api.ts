@@ -50,6 +50,7 @@ export interface Matchup {
   match_date: string
   round: string
   is_completed: boolean
+  venue?: string | null
   home: MatchupTeam
   away: MatchupTeam
 }
