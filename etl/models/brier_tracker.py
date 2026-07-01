@@ -50,6 +50,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from config import settings
+from etl.utils.team_aliases import normalize as _normalize
 
 logger = logging.getLogger(__name__)
 
@@ -57,26 +58,6 @@ LOGISTIC_SCALE = 1.5
 ET_BIAS_STRONGER = 0.55   # P(stronger team wins ET/pens)
 ET_BIAS_WEAKER   = 0.45
 CLIP_LO, CLIP_HI = 0.01, 0.99
-
-# ---------------------------------------------------------------------------
-# Name normalisation (mirrors monte_carlo_sim._NAME_ALIASES)
-# ---------------------------------------------------------------------------
-
-_NAME_ALIASES: dict[str, str] = {
-    "Bosnia-Herzegovina":           "Bosnia & Herzegovina",
-    "Bosnia and Herzegovina":       "Bosnia & Herzegovina",
-    "Cabo Verde":                   "Cape Verde",
-    "Côte d'Ivoire":                "Ivory Coast",
-    "Cote d'Ivoire":                "Ivory Coast",
-    "DR Congo":                     "Congo DR",
-    "Democratic Republic of Congo": "Congo DR",
-    "Congo, DR":                    "Congo DR",
-    "USA":                          "United States",
-}
-
-
-def _normalize(name: str) -> str:
-    return _NAME_ALIASES.get(name, name)
 
 
 # ---------------------------------------------------------------------------
@@ -211,6 +192,43 @@ def _log_loss(p: float, outcome: int) -> float:
 
 
 # ---------------------------------------------------------------------------
+# ET / penalties lookup
+# ---------------------------------------------------------------------------
+
+def _load_sofascore_et(
+    conn: duckdb.DuckDBPyConnection,
+) -> dict[tuple[str, str, str], dict]:
+    """
+    Load matches that went to ET/pens from Sofascore bronze parquet.
+    Returns a dict keyed on (home_team, away_team, match_date YYYY-MM-DD) after
+    alias normalisation so it can be joined with the ESPN-sourced matches df.
+    """
+    bronze = Path(settings.parquet_bronze_dir)
+    events_glob = (bronze / "sofascore" / "events" / "*.parquet").as_posix()
+
+    try:
+        df = conn.execute(f"""
+            SELECT home_team_name, away_team_name, match_date,
+                   home_score_et, away_score_et,
+                   home_score_penalties, away_score_penalties,
+                   went_to_extra_time, went_to_penalties
+            FROM read_parquet('{events_glob}', union_by_name=true)
+            WHERE went_to_extra_time = true
+        """).df()
+    except Exception:
+        logger.warning("Sofascore events not in Bronze yet — ET/pens lookup unavailable.")
+        return {}
+
+    index: dict[tuple[str, str, str], dict] = {}
+    for _, row in df.iterrows():
+        h = _normalize(row["home_team_name"]) or row["home_team_name"]
+        a = _normalize(row["away_team_name"]) or row["away_team_name"]
+        d = str(row["match_date"])[:10]
+        index[(h, a, d)] = row.to_dict()
+    return index
+
+
+# ---------------------------------------------------------------------------
 # Core grader
 # ---------------------------------------------------------------------------
 
@@ -218,6 +236,7 @@ def _grade_matches(
     matches: pd.DataFrame,
     strengths: dict[str, float],
     scale: float,
+    et_index: dict[tuple[str, str, str], dict],
 ) -> list[dict]:
     """
     For each completed knockout match, compute 2-way advance probabilities
@@ -248,13 +267,36 @@ def _grade_matches(
             advanced_team = away
             outcome = 0   # away advanced
         else:
-            # 90-min draw — in knockout this means ET/pens; scores reflect 90 min
-            # We don't have the ET/pens result in Bronze yet — log and skip
-            logger.warning(
-                "%s vs %s ended %d-%d (90 min draw) — ET/pens result not in Bronze yet, skipping.",
-                home, away, h_score, a_score,
-            )
-            continue
+            # 90-min draw — resolve via Sofascore ET/pens data
+            et_key = (_normalize(home) or home, _normalize(away) or away, str(m["match_date"])[:10])
+            et_row = et_index.get(et_key)
+            if et_row is None:
+                logger.warning(
+                    "%s vs %s ended %d-%d (90-min draw) — no ET/pens data in Bronze yet, skipping.",
+                    home, away, h_score, a_score,
+                )
+                continue
+            if et_row.get("went_to_penalties"):
+                h_pens = et_row.get("home_score_penalties")
+                a_pens = et_row.get("away_score_penalties")
+                if h_pens is None or a_pens is None:
+                    logger.warning("%s vs %s — penalty scores missing in Bronze, skipping.", home, away)
+                    continue
+                if int(h_pens) > int(a_pens):
+                    advanced_team, outcome = home, 1
+                else:
+                    advanced_team, outcome = away, 0
+            else:
+                # ET decided without going to pens
+                h_et = int(et_row.get("home_score_et") or 0)
+                a_et = int(et_row.get("away_score_et") or 0)
+                if h_et > a_et:
+                    advanced_team, outcome = home, 1
+                elif a_et > h_et:
+                    advanced_team, outcome = away, 0
+                else:
+                    logger.warning("%s vs %s — ET also tied with no pens recorded, skipping.", home, away)
+                    continue
 
         # ── Model strength lookup ────────────────────────────────────────
         s_home = strengths.get(home)
@@ -500,7 +542,8 @@ def main() -> None:
             return
 
         # Grade
-        rows = _grade_matches(matches, strengths, scale=args.scale)
+        et_index = _load_sofascore_et(conn)
+        rows = _grade_matches(matches, strengths, scale=args.scale, et_index=et_index)
 
         if not rows:
             logger.info("No gradeable matches (all drew in 90 min or missing scores).")
