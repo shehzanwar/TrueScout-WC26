@@ -65,6 +65,7 @@ const ROUND_LABELS: Record<string, string> = {
 export function buildBracket(
   sim: SimulationsResponse,
   r32: MatchupsResponse,
+  r16?: MatchupsResponse,
 ): BracketData | null {
   if (!r32.matches.length) return null
 
@@ -88,6 +89,17 @@ export function buildBracket(
   for (const entry of sim.bracket_slots ?? []) {
     slotMap.set(`${entry.round}:${entry.slot_idx}`, entry)
   }
+
+  // R16 team set — used to resolve FT-Pens R32 winners (the advancing team
+  // definitionally appears in the next round's fixture list).
+  const r16TeamNames = new Set(
+    (r16?.matches ?? []).flatMap((m) => [m.home.name, m.away.name]),
+  )
+
+  // actualR32Winners: slot_idx → confirmed winning team name (completed matches only)
+  // confirmedWinners: set of teams known to have advanced (not projected)
+  const actualR32Winners = new Map<number, string>()
+  const confirmedWinners = new Set<string>()
 
   // Binary entropy: measures uncertainty of a single match (0 = certain, 1 = 50/50)
   function binEntropy(p: number): number {
@@ -122,8 +134,8 @@ export function buildBracket(
     }
   }
 
-  // resolveSlotWinner: pick the most likely winner of (round, slotIdx) from the
-  // joint distribution; fall back to marginal advance-prob comparison.
+  // resolveSlotWinner: pick the most likely winner of (round, slotIdx).
+  // For completed R32 matches the actual result always wins over simulation.
   function resolveSlotWinner(
     round: string,
     slotIdx: number,
@@ -131,12 +143,18 @@ export function buildBracket(
     teamB: string,
     targetRound: string,
   ): string {
+    // Task 1+2: actual R32 results take priority over simulation
+    if (round === "R32") {
+      const actual = actualR32Winners.get(slotIdx)
+      if (actual) return actual === teamA ? teamA : teamB
+    }
+    // Joint distribution from simulation
     const entry = slotMap.get(`${round}:${slotIdx}`)
     if (entry) {
       const top = entry.top.team
       if (top === teamA || top === teamB) return top
     }
-    // Fallback: marginal advance probabilities (old behaviour)
+    // Fallback: marginal advance probabilities
     const pA = simMap.get(teamA)?.get(targetRound)?.ap ?? 0
     const pB = simMap.get(teamB)?.get(targetRound)?.ap ?? 0
     return pA >= pB ? teamA : teamB
@@ -151,17 +169,38 @@ export function buildBracket(
     return alt?.prob
   }
 
-  // R32: actual ESPN fixture pairings (slot_idx = match index = array position)
+  // R32: actual ESPN fixture pairings (slot_idx = match index = array position).
+  // For completed matches, winner goes on top and is added to confirmedWinners.
+  // FT-Pens winner resolved via R16 fixture list (Task 2).
   const r32Slots: BracketSlot[] = r32.matches.map((m, j) => {
     const entry = slotMap.get(`R32:${j}`)
-    const topName = m.home.name
-    const botName = m.away.name
-    // For R32, winner of this slot is the team advancing TO R16
-    const winnerEntry = entry
+
+    let actualWinner: string | null = null
+    if (m.is_completed && m.home.score !== null && m.away.score !== null) {
+      if (m.home.score > m.away.score) {
+        actualWinner = m.home.name
+      } else if (m.away.score > m.home.score) {
+        actualWinner = m.away.name
+      } else {
+        // Equal score → FT-Pens: whoever appears in R16 fixtures is the winner
+        if (r16TeamNames.has(m.home.name)) actualWinner = m.home.name
+        else if (r16TeamNames.has(m.away.name)) actualWinner = m.away.name
+      }
+    }
+    if (actualWinner) {
+      actualR32Winners.set(j, actualWinner)
+      confirmedWinners.add(actualWinner)
+    }
+
+    const topName = actualWinner ?? m.home.name
+    const botName = actualWinner
+      ? (actualWinner === m.home.name ? m.away.name : m.home.name)
+      : m.away.name
+
     return {
       top:    teamData(topName, "R32", false, slotProbFor("R32", j, topName)),
       bottom: teamData(botName, "R32", false, slotProbFor("R32", j, botName)),
-      alts:   winnerEntry?.alt.filter(a => a.team !== topName && a.team !== botName) ?? [],
+      alts:   entry?.alt.filter(a => a.team !== topName && a.team !== botName) ?? [],
     }
   })
 
@@ -201,9 +240,12 @@ export function buildBracket(
       const matchLoser    = matchWinner === teamA ? teamB : teamA
       const altsFromEntry = slotEntry?.alt.filter(a => a.team !== teamA && a.team !== teamB) ?? []
 
+      // A team confirmed via a completed R32 result is not "projected" even in R16
+      const winnerConfirmed = confirmedWinners.has(matchWinner)
+      const loserConfirmed  = confirmedWinners.has(matchLoser)
       nextSlots.push({
-        top:    teamData(matchWinner, code, true, slotProbFor(code, newSlotIdx, matchWinner)),
-        bottom: teamData(matchLoser,  code, true, slotProbFor(code, newSlotIdx, matchLoser)),
+        top:    teamData(matchWinner, code, !winnerConfirmed, slotProbFor(code, newSlotIdx, matchWinner)),
+        bottom: teamData(matchLoser,  code, !loserConfirmed,  slotProbFor(code, newSlotIdx, matchLoser)),
         alts:   altsFromEntry,
       })
     }
