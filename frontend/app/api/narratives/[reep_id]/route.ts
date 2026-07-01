@@ -30,14 +30,27 @@ function getPlayers(): PlayerResponse[] {
   return _playersCache
 }
 
-// Primary model from env; three hardcoded fallbacks tried in order on failure
+// Primary model from env — MUST end in ":free" to prevent accidental credit drain.
+// If someone sets OPENROUTER_MODEL to a paid slug on Vercel, silently override to free.
 const _ENV_MODEL = process.env.OPENROUTER_MODEL ?? "poolside/laguna-m.1:free"
-const FALLBACK_MODELS = [
-  _ENV_MODEL,
-  "google/gemma-3-27b-it:free",
-  "nvidia/llama-3.1-nemotron-70b-instruct:free",
+const _SAFE_MODEL = _ENV_MODEL.endsWith(":free")
+  ? _ENV_MODEL
+  : "poolside/laguna-m.1:free"
+
+if (!_ENV_MODEL.endsWith(":free")) {
+  console.warn(
+    "[narratives] OPENROUTER_MODEL =", _ENV_MODEL, "is not a :free model —",
+    "overriding to", _SAFE_MODEL, "to prevent credit drain."
+  )
+}
+
+// Fallback chain — deduped (in case env model matches a fallback)
+const FALLBACK_MODELS = [...new Set([
+  _SAFE_MODEL,
   "meta-llama/llama-3.3-70b-instruct:free",
-]
+  "nvidia/nemotron-3-super-120b-a12b:free",
+  "openai/gpt-oss-120b:free",
+])]
 
 const _ANTI_YAPPING =
   "\n\nCRITICAL FORMATTING RULE: Do NOT output your chain of thought, reasoning process, " +
@@ -170,8 +183,9 @@ export async function POST(
           ],
           max_tokens:  800,
           temperature: 0.7,
+          reasoning: { exclude: true },  // strips <think> blocks for reasoning models; ignored by non-reasoning models
         }),
-        signal: AbortSignal.timeout(55_000),
+        signal: AbortSignal.timeout(45_000),
       })
     } catch (err) {
       lastError = err instanceof Error ? err.message : "Network error"
@@ -204,9 +218,11 @@ export async function POST(
     }
 
     if (model !== FALLBACK_MODELS[0]) {
-      console.info("[narratives] Used fallback model", model, "for", reep_id)
+      console.info("[narratives] Fallback model used:", model, "for", reep_id)
+    } else {
+      console.info("[narratives] Primary model succeeded:", model, "for", reep_id)
     }
-    return NextResponse.json({ narrative, voice })
+    return NextNextResponse.json({ narrative, voice, model })
   }
 
   console.error("[narratives] All models failed for", reep_id, "— last error:", lastError)
