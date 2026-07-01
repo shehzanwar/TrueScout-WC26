@@ -343,9 +343,14 @@ def _bayesian_update(df: pd.DataFrame, stats: pd.DataFrame) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 
 def _confidence(df: pd.DataFrame) -> pd.Series:
-    wc_conf    = (df["wc_minutes"].clip(upper=270.0).fillna(0.0) / 270.0).clip(0.0, 1.0)
-    prior_conf = df["has_prior"].astype(float)
-    return (0.7 * wc_conf + 0.3 * prior_conf).clip(0.0, 1.0)
+    """
+    Confidence from Bayesian posterior_std: lower std → tighter posterior → higher confidence.
+    exp(10*(0.27 - std)) maps the practical std range [0.22, 0.62] → (0.95, 0.03].
+    Fixes the old minutes-only formula which capped no-prior players (e.g. Messi) at 0.70
+    even when WC data was sufficient to form a tight posterior.
+    """
+    std = df["posterior_std"].clip(lower=0.01)
+    return (np.exp(10.0 * (0.27 - std))).clip(0.0, 0.95)
 
 
 # ---------------------------------------------------------------------------
