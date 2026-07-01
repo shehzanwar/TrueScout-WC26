@@ -381,7 +381,7 @@ def _build_team_strengths(
     # Gracefully skipped when market_value_eur hasn't been populated yet (all zeros).
     squad_val_map  = dict(zip(df["team"], df["squad_value_eur"].astype(float)))
     positive_vals  = [v for v in squad_val_map.values() if v > 0]
-    if len(positive_vals) >= 5:
+    if len(positive_vals) >= 24:
         log_vals = [math.log(max(v, 1_000_000) / 1_000_000) for v in positive_vals]
         min_log, max_log = min(log_vals), max(log_vals)
         squad_adjustments: dict[str, float] = {}

@@ -42,9 +42,17 @@ DB_PATH = Path("data/truescout.duckdb")
 BASE_URL = "https://api.sofascore.com/api/v1/player"
 FALLBACK_URL = "https://api.sofascore.app/api/v1/player"
 
+HEADERS: dict[str, str] = {
+    "Referer": "https://www.sofascore.com/",
+    "Origin": "https://www.sofascore.com",
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Cache-Control": "no-cache",
+}
+
 
 def make_session() -> CurlSession:
-    return CurlSession(impersonate="chrome110")
+    return CurlSession(impersonate="chrome136")
 
 
 @retry(
@@ -56,11 +64,14 @@ def make_session() -> CurlSession:
 )
 def fetch_player(session: CurlSession, sofascore_id: str) -> dict | None:
     for base in (BASE_URL, FALLBACK_URL):
-        resp = session.get(f"{base}/{sofascore_id}", timeout=15)
+        resp = session.get(f"{base}/{sofascore_id}", headers=HEADERS, timeout=15)
         if resp.status_code == 200:
             return resp.json().get("player", {})
         if resp.status_code == 404:
             return None  # player not found — skip silently
+        if resp.status_code in (403, 429):
+            raise Exception(f"HTTP {resp.status_code} from {base}")
+        log.debug("Unexpected status %d for player %s from %s", resp.status_code, sofascore_id, base)
     return None
 
 
@@ -73,16 +84,26 @@ def main(refresh: bool = False) -> None:
         con.execute("ALTER TABLE identity_players ADD COLUMN market_value_eur BIGINT")
         log.info("Added market_value_eur column to identity_players")
 
+    # Only fetch players who appear in WC lineup parquets — the full identity
+    # table has 80k+ rows but squad-value prior only needs ~3k WC players.
+    bronze       = Path("data/bronze")
+    lineup_glob  = (bronze / "sofascore" / "lineups" / "*.parquet").as_posix()
+
+    wc_id_filter = f"""
+        SELECT DISTINCT CAST(player_id AS VARCHAR) AS key_sofascore
+        FROM read_parquet('{lineup_glob}', union_by_name=true)
+        WHERE minutes_played > 0
+    """
+
     # Load players to fetch
-    if refresh:
-        rows = con.execute(
-            "SELECT reep_id, key_sofascore FROM identity_players WHERE key_sofascore IS NOT NULL"
-        ).fetchall()
-    else:
-        rows = con.execute(
-            "SELECT reep_id, key_sofascore FROM identity_players "
-            "WHERE key_sofascore IS NOT NULL AND market_value_eur IS NULL"
-        ).fetchall()
+    base_filter = "market_value_eur IS NULL" if not refresh else "1=1"
+    rows = con.execute(f"""
+        SELECT ip.reep_id, ip.key_sofascore
+        FROM identity_players ip
+        WHERE ip.key_sofascore IS NOT NULL
+          AND ip.key_sofascore IN ({wc_id_filter})
+          AND {base_filter}
+    """).fetchall()
 
     log.info("Fetching market values for %d players (refresh=%s)", len(rows), refresh)
 
