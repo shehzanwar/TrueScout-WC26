@@ -411,6 +411,58 @@ def _apply_opponent_adjustment(wc: pd.DataFrame, bridge: pd.DataFrame) -> pd.Dat
 
 
 # ---------------------------------------------------------------------------
+# Defensive-action boost for DEF / GK  (Task 5)
+# ---------------------------------------------------------------------------
+
+def _apply_defensive_boost(features: pd.DataFrame) -> pd.DataFrame:
+    """Boost wc_rating_adjusted for DEF/GK by their within-bucket defensive percentile.
+
+    DEF: def_per_90 = (tackles + interceptions + clearances) / (minutes / 90)
+    GK:  def_per_90 = saves / (minutes / 90)
+
+    Boost = 0.3 × percentile (0.0–1.0), applied only to rows with valid WC data.
+    Skipped entirely when wc_rating_adjusted hasn't been added yet (first run).
+    """
+    if "wc_rating_adjusted" not in features.columns:
+        return features
+
+    mins = features["wc_minutes"].clip(lower=1e-6)
+    per90_div = mins / 90.0
+
+    for bucket, stat_cols in [
+        ("DEF", ["wc_tackles_raw", "wc_interceptions_raw", "wc_clearances_raw"]),
+        ("GK",  ["wc_saves_raw"]),
+    ]:
+        mask = (
+            (features["position_bucket"] == bucket)
+            & features["wc_rating_adjusted"].notna()
+            & (features["wc_minutes"].fillna(0) > 0)
+        )
+        idx = features.index[mask]
+        if len(idx) < 2:
+            continue
+
+        available = [c for c in stat_cols if c in features.columns]
+        if not available:
+            continue
+
+        def_raw   = features.loc[idx, available].fillna(0).sum(axis=1)
+        def_per90 = def_raw / per90_div.loc[idx]
+        pct       = def_per90.rank(pct=True, method="average")
+        boost     = 0.3 * pct
+
+        features.loc[idx, "wc_rating_adjusted"] = (
+            features.loc[idx, "wc_rating_adjusted"] + boost
+        )
+        logger.info(
+            "Defensive boost (%s): %d players — mean boost=+%.3f, max=+%.3f",
+            bucket, len(idx), float(boost.mean()), float(boost.max()),
+        )
+
+    return features
+
+
+# ---------------------------------------------------------------------------
 # Build
 # ---------------------------------------------------------------------------
 
@@ -507,6 +559,9 @@ def build_features() -> pd.DataFrame:
     features["has_wc_data"] = features["wc_minutes"].notna() & (features["wc_minutes"] > 0)
     features["has_prior"]   = features["prior_xg_per_90"].notna()
     features["wc_low_data"] = features["wc_low_data"].fillna(True)  # no WC data = data-sparse
+
+    # Task 5 — Defensive-action boost for DEF/GK
+    features = _apply_defensive_boost(features)
 
     # Drop rows with no data at all
     has_any = features["has_wc_data"] | features["has_prior"]

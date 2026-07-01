@@ -21,6 +21,8 @@ export interface BracketSlot {
   top: BracketTeam
   bottom: BracketTeam
   alts: BracketSlotAlt[]   // other teams with non-trivial P(win this slot)
+  isCompleted?: boolean     // true when R32 match has a confirmed final result
+  score?: string            // "2-1" (winner score first) when isCompleted
 }
 
 export interface BracketRound {
@@ -199,10 +201,24 @@ export function buildBracket(
       ? (actualWinner === m.home.name ? m.away.name : m.home.name)
       : m.away.name
 
+    // Build score string for completed matches: winner's score first
+    let score: string | undefined
+    if (actualWinner && m.home.score != null && m.away.score != null) {
+      const winnerScore = actualWinner === m.home.name ? m.home.score : m.away.score
+      const loserScore  = actualWinner === m.home.name ? m.away.score : m.home.score
+      score = `${winnerScore}–${loserScore}`
+    }
+
+    // Override slotProb for confirmed R32 results: winner = 1.0, loser = 0.0
+    const topProb  = actualWinner ? 1.0 : (slotProbFor("R32", j, topName) ?? undefined)
+    const botProb  = actualWinner ? 0.0 : (slotProbFor("R32", j, botName) ?? undefined)
+
     return {
-      top:    teamData(topName, "R32", false, slotProbFor("R32", j, topName)),
-      bottom: teamData(botName, "R32", false, slotProbFor("R32", j, botName)),
-      alts:   entry?.alt.filter(a => a.team !== topName && a.team !== botName) ?? [],
+      top:         teamData(topName, "R32", false, topProb),
+      bottom:      teamData(botName, "R32", false, botProb),
+      alts:        actualWinner ? [] : (entry?.alt.filter(a => a.team !== topName && a.team !== botName) ?? []),
+      isCompleted: !!actualWinner,
+      score,
     }
   })
 
