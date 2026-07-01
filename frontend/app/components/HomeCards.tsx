@@ -235,16 +235,34 @@ function MatchOfTheDayCard({ match }: { match: Matchup }) {
 // Insight of the Day (biggest model vs market gap)
 // ---------------------------------------------------------------------------
 
-function InsightCard({ match }: { match: Matchup }) {
+function InsightCard({ match }: { match: Matchup | null }) {
+  if (!match) {
+    return (
+      <SectionCard title="Value Pick" subtitle="Biggest gap between our model and the bookies">
+        <p className="text-sm text-slate-500 italic leading-relaxed">
+          No strong value picks today — model and bookies are in alignment.
+        </p>
+        <Link href="/matchups" className="text-xs text-emerald-500 hover:text-emerald-400 transition-colors">
+          See all matchups →
+        </Link>
+      </SectionCard>
+    )
+  }
+
   const { home, away } = match
-  const modelH  = home.model_advance_prob ?? 0
-  const marketH = home.market_advance_prob ?? 0
-  const delta   = modelH - marketH
+  const modelH   = home.model_advance_prob ?? 0
+  const marketH  = home.market_advance_prob ?? 0
+  const delta    = modelH - marketH
   const absDelta = Math.abs(delta)
 
   const valueSide  = delta > 0 ? home : away
-  const valueDelta = Math.round(absDelta * 100)
   const bookieSide = delta > 0 ? away : home
+  const valueDelta = Math.round(absDelta * 100)
+  const modelProb  = delta > 0 ? modelH  : 1 - modelH
+  const bookiesProb = delta > 0 ? marketH : 1 - marketH
+
+  // High-variance call: edge > 20pp AND model gives >2× the bookies' implied probability
+  const isHighVariance = valueDelta > 20 && modelProb > 2 * bookiesProb
 
   return (
     <SectionCard
@@ -256,21 +274,33 @@ function InsightCard({ match }: { match: Matchup }) {
           <span className="text-xl">{flag(valueSide.name)}</span>
           <div>
             <p className="text-sm font-semibold text-slate-100">{valueSide.name}</p>
-            <p className="text-xs text-slate-500">
-              vs {bookieSide.name}
-            </p>
+            <p className="text-xs text-slate-500">vs {bookieSide.name}</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span
-            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/20"
-          >
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
             +{valueDelta}% edge
           </span>
           <span className="text-xs text-slate-500">
-            model {Math.round((delta > 0 ? modelH : 1 - modelH) * 100)}% · bookies {Math.round((delta > 0 ? marketH : 1 - marketH) * 100)}%
+            model {Math.round(modelProb * 100)}% · bookies {Math.round(bookiesProb * 100)}%
           </span>
+          {isHighVariance && (
+            <div className="relative group/tooltip">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/15 text-amber-400 border border-amber-500/25 cursor-default select-none">
+                <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 shrink-0">
+                  <path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575Zm1.763.707a.25.25 0 0 0-.44 0L1.698 13.132a.25.25 0 0 0 .22.368h12.164a.25.25 0 0 0 .22-.368Zm.53 3.996v2.5a.75.75 0 0 1-1.5 0v-2.5a.75.75 0 0 1 1.5 0ZM9 11a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z" />
+                </svg>
+                high-variance call
+              </span>
+              <div
+                role="tooltip"
+                className="pointer-events-none absolute bottom-full left-0 mb-2 z-20 hidden group-hover/tooltip:block w-64 rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-xs text-slate-300 leading-relaxed shadow-xl"
+              >
+                This is a large disagreement between our model and the bookies. These calls have higher variance — the model sees something the market doesn&apos;t, but it could go either way.
+              </div>
+            </div>
+          )}
         </div>
 
         <p className="text-xs text-slate-500 leading-relaxed">
@@ -419,7 +449,7 @@ export default function HomeCards({
       <FavoritesCard champions={champions} />
       <CalibrationCard summary={brierSummary} entries={brierEntries} />
       {matchOfTheDay && <MatchOfTheDayCard match={matchOfTheDay} />}
-      {insightMatch && <InsightCard match={insightMatch} />}
+      <InsightCard match={insightMatch} />
       {overnight && overnight.length > 0 && <OvernightDeltasCard overnight={overnight} />}
       <TopPerformersCard players={topPlayers} />
     </motion.div>
