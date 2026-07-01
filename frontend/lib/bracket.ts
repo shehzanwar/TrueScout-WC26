@@ -174,28 +174,29 @@ export function buildBracket(
     },
   ]
 
-  // R16 → F: project by pairing consecutive slots from the previous round
+  // R16 → F: project by pairing slots from the previous round.
+  // sim.pairings[code] contains the correct slot indices to pair — critical for R16
+  // where ESPN chronological order ≠ bracket pairing order.
+  // Falls back to sequential pairing when pairings are absent (old data / backward compat).
   const futureCodes = ["R16", "QF", "SF", "F"] as const
   let prevSlots = r32Slots
   let prevCode  = "R32"
 
   for (const code of futureCodes) {
     const nextSlots: BracketSlot[] = []
+    const codePairings = sim.pairings?.[code]
+    const nSlots = prevSlots.length / 2
 
-    for (let i = 0; i + 1 < prevSlots.length; i += 2) {
-      const newSlotIdx = i / 2
+    for (let newSlotIdx = 0; newSlotIdx < nSlots; newSlotIdx++) {
+      // Use pairings when available; fall back to sequential (old behaviour)
+      const [slotA, slotB] = codePairings?.[newSlotIdx] ?? [2 * newSlotIdx, 2 * newSlotIdx + 1]
 
       // Who comes out of the two prevSlots (winners of prev round matches)?
-      // Use joint distribution from prevCode:i and prevCode:i+1.
-      const teamA = resolveSlotWinner(
-        prevCode, i,   prevSlots[i].top.name,     prevSlots[i].bottom.name,     code,
-      )
-      const teamB = resolveSlotWinner(
-        prevCode, i+1, prevSlots[i+1].top.name,   prevSlots[i+1].bottom.name,   code,
-      )
+      const teamA = resolveSlotWinner(prevCode, slotA, prevSlots[slotA].top.name, prevSlots[slotA].bottom.name, code)
+      const teamB = resolveSlotWinner(prevCode, slotB, prevSlots[slotB].top.name, prevSlots[slotB].bottom.name, code)
 
       // Who wins the code:newSlotIdx match?
-      const slotEntry = slotMap.get(`${code}:${newSlotIdx}`)
+      const slotEntry     = slotMap.get(`${code}:${newSlotIdx}`)
       const matchWinner   = resolveSlotWinner(code, newSlotIdx, teamA, teamB, NEXT[code] ?? "W")
       const matchLoser    = matchWinner === teamA ? teamB : teamA
       const altsFromEntry = slotEntry?.alt.filter(a => a.team !== teamA && a.team !== teamB) ?? []
