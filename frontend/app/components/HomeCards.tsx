@@ -78,9 +78,21 @@ function SectionCard({
 // Title Favorites
 // ---------------------------------------------------------------------------
 
-function FavoritesCard({ champions }: { champions: SimTeam[] }) {
+const _DEFENDING_CHAMPION = "Argentina"
+const _HOST_NATIONS = new Set(["United States", "Mexico", "Canada"])
+
+function FavoritesCard({
+  champions,
+  overnight,
+}: {
+  champions: SimTeam[]
+  overnight?: InsightsOvernight[] | null
+}) {
   const top5 = champions.slice().sort((a, b) => b.title_prob - a.title_prob).slice(0, 5)
   const maxProb = top5[0]?.title_prob ?? 1
+  const risingTeams = new Set(
+    (overnight ?? []).filter((o) => o.delta > 0.01).map((o) => o.team),
+  )
   return (
     <SectionCard title="Title Favorites" subtitle="Chance of winning the World Cup">
       {top5.length === 0 ? (
@@ -91,8 +103,25 @@ function FavoritesCard({ champions }: { champions: SimTeam[] }) {
             <motion.li key={team.team_id} variants={row} className="flex items-center gap-3">
               <span className="w-5 text-center text-xs font-bold text-slate-600 tabular-nums">{i + 1}</span>
               <div className="flex-1 min-w-0">
-                <div className="flex justify-between items-baseline mb-1">
-                  <span className="text-sm font-medium text-slate-200 truncate">{team.team_id}</span>
+                <div className="flex justify-between items-center mb-1">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="text-sm font-medium text-slate-200 truncate">{team.team_id}</span>
+                    {team.team_id === _DEFENDING_CHAMPION && (
+                      <span className="shrink-0 inline-flex px-1.5 rounded-full text-[9px] font-medium bg-yellow-500/15 text-yellow-400 border border-yellow-500/20">
+                        holders
+                      </span>
+                    )}
+                    {_HOST_NATIONS.has(team.team_id) && (
+                      <span className="shrink-0 inline-flex px-1.5 rounded-full text-[9px] font-medium bg-sky-500/15 text-sky-400 border border-sky-500/20">
+                        hosts
+                      </span>
+                    )}
+                    {risingTeams.has(team.team_id) && (
+                      <span className="shrink-0 inline-flex px-1.5 rounded-full text-[9px] font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
+                        rising
+                      </span>
+                    )}
+                  </div>
                   <span className="text-xs font-mono text-emerald-400 shrink-0 ml-2">
                     {(team.title_prob * 100).toFixed(1)}%
                   </span>
@@ -446,7 +475,7 @@ export default function HomeCards({
       animate="show"
       className="grid grid-cols-1 lg:grid-cols-2 gap-5"
     >
-      <FavoritesCard champions={champions} />
+      <FavoritesCard champions={champions} overnight={overnight} />
       <CalibrationCard summary={brierSummary} entries={brierEntries} />
       {matchOfTheDay && <MatchOfTheDayCard match={matchOfTheDay} />}
       <InsightCard match={insightMatch} />

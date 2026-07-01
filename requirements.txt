@@ -47,13 +47,13 @@ tenacity>=8.3.0            # Retry with exponential back-off for flaky scrapers
 # ---------------------------------------------------------------------------
 # pymc>=5.15.0              # REMOVED: Bayesian model is pure NumPy — no PyMC used
 # numpyro>=0.15.0           # Alternative to PyMC (JAX-based, easier on Windows)
-numpy>=1.26.0              # Monte Carlo bracket simulation
-scikit-learn>=1.4.0        # K-Means archetypes + Elastic Net feature selection
+numpy~=1.26.0              # Monte Carlo bracket simulation
+scikit-learn~=1.4.0        # K-Means archetypes + Elastic Net feature selection
 
 # ---------------------------------------------------------------------------
 # LLM / RAG
 # ---------------------------------------------------------------------------
-openai>=1.35.0             # OpenRouter uses OpenAI-compatible API (base_url override)
+openai~=1.35.0             # OpenRouter uses OpenAI-compatible API (base_url override)
 
 # ---------------------------------------------------------------------------
 # Dev / testing
@@ -61,4 +61,3 @@ openai>=1.35.0             # OpenRouter uses OpenAI-compatible API (base_url ove
 # apscheduler>=3.10.0       # REMOVED: scheduling is GitHub Actions, not this lib
 # rich>=13.7.0              # REMOVED: not imported anywhere
 pytest>=8.2.0
-httpx>=0.27.0              # Also used for FastAPI TestClient

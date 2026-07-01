@@ -231,7 +231,7 @@ export const cardVariant = {
 // ---------------------------------------------------------------------------
 
 export default function MatchCard({ match }: { match: Matchup }) {
-  const { home, away, is_completed, match_date } = match
+  const { home, away, is_completed, match_date, venue } = match
 
   const [showLineups, setShowLineups] = useState(false)
   const [lineupsLoaded, setLineupsLoaded] = useState(false)
@@ -309,6 +309,9 @@ export default function MatchCard({ match }: { match: Matchup }) {
           </span>
         )}
       </div>
+      {venue && (
+        <p className="text-[10px] text-slate-600 -mt-2">{venue}</p>
+      )}
 
       {/* ── Teams ─────────────────────────────────────── */}
       <div className="flex items-center gap-3">

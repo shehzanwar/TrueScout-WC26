@@ -388,7 +388,8 @@ def export_matchups(conn) -> dict:
                     m.home_team_name, m.home_team_abbrev,
                     m.away_team_name, m.away_team_abbrev,
                     m.home_score, m.away_score, m.is_completed,
-                    o.home_win_prob, o.draw_prob, o.away_win_prob
+                    o.home_win_prob, o.draw_prob, o.away_win_prob,
+                    m.venue_name, m.venue_city
                 FROM read_parquet('{matches_glob}', union_by_name=true) m
                 LEFT JOIN read_parquet('{odds_glob}', union_by_name=true) o
                     ON m.event_id = o.event_id
@@ -403,7 +404,8 @@ def export_matchups(conn) -> dict:
             (event_id, match_date, round_name_val,
              h_name, h_abbrev, a_name, a_abbrev,
              h_score, a_score, is_completed,
-             home_win_prob, draw_prob, away_win_prob) = row
+             home_win_prob, draw_prob, away_win_prob,
+             venue_name, venue_city) = row
 
             h_norm = NAME_ALIASES.get(h_name, h_name) if h_name else h_name
             a_norm = NAME_ALIASES.get(a_name, a_name) if a_name else a_name
@@ -437,11 +439,13 @@ def export_matchups(conn) -> dict:
             h_rest, a_rest   = rest_days_map.get(str(event_id), (None, None))
             h_km,   a_km     = travel_km_map.get(str(event_id), (None, None))
 
+            venue = str(venue_city or venue_name) if (venue_city or venue_name) else None
             matches.append({
                 "event_id":    str(event_id),
                 "match_date":  str(match_date),
                 "round":       round_name_val,
                 "is_completed": bool(is_completed),
+                "venue":       venue,
                 "home": {
                     "name":               h_norm,
                     "abbrev":             h_abbrev,
