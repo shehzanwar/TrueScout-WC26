@@ -310,38 +310,9 @@ def _load_bracket(
 def _build_team_strengths(
     conn: duckdb.DuckDBPyConnection,
 ) -> tuple[dict[str, float], pd.DataFrame]:
-    bronze        = Path(settings.parquet_bronze_dir)
-    silver        = Path(settings.parquet_silver_dir)
-    lineup_glob   = (bronze / "sofascore" / "lineups" / "*.parquet").as_posix()
-    events_glob   = (bronze / "sofascore" / "events"  / "*.parquet").as_posix()
-    features_path = silver / "player_stats" / "features.parquet"
-
-    # WC-minutes floor: prevents MLS/non-European players (whose club priors
-    # are absent from Understat's top-5 leagues) from dragging their team
-    # strength below their demonstrated World Cup performance.
-    # For any player with ≥90 WC mins, their contribution ≥ 90% of their
-    # Sofascore WC rating — so a player rating 9.0 in-tournament contributes
-    # at least 8.1, even if the Bayesian model pulled their posterior lower
-    # due to a missing club prior.
-    if features_path.exists():
-        wc_floor_expr = f"""
-        GREATEST(
-            pr.posterior_mean,
-            CASE
-                WHEN pr.wc_minutes >= 90 AND f.wc_rating_avg IS NOT NULL
-                THEN f.wc_rating_avg * 0.90
-                ELSE pr.posterior_mean
-            END
-        )"""
-        features_join = (
-            f"LEFT JOIN read_parquet('{features_path.as_posix()}') f"
-            f" ON ip.reep_id = f.reep_id"
-        )
-        floor_applied = True
-    else:
-        wc_floor_expr = "pr.posterior_mean"
-        features_join = ""
-        floor_applied = False
+    bronze      = Path(settings.parquet_bronze_dir)
+    lineup_glob = (bronze / "sofascore" / "lineups" / "*.parquet").as_posix()
+    events_glob = (bronze / "sofascore" / "events"  / "*.parquet").as_posix()
 
     sql = f"""
     WITH wc_players AS (
@@ -359,11 +330,10 @@ def _build_team_strengths(
         SELECT
             wc.national_team,
             ip.reep_id,
-            {wc_floor_expr} AS posterior_mean
+            pr.posterior_mean
         FROM wc_players wc
         JOIN identity_players ip ON wc.sofascore_id = ip.key_sofascore
         JOIN player_ratings   pr ON ip.reep_id       = pr.reep_id
-        {features_join}
     ),
     ranked AS (
         SELECT
@@ -389,10 +359,7 @@ def _build_team_strengths(
     df["team"] = df["team"].map(_normalize)   # Sofascore Cabo Verde → Cape Verde etc.
 
     strengths = dict(zip(df["team"], df["strength"].astype(float)))
-    logger.info(
-        "Strength computed for %d teams (top-%d avg posterior, WC floor: %s).",
-        len(df), TOP_N_PLAYERS, "applied" if floor_applied else "skipped (no features.parquet)",
-    )
+    logger.info("Strength computed for %d teams (top-%d avg posterior).", len(df), TOP_N_PLAYERS)
     return strengths, df
 
 
