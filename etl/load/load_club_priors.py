@@ -16,7 +16,7 @@ ID-resolution strategy (in order):
 
 Run AFTER:
     python -m etl.sources.understat_pull        (Bronze populated)
-    python -m etl.matching.resolve_understat    (players.understat_id populated)
+    # Note: Understat→Reep ID resolution lives in understat_pull.py (not etl.matching)
 
 Usage:
     python -m etl.load.load_club_priors
