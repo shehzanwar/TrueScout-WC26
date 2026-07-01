@@ -1,3 +1,74 @@
+// flagcdn.com ISO 3166-1 alpha-2 codes (lowercase). England/Scotland/Wales use
+// CLDR subdivision codes supported by flagcdn.com.
+export const ISO_CODES: Record<string, string> = {
+  Argentina:              "ar",
+  Australia:              "au",
+  Austria:                "at",
+  Belgium:                "be",
+  Bolivia:                "bo",
+  "Bosnia & Herzegovina": "ba",
+  Brazil:                 "br",
+  Cameroon:               "cm",
+  Canada:                 "ca",
+  "Cape Verde":           "cv",
+  Chile:                  "cl",
+  Colombia:               "co",
+  "Congo DR":             "cd",
+  "Costa Rica":           "cr",
+  Croatia:                "hr",
+  Denmark:                "dk",
+  Ecuador:                "ec",
+  Egypt:                  "eg",
+  England:                "gb-eng",
+  France:                 "fr",
+  Germany:                "de",
+  Ghana:                  "gh",
+  Honduras:               "hn",
+  Hungary:                "hu",
+  Indonesia:              "id",
+  Iran:                   "ir",
+  "Ivory Coast":          "ci",
+  Japan:                  "jp",
+  "Korea Republic":       "kr",
+  "South Korea":          "kr",
+  Mexico:                 "mx",
+  Morocco:                "ma",
+  Netherlands:            "nl",
+  "New Zealand":          "nz",
+  Nigeria:                "ng",
+  Norway:                 "no",
+  Panama:                 "pa",
+  Paraguay:               "py",
+  Peru:                   "pe",
+  Poland:                 "pl",
+  Portugal:               "pt",
+  Qatar:                  "qa",
+  Romania:                "ro",
+  "Saudi Arabia":         "sa",
+  Scotland:               "gb-sct",
+  Senegal:                "sn",
+  Serbia:                 "rs",
+  Slovenia:               "si",
+  Spain:                  "es",
+  Switzerland:            "ch",
+  Tunisia:                "tn",
+  Turkey:                 "tr",
+  "Türkiye":              "tr",
+  Ukraine:                "ua",
+  "United States":        "us",
+  USA:                    "us",
+  Uruguay:                "uy",
+  Venezuela:              "ve",
+  Wales:                  "gb-wls",
+}
+
+export function getFlagUrl(name: string | null | undefined): string | null {
+  if (!name) return null
+  const iso = ISO_CODES[name]
+  if (!iso) return null
+  return `https://flagcdn.com/w20/${iso}.png`
+}
+
 export const FLAGS: Record<string, string> = {
   Argentina:             "🇦🇷",
   Australia:             "🇦🇺",
@@ -57,6 +128,7 @@ export const FLAGS: Record<string, string> = {
   Uruguay:               "🇺🇾",
   Venezuela:             "🇻🇪",
   Wales:                 "🏴󠁧󠁢󠁷󠁬󠁳󠁿",
+  Norway:                "🇳🇴",
 }
 
 export function getFlag(name: string | null | undefined): string {

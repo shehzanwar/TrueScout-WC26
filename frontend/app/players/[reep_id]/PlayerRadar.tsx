@@ -149,7 +149,10 @@ export default function PlayerRadar({
       <div className="grid grid-cols-1 gap-1 mt-2 pt-3 border-t border-slate-800">
         {axisLabels.map((label, i) => {
           const attrKey   = attrKeyMap[i]
-          const attrScore = (attrKey && fifa?.attrs?.[attrKey]) ?? null
+          // Overall axis (last) uses the composite FIFA overall score; others use per-attr scores
+          const attrScore = i === attrKeyMap.length - 1
+            ? (fifa?.overall ?? null)
+            : (attrKey && fifa?.attrs?.[attrKey]) ?? null
           return (
             <div key={label} className="flex items-baseline gap-2">
               <span className="text-[11px] font-medium text-slate-400 w-24 shrink-0">{label}</span>

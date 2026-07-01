@@ -31,8 +31,8 @@ function getPlayers(): PlayerResponse[] {
   return _playersCache
 }
 
-// Google AI Studio OpenAI-compatible endpoint
-const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+// Native Gemini REST API — more reliable than the OpenAI-compat wrapper
+const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 
 // Model chain: 2.0-flash primary, 1.5-flash fallback
 const PRIMARY_MODEL  = process.env.GOOGLE_AI_MODEL ?? "gemini-2.0-flash"
@@ -152,22 +152,16 @@ export async function POST(
   // ── Model chain: gemini-2.0-flash → gemini-1.5-flash ─────────────────────
   let lastError = ""
   for (const model of MODELS) {
+    const url = `${GEMINI_BASE}/${model}:generateContent?key=${apiKey}`
     let resp: Response
     try {
-      resp = await fetch(GEMINI_ENDPOINT, {
+      resp = await fetch(url, {
         method: "POST",
-        headers: {
-          Authorization:  `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user",   content: userMessage  },
-          ],
-          max_tokens:  800,
-          temperature: 0.7,
+          system_instruction: { parts: [{ text: systemPrompt }] },
+          contents: [{ role: "user", parts: [{ text: userMessage }] }],
+          generationConfig: { maxOutputTokens: 800, temperature: 0.7 },
         }),
         signal: AbortSignal.timeout(45_000),
       })
@@ -186,8 +180,10 @@ export async function POST(
       continue
     }
 
-    const data = (await resp.json()) as { choices?: { message?: { content?: string } }[] }
-    const raw  = data.choices?.[0]?.message?.content?.trim()
+    const data = (await resp.json()) as {
+      candidates?: { content?: { parts?: { text?: string }[] } }[]
+    }
+    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim()
     if (!raw) {
       lastError = "empty response"
       console.warn("[narratives] Model", model, "returned empty content for", reep_id)

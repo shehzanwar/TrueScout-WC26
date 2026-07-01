@@ -384,6 +384,28 @@ def export_matchups(conn) -> dict:
     except Exception:
         pass
 
+    # FT-Pens winner resolution: brier_log.advanced_team is the primary source;
+    # manual_winners.json covers matches not yet graded by the Brier tracker.
+    brier_winner: dict[str, str] = {}
+    try:
+        bw_rows = conn.execute("""
+            SELECT event_id, advanced_team FROM brier_log
+            WHERE advanced_team IS NOT NULL
+        """).fetchall()
+        for ev, adv in bw_rows:
+            if ev is not None and adv:
+                brier_winner[str(ev)] = str(adv)
+    except Exception:
+        pass
+
+    manual_winner: dict[str, str] = {}
+    _mw_path = ROOT_DIR / "data" / "static" / "manual_winners.json"
+    try:
+        _mw_raw = json.loads(_mw_path.read_text(encoding="utf-8"))
+        manual_winner.update(_mw_raw.get("events", {}))
+    except Exception:
+        pass
+
     result: dict = {}
     for round_code, round_name in ROUND_MAP.items():
         next_round = NEXT_ROUND.get(round_code, "W")
@@ -455,12 +477,14 @@ def export_matchups(conn) -> dict:
             h_km,   a_km     = travel_km_map.get(str(event_id), (None, None))
 
             venue = str(venue_city or venue_name) if (venue_city or venue_name) else None
+            winner = brier_winner.get(ev_str) or manual_winner.get(ev_str) or None
             matches.append({
                 "event_id":    str(event_id),
                 "match_date":  str(match_date),
                 "round":       round_name_val,
                 "is_completed": bool(is_completed),
                 "venue":       venue,
+                "winner":      winner,
                 "home": {
                     "name":               h_norm,
                     "abbrev":             h_abbrev,

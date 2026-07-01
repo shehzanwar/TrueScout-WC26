@@ -3,7 +3,7 @@
 import { motion, AnimatePresence } from "framer-motion"
 import { useState } from "react"
 import type { BracketTeam, BracketSlot as BracketSlotType } from "@/lib/bracket"
-import { getFlag } from "@/lib/flags"
+import { FlagIcon } from "@/app/components/FlagIcon"
 
 // ---------------------------------------------------------------------------
 // Colour helpers
@@ -32,8 +32,8 @@ function TeamRow({ team, delay }: { team: BracketTeam; delay: number }) {
     <div className={`px-2.5 pt-1.5 pb-1 ${team.isProjected ? "opacity-60" : ""}`}>
       {/* Name row */}
       <div className="flex items-center gap-1.5 mb-1">
-        <span className="text-sm leading-none w-5 text-center shrink-0">
-          {getFlag(team.name)}
+        <span className="leading-none w-5 shrink-0 flex items-center justify-center">
+          <FlagIcon name={team.name} size={18} />
         </span>
         <span className={`flex-1 text-[11px] font-medium leading-tight truncate ${nameColor(team)}`}>
           {team.name}
@@ -113,8 +113,8 @@ export default function BracketSlot({
               >
                 {slot.alts.map(alt => (
                   <div key={alt.team} className="flex items-center gap-1.5 px-2.5 py-1">
-                    <span className="text-sm leading-none w-5 text-center shrink-0">
-                      {getFlag(alt.team)}
+                    <span className="leading-none w-5 shrink-0 flex items-center justify-center">
+                      <FlagIcon name={alt.team} size={18} />
                     </span>
                     <span className="flex-1 text-[10px] text-slate-600 italic truncate">
                       {alt.team}

@@ -182,8 +182,10 @@ export function buildBracket(
       } else if (m.away.score > m.home.score) {
         actualWinner = m.away.name
       } else {
-        // Equal score → FT-Pens: whoever appears in R16 fixtures is the winner
-        if (r16TeamNames.has(m.home.name)) actualWinner = m.home.name
+        // Equal score → FT-Pens: use exported winner (brier_log/manual_winners.json) first,
+        // then fall back to R16 cross-reference once those fixtures are published
+        if (m.winner) actualWinner = m.winner
+        else if (r16TeamNames.has(m.home.name)) actualWinner = m.home.name
         else if (r16TeamNames.has(m.away.name)) actualWinner = m.away.name
       }
     }

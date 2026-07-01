@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { motion } from "framer-motion"
 import type { BracketData } from "@/lib/bracket"
-import { getFlag } from "@/lib/flags"
+import { FlagIcon } from "@/app/components/FlagIcon"
 import BracketSlot from "./BracketSlot"
 
 // ---------------------------------------------------------------------------
@@ -89,7 +89,7 @@ function ChampionCard({
         viewport={{ once: true }}
         transition={{ duration: 0.4, ease: "easeOut" as const }}
       >
-        <span className="text-3xl">{getFlag(name)}</span>
+        <FlagIcon name={name} size={36} />
         <span className="text-sm font-bold text-slate-100 text-center leading-tight">
           {name}
         </span>
@@ -136,17 +136,26 @@ function HeaderRow({ rounds }: { rounds: BracketData["rounds"] }) {
             <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
               {round.label}
             </span>
-            {/* Chaos meter badge */}
-            <div className="flex items-center gap-1" title={`Chaos: avg match entropy = ${(round.chaosScore * 100).toFixed(0)}%`}>
-              <div className="w-12 h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                <div
-                  className={`h-full rounded-full ${chaosColor(round.chaosScore)}`}
-                  style={{ width: `${round.chaosScore * 100}%` }}
-                />
+            {/* Chaos meter — how evenly matched is this round? */}
+            <div className="flex flex-col items-center gap-0.5">
+              <div
+                className="flex items-center gap-1 cursor-help"
+                title="Chaos score: how unpredictable is this round? 100% = every match is a coin flip. High chaos means more upsets expected; low chaos means clear favourites dominate."
+              >
+                <span className="text-[8px] uppercase tracking-widest text-slate-600">chaos</span>
+                <span className="text-[8px] text-slate-700 border border-slate-700 rounded-full w-3 h-3 flex items-center justify-center leading-none">?</span>
               </div>
-              <span className={`text-[9px] tabular-nums ${chaosBadge(round.chaosScore)}`}>
-                {(round.chaosScore * 100).toFixed(0)}%
-              </span>
+              <div className="flex items-center gap-1">
+                <div className="w-12 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${chaosColor(round.chaosScore)}`}
+                    style={{ width: `${round.chaosScore * 100}%` }}
+                  />
+                </div>
+                <span className={`text-[9px] tabular-nums ${chaosBadge(round.chaosScore)}`}>
+                  {(round.chaosScore * 100).toFixed(0)}%
+                </span>
+              </div>
             </div>
           </div>
         </div>
