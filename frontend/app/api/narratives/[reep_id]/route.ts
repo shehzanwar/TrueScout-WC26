@@ -36,7 +36,7 @@ const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 
 // Model chain: 2.0-flash primary, 1.5-flash fallback
 const PRIMARY_MODEL  = process.env.GOOGLE_AI_MODEL ?? "gemini-2.0-flash"
-const FALLBACK_MODEL = "gemini-1.5-flash"
+const FALLBACK_MODEL = "gemini-1.5-flash-latest"
 const MODELS = [...new Set([PRIMARY_MODEL, FALLBACK_MODEL])]
 
 const _ANTI_YAPPING =

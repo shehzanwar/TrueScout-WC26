@@ -233,8 +233,17 @@ export function buildBracket(
       const [slotA, slotB] = codePairings?.[newSlotIdx] ?? [2 * newSlotIdx, 2 * newSlotIdx + 1]
 
       // Who comes out of the two prevSlots (winners of prev round matches)?
-      const teamA = resolveSlotWinner(prevCode, slotA, prevSlots[slotA].top.name, prevSlots[slotA].bottom.name, code)
-      const teamB = resolveSlotWinner(prevCode, slotB, prevSlots[slotB].top.name, prevSlots[slotB].bottom.name, code)
+      let teamA = resolveSlotWinner(prevCode, slotA, prevSlots[slotA].top.name, prevSlots[slotA].bottom.name, code)
+      let teamB = resolveSlotWinner(prevCode, slotB, prevSlots[slotB].top.name, prevSlots[slotB].bottom.name, code)
+
+      // R16: ESPN fixtures are the source of truth for team names.
+      // The simulation bracket pairings don't always match the actual WC2026 draw.
+      if (code === "R16" && r16?.matches[newSlotIdx]) {
+        const fix = r16.matches[newSlotIdx]
+        const real = (n: string) => !!n && !n.includes("Winner") && n !== "TBD"
+        if (real(fix.home.name)) teamA = fix.home.name
+        if (real(fix.away.name)) teamB = fix.away.name
+      }
 
       // Who wins the code:newSlotIdx match?
       const slotEntry     = slotMap.get(`${code}:${newSlotIdx}`)

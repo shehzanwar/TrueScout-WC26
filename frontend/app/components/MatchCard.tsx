@@ -4,71 +4,7 @@ import { useState, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import Link from "next/link"
 import type { Matchup, PlayerSearchResult, PlayerResponse } from "@/lib/api"
-
-// ---------------------------------------------------------------------------
-// Country flag lookup for WC 2026 teams
-// ---------------------------------------------------------------------------
-
-const FLAGS: Record<string, string> = {
-  Argentina: "🇦🇷",
-  Australia: "🇦🇺",
-  Austria: "🇦🇹",
-  Belgium: "🇧🇪",
-  Bolivia: "🇧🇴",
-  Brazil: "🇧🇷",
-  Cameroon: "🇨🇲",
-  Canada: "🇨🇦",
-  Chile: "🇨🇱",
-  Colombia: "🇨🇴",
-  "Costa Rica": "🇨🇷",
-  Croatia: "🇭🇷",
-  Denmark: "🇩🇰",
-  Ecuador: "🇪🇨",
-  Egypt: "🇪🇬",
-  England: "🏴󠁧󠁢󠁥󠁮󠁧󠁿",
-  France: "🇫🇷",
-  Germany: "🇩🇪",
-  Ghana: "🇬🇭",
-  Honduras: "🇭🇳",
-  Hungary: "🇭🇺",
-  Indonesia: "🇮🇩",
-  Iran: "🇮🇷",
-  Japan: "🇯🇵",
-  "Korea Republic": "🇰🇷",
-  "South Korea": "🇰🇷",
-  Mexico: "🇲🇽",
-  Morocco: "🇲🇦",
-  Netherlands: "🇳🇱",
-  "New Zealand": "🇳🇿",
-  Nigeria: "🇳🇬",
-  Panama: "🇵🇦",
-  Paraguay: "🇵🇾",
-  Peru: "🇵🇪",
-  Poland: "🇵🇱",
-  Portugal: "🇵🇹",
-  Qatar: "🇶🇦",
-  Romania: "🇷🇴",
-  "Saudi Arabia": "🇸🇦",
-  Scotland: "🏴󠁧󠁢󠁳󠁣󠁴󠁿",
-  Senegal: "🇸🇳",
-  Serbia: "🇷🇸",
-  Slovenia: "🇸🇮",
-  Spain: "🇪🇸",
-  Switzerland: "🇨🇭",
-  Tunisia: "🇹🇳",
-  Turkey: "🇹🇷",
-  Türkiye: "🇹🇷",
-  Ukraine: "🇺🇦",
-  "United States": "🇺🇸",
-  USA: "🇺🇸",
-  Uruguay: "🇺🇾",
-  Venezuela: "🇻🇪",
-  Wales: "🏴󠁧󠁢󠁷󠁬󠁳󠁿",
-}
-
-function teamFlag(name: string): string {
-  return FLAGS[name] ?? ""
-}
+import { FlagIcon } from "@/app/components/FlagIcon"
 
 // ---------------------------------------------------------------------------
 // Colour helpers
@@ -317,7 +253,7 @@ export default function MatchCard({ match }: { match: Matchup }) {
       <div className="flex items-center gap-3">
         {/* Home */}
         <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-          <span className="text-2xl leading-none">{teamFlag(home.name)}</span>
+          <FlagIcon name={home.name} size={28} />
           <span className="text-sm font-semibold text-slate-100 truncate leading-snug">{home.name}</span>
           {home.rest_days != null && !is_completed && (
             <span
@@ -356,7 +292,7 @@ export default function MatchCard({ match }: { match: Matchup }) {
 
         {/* Away */}
         <div className="flex-1 min-w-0 flex flex-col items-end gap-0.5">
-          <span className="text-2xl leading-none">{teamFlag(away.name)}</span>
+          <FlagIcon name={away.name} size={28} />
           <span className="text-sm font-semibold text-slate-100 truncate text-right leading-snug">
             {away.name}
           </span>

@@ -2,31 +2,7 @@
 
 import { motion } from "framer-motion"
 import type { PlayerResponse, MatchLogEntry } from "@/lib/api"
-
-// ---------------------------------------------------------------------------
-// Country flags (subset for WC 2026 opponents)
-// ---------------------------------------------------------------------------
-
-const FLAGS: Record<string, string> = {
-  Argentina: "🇦🇷", Australia: "🇦🇺", Austria: "🇦🇹", Belgium: "🇧🇪",
-  Bolivia: "🇧🇴", Brazil: "🇧🇷", Cameroon: "🇨🇲", Canada: "🇨🇦",
-  Chile: "🇨🇱", Colombia: "🇨🇴", "Costa Rica": "🇨🇷", Croatia: "🇭🇷",
-  Denmark: "🇩🇰", Ecuador: "🇪🇨", Egypt: "🇪🇬", England: "🏴󠁧󠁢󠁥󠁮󠁧󠁿",
-  France: "🇫🇷", Germany: "🇩🇪", Ghana: "🇬🇭", Honduras: "🇭🇳",
-  Hungary: "🇭🇺", Indonesia: "🇮🇩", Iran: "🇮🇷", Japan: "🇯🇵",
-  "Korea Republic": "🇰🇷", "South Korea": "🇰🇷", Mexico: "🇲🇽",
-  Morocco: "🇲🇦", Netherlands: "🇳🇱", "New Zealand": "🇳🇿", Nigeria: "🇳🇬",
-  Panama: "🇵🇦", Paraguay: "🇵🇾", Peru: "🇵🇪", Poland: "🇵🇱",
-  Portugal: "🇵🇹", Qatar: "🇶🇦", Romania: "🇷🇴", "Saudi Arabia": "🇸🇦",
-  Scotland: "🏴󠁧󠁢󠁳󠁣󠁴󠁿", Senegal: "🇸🇳", Serbia: "🇷🇸", Slovenia: "🇸🇮",
-  Spain: "🇪🇸", Switzerland: "🇨🇭", Tunisia: "🇹🇳", Turkey: "🇹🇷",
-  Türkiye: "🇹🇷", Ukraine: "🇺🇦", "United States": "🇺🇸", USA: "🇺🇸",
-  Uruguay: "🇺🇾", Venezuela: "🇻🇪", Wales: "🏴󠁧󠁢󠁷󠁬󠁳󠁿",
-}
-
-function flag(nat: string): string {
-  return FLAGS[nat] ?? "🌐"
-}
+import { FlagIcon } from "@/app/components/FlagIcon"
 
 // ---------------------------------------------------------------------------
 // Colour helpers
@@ -58,7 +34,7 @@ function MatchChip({ entry, i }: { entry: MatchLogEntry; i: number }) {
     >
       {/* Opponent + rating */}
       <div className="flex items-center justify-between">
-        <span className="text-lg leading-none">{flag(entry.opponent)}</span>
+        <FlagIcon name={entry.opponent} size={18} />
         <span className={`text-sm font-bold tabular-nums ${ratingText(entry.rating)}`}>
           {entry.rating.toFixed(1)}
         </span>
