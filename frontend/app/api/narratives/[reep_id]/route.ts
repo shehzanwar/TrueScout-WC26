@@ -32,7 +32,7 @@ function getPlayers(): PlayerResponse[] {
 
 // Primary model from env — MUST end in ":free" to prevent accidental credit drain.
 // If someone sets OPENROUTER_MODEL to a paid slug on Vercel, silently override to free.
-const _ENV_MODEL = process.env.OPENROUTER_MODEL ?? "poolside/laguna-m.1:free"
+const _ENV_MODEL = process.env.OPENROUTER_MODEL ?? "meta-llama/llama-3.3-70b-instruct:free"
 const _SAFE_MODEL = _ENV_MODEL.endsWith(":free")
   ? _ENV_MODEL
   : "poolside/laguna-m.1:free"
@@ -48,8 +48,9 @@ if (!_ENV_MODEL.endsWith(":free")) {
 const FALLBACK_MODELS = [...new Set([
   _SAFE_MODEL,
   "meta-llama/llama-3.3-70b-instruct:free",
-  "nvidia/nemotron-3-super-120b-a12b:free",
-  "openai/gpt-oss-120b:free",
+  "google/gemma-3-27b-it:free",
+  "mistralai/mistral-7b-instruct:free",
+  "deepseek/deepseek-r1:free",
 ])]
 
 const _ANTI_YAPPING =
@@ -222,7 +223,7 @@ export async function POST(
     } else {
       console.info("[narratives] Primary model succeeded:", model, "for", reep_id)
     }
-    return NextNextResponse.json({ narrative, voice, model })
+    return NextResponse.json({ narrative, voice, model })
   }
 
   console.error("[narratives] All models failed for", reep_id, "— last error:", lastError)
