@@ -225,6 +225,7 @@ export interface PlayerSearchResult {
 export interface NarrativeResponse {
   narrative: string
   voice: "data_analyst" | "traditional_scout"
+  model?: string
 }
 
 export interface InsightsFavorite {

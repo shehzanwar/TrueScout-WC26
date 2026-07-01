@@ -76,7 +76,7 @@ export default function TacticalAnalysis({ reepId }: { reepId: string }) {
             Tactical Analysis
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            AI-generated scouting report · OpenRouter
+            AI-generated scouting report{result?.model ? ` · ${result.model.replace(":free", "")}` : ""}
           </p>
         </div>
         <AnimatePresence mode="wait">
@@ -97,7 +97,7 @@ export default function TacticalAnalysis({ reepId }: { reepId: string }) {
               exit={{ opacity: 0 }}
               className="text-xs text-slate-600 border border-slate-800 px-2.5 py-1 rounded-full"
             >
-              {isGenerating ? "Generating…" : "AI Scout · OpenRouter"}
+              {isGenerating ? "Generating…" : "AI Scout"}
             </motion.span>
           )}
         </AnimatePresence>
