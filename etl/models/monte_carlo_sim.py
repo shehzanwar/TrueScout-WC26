@@ -61,7 +61,7 @@ logger = logging.getLogger(__name__)
 
 N_SIM             = 10_000
 TOP_N_PLAYERS     = 15
-LOGISTIC_SCALE    = 1.5   # P(A wins | delta=+1.0) ≈ 82%; typical match delta ≈ 0.3–0.6
+LOGISTIC_SCALE    = 0.5   # calibrated: delta=0.35 (France-Sweden) → 83% (market=82.9%)
 SEED              = 42
 FALLBACK_STRENGTH = 7.0   # used when a team has no valid posterior ratings
 
