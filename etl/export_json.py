@@ -576,14 +576,28 @@ _FIFA_BANDS: list[tuple[int, str]] = [
 ]
 
 
-def _fifa_score(posterior_mean: float | None, percentile_rank: float | None) -> int | None:
+def _fifa_score(
+    posterior_mean: float | None,
+    percentile_rank: float | None,
+    pos_mean: float = 6.8,
+    pos_std: float = 0.25,
+) -> int | None:
     """
-    Blend absolute skill + relative rank into a FIFA-style 0-99 integer.
-    60% absolute (posterior_mean 1-10 → 10-99) + 40% relative (percentile 0-1 → 10-99).
+    Blend position-normalised absolute skill + relative rank into a FIFA-style 0-99 integer.
+    60% absolute + 40% relative (percentile 0-1 → 10-99).
+
+    Absolute: baseline uses pos_mean as a reference on the 1-10 scale (anchors the
+    position group at its natural level), then adds a z-score nudge (±1 sigma = ±5 pts)
+    so players above/below their position average are rewarded/penalised relative to peers.
+    This fixes the CB bias: a CB and a FWD at the same within-position percentile get
+    the same absolute component, regardless of their raw posterior level.
     """
     if posterior_mean is None or percentile_rank is None:
         return None
-    absolute = 10 + (posterior_mean - 1.0) * (89.0 / 9.0)
+    baseline = 10 + (pos_mean - 1.0) * (89.0 / 9.0)
+    z = (posterior_mean - pos_mean) / max(pos_std, 0.05)
+    z = max(-3.0, min(3.0, z))
+    absolute = baseline + z * (89.0 / 18.0)   # ±1 sigma = ±4.9 pts; ±3 sigma = ±14.8 pts
     relative = 10 + percentile_rank * 89.0
     return int(round(max(10.0, min(99.0, 0.60 * absolute + 0.40 * relative))))
 
@@ -1101,6 +1115,22 @@ def export_players(conn) -> list:
         ORDER BY pr.confidence_score DESC, pr.posterior_mean DESC
     """).fetchall()
 
+    # Pre-compute posterior_mean mean/std per position_bucket for FIFA score normalisation.
+    # Index 9 = position_bucket, index 11 = posterior_mean (matches SELECT order above).
+    _pm_by_pos: dict[str, list[float]] = {}
+    for _r in rows:
+        _pos = str(_r[9] or "")
+        _pm  = _r[11]
+        if _pos and _pm is not None:
+            _pm_by_pos.setdefault(_pos, []).append(float(_pm))
+    pos_stats: dict[str, dict[str, float]] = {
+        pos: {
+            "mean": float(np.mean(vals)),
+            "std":  float(np.std(vals, ddof=1)) if len(vals) > 1 else 0.25,
+        }
+        for pos, vals in _pm_by_pos.items()
+    }
+
     players = []
     WC_START = pd.Timestamp("2026-06-11")  # FIFA WC 2026 opening match
 
@@ -1180,7 +1210,13 @@ def export_players(conn) -> list:
         }
 
         # FIFA-style 0-99 dual display (PR6)
-        fs = _fifa_score(_safe_float(posterior_mean), _safe_float(percentile_rank))
+        _ps = pos_stats.get(str(position_bucket or ""), {"mean": 6.8, "std": 0.25})
+        fs = _fifa_score(
+            _safe_float(posterior_mean),
+            _safe_float(percentile_rank),
+            pos_mean=_ps["mean"],
+            pos_std=_ps["std"],
+        )
         p["fifa"] = {
             "overall": fs,
             "band":    _fifa_band(fs),
