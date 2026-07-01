@@ -12,7 +12,7 @@ import {
   ResponsiveContainer,
 } from "recharts"
 import type { BrierEntry } from "@/lib/api"
-import { getFlag } from "@/lib/flags"
+import { FlagIcon } from "@/app/components/FlagIcon"
 
 // ---------------------------------------------------------------------------
 // Data preparation
@@ -93,7 +93,7 @@ function ScatterTooltip({
   return (
     <div className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-xs shadow-xl space-y-1.5 min-w-[180px]">
       <p className="font-semibold text-slate-200">
-        {getFlag(d.winner)} {d.winner}
+        <FlagIcon name={d.winner} size={13} /> {d.winner}
       </p>
       <p className="text-slate-500">{d.label} · {d.round}</p>
       <div className="flex justify-between gap-4 pt-0.5">
@@ -142,8 +142,8 @@ export default function CalibrationScatter({ entries }: { entries: BrierEntry[] 
         </p>
       </div>
 
-      <ResponsiveContainer width="100%" height={320}>
-        <ComposedChart margin={{ top: 16, right: 24, bottom: 32, left: 24 }}>
+      <ResponsiveContainer width="100%" height={340}>
+        <ComposedChart margin={{ top: 16, right: 24, bottom: 52, left: 40 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
 
           <XAxis
@@ -155,7 +155,7 @@ export default function CalibrationScatter({ entries }: { entries: BrierEntry[] 
             label={{
               value: "Market probability for winner",
               position: "insideBottom",
-              offset: -18,
+              offset: -28,
               style: { fill: "#475569", fontSize: 11 },
             }}
           />

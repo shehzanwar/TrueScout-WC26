@@ -5,28 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import type { PlayerResponse } from "@/lib/api"
 import { normalizeString } from "@/lib/api"
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-const FLAGS: Record<string, string> = {
-  Argentina: "🇦🇷", Australia: "🇦🇺", Belgium: "🇧🇪", Bolivia: "🇧🇴",
-  Brazil: "🇧🇷", Cameroon: "🇨🇲", Canada: "🇨🇦", Chile: "🇨🇱",
-  Colombia: "🇨🇴", "Costa Rica": "🇨🇷", Croatia: "🇭🇷", Denmark: "🇩🇰",
-  Ecuador: "🇪🇨", Egypt: "🇪🇬", England: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", France: "🇫🇷",
-  Germany: "🇩🇪", Ghana: "🇬🇭", Honduras: "🇭🇳", Hungary: "🇭🇺",
-  Indonesia: "🇮🇩", Iran: "🇮🇷", Japan: "🇯🇵", "Korea Republic": "🇰🇷",
-  Mexico: "🇲🇽", Morocco: "🇲🇦", Netherlands: "🇳🇱", "New Zealand": "🇳🇿",
-  Nigeria: "🇳🇬", Panama: "🇵🇦", Paraguay: "🇵🇾", Peru: "🇵🇪",
-  Poland: "🇵🇱", Portugal: "🇵🇹", Qatar: "🇶🇦", Romania: "🇷🇴",
-  "Saudi Arabia": "🇸🇦", Scotland: "🏴󠁧󠁢󠁳󠁣󠁴󠁿", Senegal: "🇸🇳",
-  Serbia: "🇷🇸", Slovenia: "🇸🇮", Spain: "🇪🇸", Switzerland: "🇨🇭",
-  Tunisia: "🇹🇳", Türkiye: "🇹🇷", Ukraine: "🇺🇦", "United States": "🇺🇸",
-  Uruguay: "🇺🇾", Venezuela: "🇻🇪", Wales: "🏴󠁧󠁢󠁷󠁬󠁳󠁿",
-  "Congo DR": "🇨🇩",
-}
-const flag = (nat: string | null) => (nat ? (FLAGS[nat] ?? "") : "")
+import { FlagIcon } from "@/app/components/FlagIcon"
 
 function confBadge(score: number) {
   if (score >= 0.7) return { label: "High",     cls: "text-emerald-400" }
@@ -93,7 +72,7 @@ function PlayerSearchBox({
               onMouseDown={(e) => { e.preventDefault(); onSelect(p); setOpen(false); setQ("") }}
               className="w-full flex items-center gap-2 px-3 py-2 hover:bg-slate-800 text-left transition-colors"
             >
-              <span className="text-base shrink-0">{flag(p.nationality)}</span>
+              <span className="shrink-0"><FlagIcon name={p.nationality} size={16} /></span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-slate-100 truncate">{p.name ?? p.reep_id}</p>
                 <p className="text-xs text-slate-500 truncate">
@@ -187,7 +166,7 @@ function PlayerCard({ player, side }: { player: PlayerResponse; side: "left" | "
 
   return (
     <div className={`flex flex-col gap-1 ${align}`}>
-      <span className="text-3xl">{flag(player.nationality)}</span>
+      <FlagIcon name={player.nationality} size={36} />
       <Link
         href={`/players/${player.reep_id}`}
         className="text-base font-bold text-slate-100 hover:text-emerald-400 transition-colors leading-tight"

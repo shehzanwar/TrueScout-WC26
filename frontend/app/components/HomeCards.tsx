@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { motion } from "framer-motion"
 import type { SimTeam, BrierSummary, BrierEntry, Matchup, PlayerResponse, InsightsOvernight } from "@/lib/api"
+import { FlagIcon } from "@/app/components/FlagIcon"
 
 // ---------------------------------------------------------------------------
 // Animation variants
@@ -27,22 +28,6 @@ const row = {
 // Shared
 // ---------------------------------------------------------------------------
 
-const FLAGS: Record<string, string> = {
-  Argentina: "🇦🇷", Australia: "🇦🇺", Belgium: "🇧🇪", Bolivia: "🇧🇴",
-  Brazil: "🇧🇷", Cameroon: "🇨🇲", Canada: "🇨🇦", Chile: "🇨🇱",
-  Colombia: "🇨🇴", "Costa Rica": "🇨🇷", Croatia: "🇭🇷", Denmark: "🇩🇰",
-  Ecuador: "🇪🇨", Egypt: "🇪🇬", England: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", France: "🇫🇷",
-  Germany: "🇩🇪", Ghana: "🇬🇭", Honduras: "🇭🇳", Hungary: "🇭🇺",
-  Indonesia: "🇮🇩", Iran: "🇮🇷", Japan: "🇯🇵", "Korea Republic": "🇰🇷",
-  Mexico: "🇲🇽", Morocco: "🇲🇦", Netherlands: "🇳🇱", "New Zealand": "🇳🇿",
-  Nigeria: "🇳🇬", Panama: "🇵🇦", Paraguay: "🇵🇾", Peru: "🇵🇪",
-  Poland: "🇵🇱", Portugal: "🇵🇹", Qatar: "🇶🇦", Romania: "🇷🇴",
-  "Saudi Arabia": "🇸🇦", Scotland: "🏴󠁧󠁢󠁳󠁣󠁴󠁿", Senegal: "🇸🇳",
-  Serbia: "🇷🇸", Slovenia: "🇸🇮", Spain: "🇪🇸", Switzerland: "🇨🇭",
-  Tunisia: "🇹🇳", Türkiye: "🇹🇷", Ukraine: "🇺🇦", "United States": "🇺🇸",
-  Uruguay: "🇺🇾", Venezuela: "🇻🇪", Wales: "🏴󠁧󠁢󠁷󠁬󠁳󠁿", "Congo DR": "🇨🇩",
-}
-const flag = (n: string) => FLAGS[n] ?? ""
 
 function StatPill({ value, label, accent = false }: { value: string; label: string; accent?: boolean }) {
   return (
@@ -220,7 +205,7 @@ function MatchOfTheDayCard({ match }: { match: Matchup }) {
       <div className="flex items-center gap-3">
         {/* Home */}
         <div className="flex-1 min-w-0 text-center">
-          <div className="text-2xl">{flag(home.name)}</div>
+          <div className="flex justify-center"><FlagIcon name={home.name} size={28} /></div>
           <p className="text-xs font-medium text-slate-200 mt-1 truncate">{home.name}</p>
           {homeProb != null && (
             <p className="text-[11px] font-mono text-emerald-400">{Math.round(homeProb * 100)}%</p>
@@ -233,7 +218,7 @@ function MatchOfTheDayCard({ match }: { match: Matchup }) {
 
         {/* Away */}
         <div className="flex-1 min-w-0 text-center">
-          <div className="text-2xl">{flag(away.name)}</div>
+          <div className="flex justify-center"><FlagIcon name={away.name} size={28} /></div>
           <p className="text-xs font-medium text-slate-200 mt-1 truncate">{away.name}</p>
           {awayProb != null && (
             <p className="text-[11px] font-mono text-emerald-400">{Math.round(awayProb * 100)}%</p>
@@ -300,7 +285,7 @@ function InsightCard({ match }: { match: Matchup | null }) {
     >
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-2">
-          <span className="text-xl">{flag(valueSide.name)}</span>
+          <FlagIcon name={valueSide.name} size={20} />
           <div>
             <p className="text-sm font-semibold text-slate-100">{valueSide.name}</p>
             <p className="text-xs text-slate-500">vs {bookieSide.name}</p>
@@ -364,7 +349,7 @@ function TopPerformersCard({ players }: { players: PlayerResponse[] }) {
                 <span className="w-5 text-center text-xs font-bold text-slate-600 tabular-nums shrink-0">
                   {i + 1}
                 </span>
-                <span className="text-base shrink-0">{flag(p.national_team ?? p.nationality ?? "")}</span>
+                <span className="shrink-0"><FlagIcon name={p.national_team ?? p.nationality ?? ""} size={16} /></span>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-slate-200 truncate group-hover:text-emerald-400 transition-colors">
                     {p.name ?? p.reep_id}
@@ -420,7 +405,7 @@ function OvernightDeltasCard({ overnight }: { overnight: InsightsOvernight[] }) 
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-baseline mb-1">
                     <span className="text-sm font-medium text-slate-200 truncate">
-                      {flag(item.team)} {item.team}
+                      <FlagIcon name={item.team} size={16} /> {item.team}
                     </span>
                     <div className="flex items-baseline gap-1.5 shrink-0 ml-2">
                       <span className={`text-xs font-bold tabular-nums ${deltaColor}`}>

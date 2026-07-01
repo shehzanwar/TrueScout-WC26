@@ -4,31 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
 import { searchPlayers, type PlayerSearchResult } from "@/lib/api"
 import FifaBadge from "./FifaBadge"
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-const FLAGS: Record<string, string> = {
-  Argentina: "🇦🇷", Australia: "🇦🇺", Austria: "🇦🇹", Belgium: "🇧🇪",
-  Bolivia: "🇧🇴", Brazil: "🇧🇷", Cameroon: "🇨🇲", Canada: "🇨🇦",
-  Chile: "🇨🇱", Colombia: "🇨🇴", "Costa Rica": "🇨🇷", Croatia: "🇭🇷",
-  Denmark: "🇩🇰", Ecuador: "🇪🇨", Egypt: "🇪🇬", England: "🏴󠁧󠁢󠁥󠁮󠁧󠁿",
-  France: "🇫🇷", Germany: "🇩🇪", Ghana: "🇬🇭", Honduras: "🇭🇳",
-  Hungary: "🇭🇺", Indonesia: "🇮🇩", Iran: "🇮🇷", Japan: "🇯🇵",
-  "Korea Republic": "🇰🇷", "South Korea": "🇰🇷", Mexico: "🇲🇽",
-  Morocco: "🇲🇦", Netherlands: "🇳🇱", "New Zealand": "🇳🇿", Nigeria: "🇳🇬",
-  Panama: "🇵🇦", Paraguay: "🇵🇾", Peru: "🇵🇪", Poland: "🇵🇱",
-  Portugal: "🇵🇹", Qatar: "🇶🇦", Romania: "🇷🇴", "Saudi Arabia": "🇸🇦",
-  Scotland: "🏴󠁧󠁢󠁳󠁣󠁴󠁿", Senegal: "🇸🇳", Serbia: "🇷🇸", Slovenia: "🇸🇮",
-  Spain: "🇪🇸", Switzerland: "🇨🇭", Tunisia: "🇹🇳", Turkey: "🇹🇷",
-  Türkiye: "🇹🇷", Ukraine: "🇺🇦", "United States": "🇺🇸", USA: "🇺🇸",
-  Uruguay: "🇺🇾", Venezuela: "🇻🇪", Wales: "🏴󠁧󠁢󠁷󠁬󠁳󠁿",
-}
-
-function flag(nat: string | null): string {
-  return nat ? (FLAGS[nat] ?? "") : ""
-}
+import { FlagIcon } from "@/app/components/FlagIcon"
 
 function confidenceLabel(score: number): { label: string; color: string } {
   if (score >= 0.7) return { label: "High", color: "text-emerald-400" }
@@ -54,7 +30,7 @@ function SearchResultRow({ player }: { player: PlayerSearchResult }) {
       className="flex items-center gap-3 px-4 py-3 hover:bg-slate-800 rounded-lg transition-colors group"
     >
       {/* Flag */}
-      <span className="text-xl w-8 shrink-0">{flag(player.nationality)}</span>
+      <span className="w-8 shrink-0 flex items-center"><FlagIcon name={player.nationality} size={20} /></span>
 
       {/* Name + position */}
       <div className="flex-1 min-w-0">

@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react"
 import type { BrierEntry } from "@/lib/api"
-import { getFlag } from "@/lib/flags"
+import { FlagIcon } from "@/app/components/FlagIcon"
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -248,17 +248,17 @@ export default function MatchLogTable({ entries }: { entries: BrierEntry[] }) {
 
                   {/* Match */}
                   <td className="px-3 py-3 text-xs text-slate-400 whitespace-nowrap">
-                    <span className="mr-0.5">{getFlag(e.home_team)}</span>
-                    {e.home_team}
+                    <FlagIcon name={e.home_team} size={13} />
+                    {" "}{e.home_team}
                     <span className="mx-1.5 text-slate-700">vs</span>
-                    <span className="mr-0.5">{getFlag(e.away_team)}</span>
-                    {e.away_team}
+                    <FlagIcon name={e.away_team} size={13} />
+                    {" "}{e.away_team}
                   </td>
 
                   {/* Winner */}
                   <td className="px-3 py-3 text-xs font-semibold text-slate-200 whitespace-nowrap">
-                    <span className="mr-0.5">{getFlag(e.advanced_team)}</span>
-                    {e.advanced_team}
+                    <FlagIcon name={e.advanced_team} size={13} />
+                    {" "}{e.advanced_team}
                   </td>
 
                   {/* Model % for winner */}
