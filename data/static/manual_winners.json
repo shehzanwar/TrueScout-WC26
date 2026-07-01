@@ -1,0 +1,7 @@
+{
+  "_note": "Penalty-shootout winners for R32 matches where brier_log.advanced_team is absent. Scores are equal in regular time; the winner advanced via FT-Pens.",
+  "events": {
+    "760488": "Netherlands",
+    "760489": "Germany"
+  }
+}
