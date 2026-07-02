@@ -1,22 +1,20 @@
 """
-etl/sources/market_value_pull.py — Fetch Sofascore market values for all
-identity_players with a key_sofascore.
+etl/sources/market_value_pull.py — Fetch Sofascore market values for WC players.
 
 Sofascore's public /api/v1/player/{id} endpoint returns proposedMarketValueRaw
-= {"value": <int EUR>, "currency": "EUR"}.  This is sourced from Transfermarkt.
+= {"value": <int EUR>, "currency": "EUR"}, sourced from Transfermarkt.
+
+Cloudflare protects the endpoint with a JS challenge that requires a real browser.
+This script uses botasaurus (headless Edge/Chrome) to pass the challenge reliably.
 
 Output
 ------
-Writes (or updates) the column market_value_eur (BIGINT) in db.identity_players.
+Writes (or updates) market_value_eur (BIGINT) in db.identity_players.
 
 Usage
 -----
-    py -m etl.sources.market_value_pull            # all players without a value
+    py -m etl.sources.market_value_pull            # players without a value
     py -m etl.sources.market_value_pull --refresh  # re-fetch all
-
-The script uses curl_cffi (Chrome TLS impersonation) + 1.5-2.5 s jitter to
-stay well under Sofascore's rate limit.  Existing values are preserved unless
---refresh is passed.
 """
 
 import argparse
@@ -26,118 +24,128 @@ import time
 from pathlib import Path
 
 import duckdb
-from curl_cffi.requests import Session as CurlSession
-from tenacity import (
-    before_sleep_log,
-    retry,
-    retry_if_exception_type,
-    stop_after_attempt,
-    wait_exponential,
-)
+from botasaurus.browser import browser, Driver
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 log = logging.getLogger(__name__)
 
-DB_PATH = Path("data/truescout.duckdb")
-BASE_URL = "https://api.sofascore.com/api/v1/player"
-FALLBACK_URL = "https://api.sofascore.app/api/v1/player"
+DB_PATH   = Path("data/truescout.duckdb")
+API_BASE  = "https://api.sofascore.com/api/v1/player"
 
-HEADERS: dict[str, str] = {
-    "Referer": "https://www.sofascore.com/",
-    "Origin": "https://www.sofascore.com",
-    "Accept": "application/json, text/plain, */*",
-    "Accept-Language": "en-US,en;q=0.9",
-    "Cache-Control": "no-cache",
-}
+# Edge ships with Windows; Chrome works too — botasaurus auto-detects.
+EDGE_PATH = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
+_CHROME_EXE = EDGE_PATH if Path(EDGE_PATH).exists() else None
 
 
-def make_session() -> CurlSession:
-    return CurlSession(impersonate="chrome136")
+def _fetch_batch(driver: Driver, rows: list[tuple[str, str]]) -> list[tuple[str, str, int | None]]:
+    """Fetch market values for a batch of players in a single browser session.
 
-
-@retry(
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=2, max=30),
-    retry=retry_if_exception_type(Exception),
-    before_sleep=before_sleep_log(log, logging.WARNING),
-    reraise=True,
-)
-def fetch_player(session: CurlSession, sofascore_id: str) -> dict | None:
-    for base in (BASE_URL, FALLBACK_URL):
-        resp = session.get(f"{base}/{sofascore_id}", headers=HEADERS, timeout=15)
-        if resp.status_code == 200:
-            return resp.json().get("player", {})
-        if resp.status_code == 404:
-            return None  # player not found — skip silently
-        if resp.status_code in (403, 429):
-            raise Exception(f"HTTP {resp.status_code} from {base}")
-        log.debug("Unexpected status %d for player %s from %s", resp.status_code, sofascore_id, base)
-    return None
+    Returns list of (reep_id, ss_id, market_value_eur | None).
+    None means the request failed and should be counted as an error.
+    0 means player was found but has no market value (or 404).
+    """
+    results = []
+    for reep_id, ss_id in rows:
+        url = f"{API_BASE}/{ss_id}"
+        try:
+            driver.get(url)
+            text = driver.page_text
+            import json
+            data = json.loads(text)
+            if "error" in data:
+                code = data["error"].get("code", 0)
+                if code == 404:
+                    results.append((reep_id, ss_id, 0))
+                else:
+                    log.warning("API error %d for ss=%s", code, ss_id)
+                    results.append((reep_id, ss_id, None))
+                continue
+            player = data.get("player", {})
+            raw = player.get("proposedMarketValueRaw")
+            mv  = int(raw["value"]) if raw and "value" in raw else 0
+            results.append((reep_id, ss_id, mv))
+        except Exception as exc:
+            log.warning("Failed ss=%s: %s", ss_id, exc)
+            results.append((reep_id, ss_id, None))
+        time.sleep(random.uniform(0.8, 1.5))
+    return results
 
 
 def main(refresh: bool = False) -> None:
     con = duckdb.connect(str(DB_PATH))
 
-    # Ensure the column exists
-    existing_cols = {row[0] for row in con.execute("DESCRIBE identity_players").fetchall()}
+    existing_cols = {r[0] for r in con.execute("DESCRIBE identity_players").fetchall()}
     if "market_value_eur" not in existing_cols:
         con.execute("ALTER TABLE identity_players ADD COLUMN market_value_eur BIGINT")
         log.info("Added market_value_eur column to identity_players")
 
-    # Only fetch players who appear in WC lineup parquets — the full identity
-    # table has 80k+ rows but squad-value prior only needs ~3k WC players.
-    bronze       = Path("data/bronze")
-    lineup_glob  = (bronze / "sofascore" / "lineups" / "*.parquet").as_posix()
+    bronze      = Path("data/bronze")
+    lineup_glob = (bronze / "sofascore" / "lineups" / "*.parquet").as_posix()
 
-    wc_id_filter = f"""
-        SELECT DISTINCT CAST(player_id AS VARCHAR) AS key_sofascore
+    wc_filter = f"""
+        SELECT DISTINCT CAST(player_id AS VARCHAR)
         FROM read_parquet('{lineup_glob}', union_by_name=true)
         WHERE minutes_played > 0
     """
+    null_filter = "market_value_eur IS NULL" if not refresh else "1=1"
 
-    # Load players to fetch
-    base_filter = "market_value_eur IS NULL" if not refresh else "1=1"
     rows = con.execute(f"""
         SELECT ip.reep_id, ip.key_sofascore
         FROM identity_players ip
         WHERE ip.key_sofascore IS NOT NULL
-          AND ip.key_sofascore IN ({wc_id_filter})
-          AND {base_filter}
+          AND ip.key_sofascore IN ({wc_filter})
+          AND {null_filter}
     """).fetchall()
 
     log.info("Fetching market values for %d players (refresh=%s)", len(rows), refresh)
+    if not rows:
+        log.info("Nothing to fetch.")
+        con.close()
+        return
 
-    session = make_session()
+    # Split into batches so we restart the browser every BATCH_SIZE requests.
+    # This avoids memory buildup and session detection over a long run.
+    BATCH_SIZE = 50
+    batches = [rows[i:i + BATCH_SIZE] for i in range(0, len(rows), BATCH_SIZE)]
+
     updated = 0
-    errors = 0
+    errors  = 0
+    done    = 0
 
-    for i, (reep_id, ss_id) in enumerate(rows):
-        try:
-            player = fetch_player(session, ss_id)
-            if player is None:
-                # 404 — mark as 0 so we don't retry every run
+    chrome_kwargs = {"chrome_executable_path": _CHROME_EXE} if _CHROME_EXE else {}
+
+    for b_idx, batch in enumerate(batches):
+        log.info("Batch %d/%d (%d players) …", b_idx + 1, len(batches), len(batch))
+
+        @browser(
+            headless=True,
+            block_images_and_css=True,
+            output=None,
+            create_error_logs=False,
+            **chrome_kwargs,
+        )
+        def run_batch(driver: Driver, batch=batch):
+            return _fetch_batch(driver, batch)
+
+        results = run_batch(batch)
+
+        for reep_id, ss_id, mv in results:
+            if mv is None:
+                errors += 1
+            elif mv == 0:
                 con.execute(
                     "UPDATE identity_players SET market_value_eur = 0 WHERE reep_id = ?",
                     [reep_id],
                 )
             else:
-                raw = player.get("proposedMarketValueRaw")
-                mv = int(raw["value"]) if raw and "value" in raw else 0
                 con.execute(
                     "UPDATE identity_players SET market_value_eur = ? WHERE reep_id = ?",
                     [mv, reep_id],
                 )
                 updated += 1
-        except Exception as exc:
-            log.warning("Failed %s (ss=%s): %s", reep_id, ss_id, exc)
-            errors += 1
+            done += 1
 
-        # Progress log every 100 players
-        if (i + 1) % 100 == 0:
-            log.info("  %d/%d done (%d updated, %d errors)", i + 1, len(rows), updated, errors)
-
-        # Rate-limit jitter
-        time.sleep(random.uniform(1.5, 2.5))
+        log.info("  Progress: %d/%d done (%d updated, %d errors)", done, len(rows), updated, errors)
 
     log.info("Done — %d updated, %d errors", updated, errors)
     con.close()
@@ -145,10 +153,7 @@ def main(refresh: bool = False) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--refresh",
-        action="store_true",
-        help="Re-fetch all players, not just those with NULL market_value_eur",
-    )
+    parser.add_argument("--refresh", action="store_true",
+                        help="Re-fetch all players, not just those with NULL market_value_eur")
     args = parser.parse_args()
     main(refresh=args.refresh)
