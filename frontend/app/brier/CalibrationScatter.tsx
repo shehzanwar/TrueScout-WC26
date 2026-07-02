@@ -4,6 +4,7 @@ import {
   ComposedChart,
   Scatter,
   Line,
+  LabelList,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -138,12 +139,12 @@ export default function CalibrationScatter({ entries }: { entries: BrierEntry[] 
           Calibration Scatter
         </p>
         <p className="text-xs text-slate-500 mt-0.5">
-          Each dot = one graded match · dots above the diagonal = model more confident than market
+          Each dot = one graded match · dots above the diagonal = model more confident than market · hover for details
         </p>
       </div>
 
       <ResponsiveContainer width="100%" height={340}>
-        <ComposedChart margin={{ top: 16, right: 24, bottom: 52, left: 40 }}>
+        <ComposedChart margin={{ top: 40, right: 24, bottom: 36, left: 40 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
 
           <XAxis
@@ -155,7 +156,7 @@ export default function CalibrationScatter({ entries }: { entries: BrierEntry[] 
             label={{
               value: "Market probability for winner",
               position: "insideBottom",
-              offset: -28,
+              offset: -16,
               style: { fill: "#475569", fontSize: 11 },
             }}
           />
@@ -196,7 +197,9 @@ export default function CalibrationScatter({ entries }: { entries: BrierEntry[] 
             stroke="#059669"
             strokeWidth={1}
             r={5}
-          />
+          >
+            <LabelList dataKey="winner" position="top" offset={5} style={{ fill: "#475569", fontSize: 9 }} />
+          </Scatter>
           <Scatter
             name="Upset"
             data={upset}
@@ -205,11 +208,15 @@ export default function CalibrationScatter({ entries }: { entries: BrierEntry[] 
             stroke="#d97706"
             strokeWidth={1}
             r={5}
-          />
+          >
+            <LabelList dataKey="winner" position="top" offset={5} style={{ fill: "#475569", fontSize: 9 }} />
+          </Scatter>
 
           <Tooltip content={<ScatterTooltip />} cursor={{ strokeDasharray: "3 3" }} />
           <Legend
-            wrapperStyle={{ fontSize: 11, color: "#64748b", paddingTop: 8 }}
+            verticalAlign="top"
+            height={28}
+            wrapperStyle={{ fontSize: 11, color: "#64748b", paddingBottom: 4 }}
             formatter={(value) => (
               <span style={{ color: "#94a3b8" }}>{value}</span>
             )}

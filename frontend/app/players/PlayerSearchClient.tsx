@@ -30,7 +30,7 @@ function SearchResultRow({ player }: { player: PlayerSearchResult }) {
       className="flex items-center gap-3 px-4 py-3 hover:bg-slate-800 rounded-lg transition-colors group"
     >
       {/* Flag */}
-      <span className="w-8 shrink-0 flex items-center"><FlagIcon name={player.nationality} size={20} /></span>
+      <span className="w-8 shrink-0 flex items-center"><FlagIcon name={player.national_team ?? player.nationality} size={20} /></span>
 
       {/* Name + position */}
       <div className="flex-1 min-w-0">
