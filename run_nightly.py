@@ -6,6 +6,7 @@ Runs the full pipeline in dependency order:
   2.   Sofascore pull     (knockout lineups / stats)
   3.   Load group stage   (upsert new matches to Silver)
   4.   Load identity      (Reep people.parquet → identity_players crosswalk)
+  4.5. Market values      (botasaurus headless fetch; Windows-only, skipped on CI)
   5.   Build features     (unified Silver feature matrix)
   6.   Bayesian ratings   (update posteriors with new WC likelihood)
   7.   Monte Carlo sim    (re-simulate remaining bracket)
@@ -112,6 +113,14 @@ def run_pipeline() -> dict[str, bool]:
     from etl.verify_outputs              import main as verify_main
     from etl.models.generate_narratives  import main as narratives_main
 
+    # botasaurus requires a real browser (Edge/Chrome); not available on GitHub Actions.
+    # Import here so a missing dep silently degrades to skip rather than hard-crashing.
+    _market_value_main = None
+    try:
+        from etl.sources.market_value_pull import main as _market_value_main
+    except ImportError:
+        logger.warning("   ⚠  botasaurus not installed — market_value_pull step will be skipped")
+
     results: dict[str, bool] = {}
 
     # Step 1 — ESPN pull (knockout mode: fetches R32→F matches + pre-match odds)
@@ -144,6 +153,18 @@ def run_pipeline() -> dict[str, bool]:
         "Load identity crosswalk",
         identity_main,
     )
+
+    # Step 4.5 — Fetch market values for WC players (Windows-only; skipped on CI)
+    # Requires botasaurus (headless browser). Soft-fail — missing dep or Cloudflare
+    # block should not abort the pipeline; market_value_eur column defaults to NULL.
+    if _market_value_main is not None:
+        results["4_market_values"] = _step(
+            "Market value fetch (Sofascore/Transfermarkt)",
+            _market_value_main,
+        )
+    else:
+        results["4_market_values"] = False
+        logger.info("   — Skipping market value fetch (botasaurus unavailable)")
 
     # Step 5 — Rebuild Silver feature matrix
     results["5_build_features"] = _step(
@@ -225,6 +246,7 @@ def main() -> None:
     # Ingestion steps (1–3) are non-critical: Sofascore is permanently blocked
     # on GitHub Actions datacenter IPs.  Only math/export failures are fatal.
     _INGESTION = {"1_espn_pull", "2_sofascore_pull", "3_load_matches", "4_load_identity",
+                  "4_market_values",  # botasaurus unavailable on CI; skipped by design
                   "9_narratives"}   # narrative pre-gen: soft-fail (rate limits expected)
     _CRITICAL  = {"5_build_features", "6_bayesian_ratings", "7_monte_carlo_sim",
                   "8_brier_tracker", "9_export_json", "9_verify_outputs"}

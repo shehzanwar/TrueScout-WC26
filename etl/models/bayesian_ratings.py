@@ -115,7 +115,7 @@ _MICRO_MAP: dict[str, str] = {
     "right back":           "Full Back",
     "wing-back":            "Full Back",
     "wing back":            "Full Back",
-    "wing half":            "Full Back",
+    "wing half":            "Winger",
     # Midfielders
     "midfielder":           "Central Midfielder",
     "central midfielder":   "Central Midfielder",
