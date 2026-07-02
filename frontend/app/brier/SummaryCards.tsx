@@ -162,9 +162,17 @@ export default function SummaryCards({ s }: { s: BrierSummary }) {
             <span className="text-[11px] text-slate-600">knockout matches</span>
           </div>
 
-          <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
-            <span className="text-xs text-slate-500">With bookmaker odds</span>
-            <span className="text-sm font-bold text-slate-300">{s.n_with_market}</span>
+          <div className="pt-2 border-t border-slate-800 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-slate-500">Correct direction</span>
+              <span className="text-sm font-bold tabular-nums text-slate-300">
+                {s.n_correct}/{s.n_matches}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-slate-500">With bookmaker odds</span>
+              <span className="text-sm font-bold text-slate-300">{s.n_with_market}</span>
+            </div>
           </div>
         </Card>
       </div>

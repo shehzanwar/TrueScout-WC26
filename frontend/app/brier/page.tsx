@@ -13,9 +13,9 @@ export default async function BrierPage() {
 
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-100">Model Calibration</h1>
+        <h1 className="text-2xl font-bold text-slate-100">Track Record</h1>
         <p className="mt-1 text-sm text-slate-500">
-          How accurate are our predictions vs the bookies?
+          Every completed knockout match graded — model predictions vs bookmaker odds vs actual result.
         </p>
       </div>
 
