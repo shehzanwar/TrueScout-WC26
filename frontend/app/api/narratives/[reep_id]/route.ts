@@ -53,7 +53,8 @@ const _JARGON_BAN =
 
 const DATA_ANALYST_SYSTEM =
   "You are an elite football scout covering FIFA World Cup 2026. " +
-  "Write a concise tactical scouting report in 3–4 short paragraphs. " +
+  "Write a concise tactical scouting report in exactly 2–3 short paragraphs. " +
+  "Each paragraph must be complete and end with a full stop. " +
   "Cite the specific numbers provided to explain the player's strengths, weaknesses, " +
   "and role in plain football language. Be direct and professional. " +
   "Do not invent any statistics not given to you." +
@@ -63,7 +64,8 @@ const DATA_ANALYST_SYSTEM =
 const TRADITIONAL_SCOUT_SYSTEM =
   "You are a traditional football scout covering FIFA World Cup 2026. " +
   "Match data for this player is limited — write an impressionistic scouting report " +
-  "in 2–3 short paragraphs based on their position and playing style. " +
+  "in exactly 2 short paragraphs. " +
+  "Each paragraph must be complete and end with a full stop. " +
   "YOU ARE STRICTLY FORBIDDEN from inventing, hallucinating, or mentioning specific " +
   "statistical numbers, xG values, or ratings not explicitly provided. " +
   "Focus on their tactical role and positional characteristics." +
@@ -161,7 +163,7 @@ export async function POST(
         body: JSON.stringify({
           system_instruction: { parts: [{ text: systemPrompt }] },
           contents: [{ role: "user", parts: [{ text: userMessage }] }],
-          generationConfig: { maxOutputTokens: 800, temperature: 0.7 },
+          generationConfig: { maxOutputTokens: 1200, temperature: 0.7 },
         }),
         signal: AbortSignal.timeout(45_000),
       })
