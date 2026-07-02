@@ -253,12 +253,24 @@ export function buildBracket(
       let teamB = resolveSlotWinner(prevCode, slotB, prevSlots[slotB].top.name, prevSlots[slotB].bottom.name, code)
 
       // R16: ESPN fixtures are the source of truth for team names.
-      // The simulation bracket pairings don't always match the actual WC2026 draw.
+      // "Round of 32 X Winner" placeholders are resolved via actualR32Winners (actual)
+      // or prevSlots (projected) so pairings are never needed to get correct teams.
       if (code === "R16" && r16?.matches[newSlotIdx]) {
         const fix = r16.matches[newSlotIdx]
-        const real = (n: string) => !!n && !n.includes("Winner") && n !== "TBD"
-        if (real(fix.home.name)) teamA = fix.home.name
-        if (real(fix.away.name)) teamB = fix.away.name
+        const resolveName = (raw: string): string | null => {
+          if (!raw) return null
+          const m = raw.match(/Round of 32 (\d+) Winner/)
+          if (m) {
+            const r32Idx = parseInt(m[1]) - 1
+            return actualR32Winners.get(r32Idx) ?? prevSlots[r32Idx]?.top.name ?? null
+          }
+          if (raw.includes("Winner") || raw === "TBD") return null
+          return raw
+        }
+        const resolvedA = resolveName(fix.home.name)
+        const resolvedB = resolveName(fix.away.name)
+        if (resolvedA) teamA = resolvedA
+        if (resolvedB) teamB = resolvedB
       }
 
       // Who wins the code:newSlotIdx match?
