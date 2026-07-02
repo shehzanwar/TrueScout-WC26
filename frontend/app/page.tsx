@@ -17,6 +17,7 @@ export default async function HomePage() {
   const brierSummary = brierData?.summary ?? {
     n_matches: 0,
     n_with_market: 0,
+    n_correct: 0,
     avg_brier_model: null,
     avg_brier_market: null,
     avg_log_loss_model: null,
