@@ -59,6 +59,14 @@ ET_BIAS_STRONGER = 0.55   # P(stronger team wins ET/pens)
 ET_BIAS_WEAKER   = 0.45
 CLIP_LO, CLIP_HI = 0.01, 0.99
 
+# FT-pens results known before Sofascore Bronze refreshes ET data.
+# Key: ESPN event_id (string). Value: canonical winning team name.
+# Add new entries here when a Sofascore re-pull doesn't resolve the draw automatically.
+MANUAL_FT_PENS_WINNERS: dict[str, str] = {
+    "760488": "Morocco",   # Netherlands 1-1 Morocco (29 Jun 2026) — Morocco wins on pens
+    "760489": "Paraguay",  # Germany 1-1 Paraguay (29 Jun 2026) — Paraguay wins on pens
+}
+
 
 # ---------------------------------------------------------------------------
 # SQL
@@ -267,16 +275,30 @@ def _grade_matches(
             advanced_team = away
             outcome = 0   # away advanced
         else:
-            # 90-min draw — resolve via Sofascore ET/pens data
+            # 90-min draw — resolve via Sofascore ET/pens data first,
+            # then fall back to MANUAL_FT_PENS_WINNERS for known results.
             et_key = (_normalize(home) or home, _normalize(away) or away, str(m["match_date"])[:10])
             et_row = et_index.get(et_key)
             if et_row is None:
-                logger.warning(
-                    "%s vs %s ended %d-%d (90-min draw) — no ET/pens data in Bronze yet, skipping.",
-                    home, away, h_score, a_score,
-                )
-                continue
-            if et_row.get("went_to_penalties"):
+                ev_id = str(m["event_id"])
+                manual_winner = MANUAL_FT_PENS_WINNERS.get(ev_id)
+                if manual_winner:
+                    norm_winner = _normalize(manual_winner) or manual_winner
+                    if norm_winner == home:
+                        advanced_team, outcome = home, 1
+                    else:
+                        advanced_team, outcome = away, 0
+                    logger.info(
+                        "Manual FT-pens override for event %s (%s vs %s): %s advanced.",
+                        ev_id, home, away, advanced_team,
+                    )
+                else:
+                    logger.warning(
+                        "%s vs %s ended %d-%d (90-min draw) — no ET/pens data in Bronze yet, skipping.",
+                        home, away, h_score, a_score,
+                    )
+                    continue
+            if et_row is not None and et_row.get("went_to_penalties"):
                 h_pens = et_row.get("home_score_penalties")
                 a_pens = et_row.get("away_score_penalties")
                 if h_pens is None or a_pens is None:
@@ -286,7 +308,7 @@ def _grade_matches(
                     advanced_team, outcome = home, 1
                 else:
                     advanced_team, outcome = away, 0
-            else:
+            elif et_row is not None:
                 # ET decided without going to pens
                 h_et = int(et_row.get("home_score_et") or 0)
                 a_et = int(et_row.get("away_score_et") or 0)

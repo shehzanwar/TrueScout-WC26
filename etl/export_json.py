@@ -520,13 +520,17 @@ def export_matchups(conn) -> dict:
 # ---------------------------------------------------------------------------
 
 def export_brier(conn) -> dict:
+    # Deduplicate by event_id — keep the row with the latest run_date.
+    # brier_tracker creates one row per (event_id, run_date) so the same match
+    # appears N times after N nightly runs. We want only the freshest grading.
     rows = conn.execute("""
         SELECT event_id, CAST(run_date AS VARCHAR), round,
                home_team, away_team, advanced_team,
                model_prob, market_prob, brier_model, brier_market,
                log_loss_model, log_loss_market
         FROM brier_log
-        ORDER BY run_date DESC, logged_at DESC
+        QUALIFY ROW_NUMBER() OVER (PARTITION BY event_id ORDER BY run_date DESC) = 1
+        ORDER BY CAST(event_id AS BIGINT)
     """).fetchall()
 
     entries = []
@@ -559,6 +563,16 @@ def export_brier(conn) -> dict:
     avg_brier_market = round(sum(brier_m_vals) / len(brier_m_vals), 4) if brier_m_vals else None
     avg_ll_market    = round(sum(ll_m_vals)    / len(ll_m_vals),    4) if ll_m_vals   else None
 
+    # n_correct: model picked the right team to advance (model_prob for winner >= 0.5)
+    n_correct = sum(
+        1 for e in entries
+        if e["model_prob"] is not None and e["advanced_team"] is not None
+        and (
+            (e["advanced_team"] == e["home_team"] and e["model_prob"] >= 0.5) or
+            (e["advanced_team"] == e["away_team"] and e["model_prob"] < 0.5)
+        )
+    )
+
     def _skill(model, baseline):
         if model is None or not baseline:
             return None
@@ -567,6 +581,7 @@ def export_brier(conn) -> dict:
     summary = {
         "n_matches":            len(entries),
         "n_with_market":        sum(1 for e in entries if e["market_prob"] is not None),
+        "n_correct":            n_correct,
         "avg_brier_model":      avg_brier_model,
         "avg_brier_market":     avg_brier_market,
         "avg_log_loss_model":   avg_ll_model,

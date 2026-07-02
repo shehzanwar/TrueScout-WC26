@@ -81,6 +81,7 @@ export interface BrierEntry {
 export interface BrierSummary {
   n_matches: number
   n_with_market: number
+  n_correct: number
   avg_brier_model: number | null
   avg_brier_market: number | null
   avg_log_loss_model: number | null
