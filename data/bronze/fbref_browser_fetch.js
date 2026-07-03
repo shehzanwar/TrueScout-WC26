@@ -6,17 +6,10 @@
 // ============================================================
 
 const COMPETITIONS = [
+  { label: "WC 2026",                     url: "/en/comps/1/2026/stats/2026-FIFA-World-Cup-Stats" },
   { label: "UEFA Euro 2024",              url: "/en/comps/676/2024/stats/2024-UEFA-European-Championship-Stats" },
   { label: "Copa America 2024",           url: "/en/comps/685/2024/stats/2024-Copa-America-Stats" },
   { label: "Africa Cup of Nations 2023",  url: "/en/comps/656/2023/stats/2023-Africa-Cup-of-Nations-Stats" },
-  { label: "UEFA Nations League A 24-25", url: "/en/comps/701/2024-2025/stats/2024-2025-UEFA-Nations-League-A-Stats" },
-  { label: "AFC Asian Cup 2023",          url: "/en/comps/659/2023/stats/2023-AFC-Asian-Cup-Stats" },
-  { label: "CONCACAF Gold Cup 2023",      url: "/en/comps/687/2023/stats/2023-CONCACAF-Gold-Cup-Stats" },
-  { label: "WC 2026 Qual UEFA",           url: "/en/comps/684/2025-2026/stats/2025-2026-WC-Qualification-UEFA-Stats" },
-  { label: "WC 2026 Qual CONMEBOL",       url: "/en/comps/681/2026/stats/2026-WC-Qualification-CONMEBOL-Stats" },
-  { label: "WC 2026 Qual CAF",            url: "/en/comps/682/2026/stats/2026-WC-Qualification-CAF-Stats" },
-  { label: "WC 2026 Qual AFC",            url: "/en/comps/683/2026/stats/2026-WC-Qualification-AFC-Stats" },
-  { label: "WC 2026 Qual CONCACAF",       url: "/en/comps/685/2025-2026/stats/2025-2026-WC-Qualification-CONCACAF-Stats" },
 ];
 
 const DELAY_MS   = 5000;   // 5s between requests — FBref rate limit
@@ -80,7 +73,7 @@ function parseTable(html, label) {
     rows.push({
       fbref_id:    match[1],
       player_name: a.textContent.trim(),
-      nation:      (tr.querySelector('td[data-stat="nationality"]') || {}).textContent.trim() || null,
+      nation:      tr.querySelector('td[data-stat="nationality"]')?.textContent?.trim() || null,
       minutes:     mins,
       goals:       getStat(tr, 'goals'),
       assists:     getStat(tr, 'assists'),
