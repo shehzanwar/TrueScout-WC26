@@ -311,13 +311,14 @@ def load_sofascore_club_priors() -> pd.DataFrame:
     if df.empty:
         return pd.DataFrame()
 
-    # Keep most recent RECENT_SEASON_COUNT seasons per player
+    # Keep rows from the 2 most recent season_years per player.
+    # Rank-based approach avoids pandas 2.x groupby.apply() dropping the key column.
     RECENT_N = 2
-    df = (
-        df.sort_values("season_year", ascending=False)
-        .groupby("reep_id", group_keys=False)
-        .apply(lambda g: g.head(RECENT_N * g["unique_tournament_name"].nunique()))
+    df["_yr_rank"] = (
+        df.groupby("reep_id")["season_year"]
+        .rank(method="dense", ascending=False)
     )
+    df = df[df["_yr_rank"] <= RECENT_N].drop(columns=["_yr_rank"])
     # Keep only rows with enough minutes to be meaningful
     df = df[df["minutes_played"].fillna(0) >= 90].copy()
     if df.empty:

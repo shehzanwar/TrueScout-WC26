@@ -173,10 +173,12 @@ def _fetch_player_stats(client: SofascoreClient, ss_id: str) -> list[dict] | Non
         logger.warning("Sofascore API error for ss=%s: %s", ss_id, data["error"])
         return None
 
-    # Response: {"statistics": {"seasons": [...]}}
+    # Response changed to: {"uniqueTournamentSeasons": [{uniqueTournament, seasons:[...]}, ...]}
+    # Legacy fallback:      {"statistics": {"seasons": [...]}}
+    if "uniqueTournamentSeasons" in data:
+        return data["uniqueTournamentSeasons"]
     outer = data.get("statistics") or {}
-    seasons = outer.get("seasons") or []
-    return seasons
+    return outer.get("seasons") or []
 
 
 def _parse_seasons(
