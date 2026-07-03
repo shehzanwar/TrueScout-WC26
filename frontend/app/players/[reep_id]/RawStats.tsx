@@ -80,12 +80,13 @@ const gridVariants = {
 export default function RawStats({ player }: { player: PlayerResponse }) {
   const [showPer90, setShowPer90] = useState(false)
 
-  const hasWC    = (player.wc_minutes ?? 0) > 0
-  const hasPrior = player.has_prior ?? false
-  const isGK     = player.position_macro === "GK"
-  const group    = posGroupLabel(player.position_macro)
+  const hasWC          = (player.wc_minutes ?? 0) > 0
+  const hasPrior       = player.has_prior ?? false
+  const hasCurrentSeason = (player.club_s2_apps ?? 0) > 0
+  const isGK           = player.position_macro === "GK"
+  const group          = posGroupLabel(player.position_macro)
 
-  if (!hasWC && !hasPrior) return null
+  if (!hasWC && !hasPrior && !hasCurrentSeason) return null
 
   return (
     <div className="space-y-4">
@@ -210,6 +211,60 @@ export default function RawStats({ player }: { player: PlayerResponse }) {
                 showPer90={showPer90}
               />
             )}
+          </motion.div>
+        </div>
+      )}
+
+      {/* ── Current club season (2025-26) ──────────────────────────── */}
+      {hasCurrentSeason && (
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
+          <div className="mb-4">
+            <h2 className="text-sm font-semibold text-slate-100 uppercase tracking-wider">
+              Current Club Season
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {[
+                player.club_s2_team,
+                player.club_s2_league,
+                "2025-26 · Understat",
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+          </div>
+
+          <motion.div
+            variants={gridVariants}
+            initial="hidden"
+            animate="show"
+            className="grid grid-cols-4 gap-x-4 gap-y-4"
+          >
+            <StatTile
+              label="Apps"
+              totalVal={fmt(player.club_s2_apps, 0)}
+              per90Val="—"
+              showPer90={false}
+            />
+            <StatTile
+              label="Minutes"
+              totalVal={player.club_s2_minutes != null
+                ? Math.round(player.club_s2_minutes).toString()
+                : "—"}
+              per90Val="—"
+              showPer90={false}
+            />
+            <StatTile
+              label="Goals"
+              totalVal={fmt(player.club_s2_goals, 0)}
+              per90Val="—"
+              showPer90={false}
+            />
+            <StatTile
+              label="Assists"
+              totalVal={fmt(player.club_s2_assists, 0)}
+              per90Val="—"
+              showPer90={false}
+            />
           </motion.div>
         </div>
       )}

@@ -166,6 +166,9 @@ def fetch_season(league: str, season: str) -> list[dict]:
             # --- Volume ------------------------------------------------------
             "matches_played": _safe(p.get("games")),
             "minutes_played": mins,
+            # --- Attacking raw counts (kept for current-season breakdown) ----
+            "goals_raw":    _safe(p.get("goals"),   0.0),
+            "assists_raw":  _safe(p.get("assists"), 0.0),
             # --- Attacking (per 90) -----------------------------------------
             "goals_per_90":      _per90(p.get("goals"),      mins),
             "assists_per_90":    _per90(p.get("assists"),     mins),
@@ -243,6 +246,24 @@ def aggregate_seasons(frames: list[pd.DataFrame]) -> pd.DataFrame:
         return pd.Series(out)
 
     agg = combined.groupby("player_id", sort=False).apply(_wmean, include_groups=False).reset_index()
+
+    # Attach raw totals for the latest (current) season so the frontend can
+    # show a "Current Club Season" card alongside the 2-yr per-90 averages.
+    latest_season = max(combined["season"].unique(), key=int)
+    curr = (
+        combined[combined["season"] == latest_season]
+        .groupby("player_id", sort=False)
+        .agg(
+            club_s2_goals   = ("goals_raw",     "sum"),
+            club_s2_assists = ("assists_raw",    "sum"),
+            club_s2_apps    = ("matches_played", "sum"),
+            club_s2_minutes = ("minutes_played", "sum"),
+            club_s2_team    = ("team_name",      "last"),
+            club_s2_league  = ("league",         "last"),
+        )
+        .reset_index()
+    )
+    agg = agg.merge(curr, on="player_id", how="left")
     return agg
 
 

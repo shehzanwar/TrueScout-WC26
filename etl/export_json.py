@@ -831,6 +831,8 @@ _RAW_STAT_COLS: list[str] = [
     "has_prior", "prior_goals_per_90", "prior_assists_per_90",
     "prior_xg_per_90", "prior_xa_per_90", "prior_shots_per_90",
     "prior_key_passes_per_90", "prior_minutes",
+    "club_s2_goals", "club_s2_assists", "club_s2_apps", "club_s2_minutes",
+    "club_s2_team", "club_s2_league",
     "position_source", "league",
 ]
 
