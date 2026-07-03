@@ -284,6 +284,65 @@ def load_club_priors() -> pd.DataFrame:
     return priors
 
 
+def load_sofascore_club_priors() -> pd.DataFrame:
+    """
+    Load aggregated Sofascore season stats for non-big-5 players.
+
+    Uses data/bronze/sofascore/club_stats.parquet (written by sofascore_club_pull.py).
+    Maps goals/assists per 90 to the same columns used for Understat priors so
+    bayesian_ratings.py needs no changes.  Goals/assists are noisier than xG/xA
+    but directionally correct for players with no Understat coverage.
+
+    Returns an empty DataFrame if the parquet doesn't exist yet.
+    """
+    path = Path(settings.parquet_bronze_dir) / "sofascore" / "club_stats.parquet"
+    if not path.exists():
+        logger.info("sofascore club_stats.parquet not found — skipping SS club priors")
+        return pd.DataFrame()
+
+    df = pd.read_parquet(path)
+    if df.empty:
+        return pd.DataFrame()
+
+    # Keep most recent RECENT_SEASON_COUNT seasons per player
+    RECENT_N = 2
+    df = (
+        df.sort_values("season_year", ascending=False)
+        .groupby("reep_id", group_keys=False)
+        .apply(lambda g: g.head(RECENT_N * g["unique_tournament_name"].nunique()))
+    )
+    # Keep only rows with enough minutes to be meaningful
+    df = df[df["minutes_played"].fillna(0) >= 90].copy()
+    if df.empty:
+        return pd.DataFrame()
+
+    # Weight by minutes played within each player
+    df["w"] = df["minutes_played"].fillna(0).astype(float)
+
+    def _wavg(grp: pd.DataFrame, col: str) -> float:
+        w = grp["w"]
+        total = w.sum()
+        if total == 0:
+            return float("nan")
+        return float((grp[col].fillna(0.0) * w).sum() / total)
+
+    agg = (
+        df.groupby("reep_id")
+        .apply(lambda g: pd.Series({
+            "prior_xg_per_90":   _wavg(g, "goals_per_90"),     # goals as proxy for xG
+            "prior_xa_per_90":   _wavg(g, "assists_per_90"),    # assists as proxy for xA
+            "prior_minutes":     g["w"].sum(),
+            "prior_matches":     g["appearances"].sum(),
+            # League = primary tournament name (most minutes)
+            "league":            g.loc[g["w"].idxmax(), "unique_tournament_name"],
+        }))
+        .reset_index()
+    )
+    agg["prior_source"] = "sofascore"
+    logger.info("Sofascore club priors: %d players", len(agg))
+    return agg
+
+
 # ---------------------------------------------------------------------------
 # Bridge: sofascore_id → reep_id
 # ---------------------------------------------------------------------------
@@ -493,9 +552,10 @@ def build_features() -> pd.DataFrame:
       5. Assign position bucket (reep > Sofascore > Understat).
       6. Drop players with neither WC data nor club prior.
     """
-    wc     = load_wc_features()
-    bridge = build_sofascore_bridge()
-    priors = load_club_priors()
+    wc         = load_wc_features()
+    bridge     = build_sofascore_bridge()
+    priors     = load_club_priors()
+    ss_priors  = load_sofascore_club_priors()
 
     # 3.1 — Opponent-strength adjustment (requires bridge for sc_id → reep_id mapping)
     if wc.shape[0] > 0:
@@ -570,10 +630,34 @@ def build_features() -> pd.DataFrame:
             unk_n,
         )
 
-    # Data presence flags
+    # Data presence flags (initial — Understat only)
     features["has_wc_data"] = features["wc_minutes"].notna() & (features["wc_minutes"] > 0)
     features["has_prior"]   = features["prior_xg_per_90"].notna()
     features["wc_low_data"] = features["wc_low_data"].fillna(True)  # no WC data = data-sparse
+
+    # Sofascore club-stats fallback: fill prior columns for players with no Understat data
+    if not ss_priors.empty:
+        no_prior_mask = ~features["has_prior"]
+        if no_prior_mask.any():
+            ss_fill = ss_priors.set_index("reep_id")
+            fill_ids = features.loc[no_prior_mask, "reep_id"].values
+            for col in ("prior_xg_per_90", "prior_xa_per_90", "league"):
+                if col in ss_fill.columns:
+                    fill_vals = pd.Series(fill_ids).map(ss_fill[col]).values
+                    features.loc[no_prior_mask, col] = (
+                        features.loc[no_prior_mask, col].values
+                        if col in features.columns
+                        else pd.array([None] * no_prior_mask.sum())
+                    )
+                    features.loc[no_prior_mask, col] = fill_vals
+            # Mark prior as present (now SS-backed)
+            features.loc[no_prior_mask, "has_prior"] = features.loc[no_prior_mask, "prior_xg_per_90"].notna()
+            n_ss_filled = int(features.loc[no_prior_mask, "prior_xg_per_90"].notna().sum())
+            if n_ss_filled:
+                logger.info(
+                    "Sofascore club-stats prior filled for %d players (goals/90+assists/90 proxy)",
+                    n_ss_filled,
+                )
 
     # Task 5 — Defensive-action boost for DEF/GK
     features = _apply_defensive_boost(features)
