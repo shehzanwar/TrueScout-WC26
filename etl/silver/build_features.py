@@ -361,7 +361,9 @@ def build_sofascore_bridge() -> pd.DataFrame:
                 reep_id,
                 position                   AS reep_position,
                 nationality,
-                name                       AS reep_name
+                name                       AS reep_name,
+                DATEDIFF('day', date_of_birth, CURRENT_DATE) / 365.25
+                                           AS age
             FROM identity_players
             WHERE key_sofascore IS NOT NULL AND key_sofascore != ''
         """).df()
@@ -609,7 +611,7 @@ def build_features() -> pd.DataFrame:
 
     # Enrich priors with reep position so prior-only players (GKs etc.) get
     # their correct position bucket rather than falling back to "MID".
-    bridge_pos = bridge[["reep_id", "reep_position", "nationality", "reep_name"]]
+    bridge_pos = bridge[["reep_id", "reep_position", "nationality", "reep_name", "age"]]
     priors_enriched = priors.merge(bridge_pos, on="reep_id", how="left")
 
     # Outer-join WC ↔ club priors on reep_id
@@ -618,7 +620,7 @@ def build_features() -> pd.DataFrame:
 
     # Coalesce reep identity fields: WC-side wins over prior-side for players
     # who appear in both; prior-side fills in for prior-only players.
-    for _col in ("reep_position", "nationality", "reep_name"):
+    for _col in ("reep_position", "nationality", "reep_name", "age"):
         _col_p = f"{_col}_prior"
         if _col_p in features.columns:
             features[_col] = features[_col].fillna(features[_col_p])
