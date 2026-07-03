@@ -187,7 +187,9 @@ def _load_bracket(
         away_n = _parse_r32_num(row.away_team_name)
         n_real = 0
 
-        # If the R32 match is already complete, ESPN shows the real team name
+        # If the R32 match is already complete, ESPN shows the real team name.
+        # For placeholders "Round of 32 N Winner", N is ESPN's 0-based slot index
+        # (matches our chronological sort order), so use N directly.
         if home_n is None:
             team = _normalize(row.home_team_name)
             home_n = team_to_r32_idx.get(team)
@@ -197,7 +199,6 @@ def _load_bracket(
                     row.home_team_name,
                 )
                 continue
-            home_n += 1  # convert to 1-indexed to keep uniform
             n_real += 1
         if away_n is None:
             team = _normalize(row.away_team_name)
@@ -208,10 +209,9 @@ def _load_bracket(
                     row.away_team_name,
                 )
                 continue
-            away_n += 1
             n_real += 1
 
-        r16_pairs_meta.append((home_n - 1, away_n - 1, n_real))  # back to 0-indexed
+        r16_pairs_meta.append((home_n, away_n, n_real))
 
     # Record ESPN fixture slot order before the dedup sort so we can restore it
     # afterwards.  The sort by -n_real is needed for deduplication (confirmed data

@@ -65,6 +65,7 @@ CLIP_LO, CLIP_HI = 0.01, 0.99
 MANUAL_FT_PENS_WINNERS: dict[str, str] = {
     "760488": "Morocco",   # Netherlands 1-1 Morocco (29 Jun 2026) — Morocco wins on pens
     "760489": "Paraguay",  # Germany 1-1 Paraguay (29 Jun 2026) — Paraguay wins on pens
+    "760499": "Egypt",     # Australia 1-1 Egypt   (03 Jul 2026) — Egypt wins on pens
 }
 
 
