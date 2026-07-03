@@ -1,7 +1,7 @@
 """
 Monte Carlo bracket simulation for the 2026 World Cup knockout stage.
 
-10,000 vectorised iterations of a 32-team single-elimination bracket.
+100,000 vectorised iterations of a 32-team single-elimination bracket.
 
 Bracket construction — data-driven (no hardcoding):
   1. Read the 16 actual R32 fixtures from Bronze ESPN matches
@@ -60,7 +60,7 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-N_SIM             = 10_000
+N_SIM             = 100_000
 TOP_N_PLAYERS     = 15
 LOGISTIC_SCALE    = 0.5   # calibrated: delta=0.35 (France-Sweden) → 83% (market=82.9%)
 SEED              = 42

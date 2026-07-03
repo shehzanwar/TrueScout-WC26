@@ -207,6 +207,13 @@ export interface PlayerResponse {
   prior_xa_per_90?: number
   prior_shots_per_90?: number
   prior_key_passes_per_90?: number
+  // Current club season (2025-26) raw totals — Understat, top-5 leagues only
+  club_s2_goals?: number | null
+  club_s2_assists?: number | null
+  club_s2_apps?: number | null
+  club_s2_minutes?: number | null
+  club_s2_team?: string | null
+  club_s2_league?: string | null
   match_log?: MatchLogEntry[]
   position_source?: string
   fifa?: FifaScore
