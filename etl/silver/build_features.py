@@ -265,6 +265,21 @@ def load_club_priors() -> pd.DataFrame:
         "player_name":      "prior_player_name",
     }
     priors = priors.rename(columns=rename)
+
+    # A player with multiple Understat IDs across different league stints can
+    # resolve to the same reep_id (e.g. Naby Keïta: EPL + Serie A entries).
+    # Keep the row with the most prior_minutes so the dominant stint wins.
+    if priors["player_id"].duplicated().any():
+        n_before = len(priors)
+        priors = (
+            priors.sort_values("prior_minutes", ascending=False)
+            .drop_duplicates(subset=["player_id"], keep="first")
+        )
+        logger.warning(
+            "Deduped %d duplicate reep_id rows in club_priors_agg (kept highest-minute stint)",
+            n_before - len(priors),
+        )
+
     logger.info("Club priors: %d players (reep_id linked)", len(priors))
     return priors
 

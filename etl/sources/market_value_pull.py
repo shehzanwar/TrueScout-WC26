@@ -6,6 +6,8 @@ Sofascore's public /api/v1/player/{id} endpoint returns proposedMarketValueRaw
 
 Cloudflare protects the endpoint with a JS challenge that requires a real browser.
 This script uses botasaurus (headless Edge/Chrome) to pass the challenge reliably.
+Target: www.sofascore.com/api/v1/player (NOT api.sofascore.com — that endpoint
+returns application-level 403 regardless of browser since ~2026-07).
 
 Output
 ------
@@ -30,20 +32,16 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 log = logging.getLogger(__name__)
 
 DB_PATH   = Path("data/truescout.duckdb")
-API_BASE  = "https://api.sofascore.com/api/v1/player"
+API_BASE  = "https://www.sofascore.com/api/v1/player"
 
-# Edge ships with Windows; Chrome works too — botasaurus auto-detects.
 EDGE_PATH = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
 _CHROME_EXE = EDGE_PATH if Path(EDGE_PATH).exists() else None
 
+BATCH_SIZE = 50
+
 
 def _fetch_batch(driver: Driver, rows: list[tuple[str, str]]) -> list[tuple[str, str, int | None]]:
-    """Fetch market values for a batch of players in a single browser session.
-
-    Returns list of (reep_id, ss_id, market_value_eur | None).
-    None means the request failed and should be counted as an error.
-    0 means player was found but has no market value (or 404).
-    """
+    """Fetch market values for a batch of players in a single browser session."""
     results = []
     for reep_id, ss_id in rows:
         url = f"{API_BASE}/{ss_id}"
@@ -53,9 +51,20 @@ def _fetch_batch(driver: Driver, rows: list[tuple[str, str]]) -> list[tuple[str,
             import json
             data = json.loads(text)
             if "error" in data:
-                code = data["error"].get("code", 0)
+                code   = data["error"].get("code", 0)
+                reason = data["error"].get("reason", "")
                 if code == 404:
                     results.append((reep_id, ss_id, 0))
+                elif code == 403 and reason == "challenge":
+                    # Sofascore server-side challenge: endpoint requires auth token.
+                    # No point continuing — all requests will fail the same way.
+                    log.error(
+                        "Sofascore player endpoint requires challenge auth (ss=%s). "
+                        "Aborting batch — existing DB values are preserved.",
+                        ss_id,
+                    )
+                    results.append((reep_id, ss_id, "CHALLENGE_ABORT"))
+                    return results  # signal caller to stop all batches
                 else:
                     log.warning("API error %d for ss=%s", code, ss_id)
                     results.append((reep_id, ss_id, None))
@@ -103,11 +112,7 @@ def main(refresh: bool = False) -> None:
         con.close()
         return
 
-    # Split into batches so we restart the browser every BATCH_SIZE requests.
-    # This avoids memory buildup and session detection over a long run.
-    BATCH_SIZE = 50
     batches = [rows[i:i + BATCH_SIZE] for i in range(0, len(rows), BATCH_SIZE)]
-
     updated = 0
     errors  = 0
     done    = 0
@@ -127,11 +132,13 @@ def main(refresh: bool = False) -> None:
         def run_batch(driver: Driver, data):
             return _fetch_batch(driver, data)
 
-        # Wrap batch in a list so botasaurus calls run_batch once with the
-        # full batch (it iterates the outer list, not the inner tuples).
         results = run_batch([batch])[0]
 
+        challenge_abort = False
         for reep_id, ss_id, mv in results:
+            if mv == "CHALLENGE_ABORT":
+                challenge_abort = True
+                break
             if mv is None:
                 errors += 1
             elif mv == 0:
@@ -148,6 +155,10 @@ def main(refresh: bool = False) -> None:
             done += 1
 
         log.info("  Progress: %d/%d done (%d updated, %d errors)", done, len(rows), updated, errors)
+
+        if challenge_abort:
+            log.warning("Stopped early — Sofascore player endpoint requires challenge auth.")
+            break
 
     log.info("Done — %d updated, %d errors", updated, errors)
     con.close()
