@@ -1,0 +1,6 @@
+{
+  "narrative": "Bruno Fernandes is Portugal's prominent attacking midfielder, currently holding an overall rating of 7.67/10. This impressive score places him within the top 1% of attacking midfields at the tournament. His rating range, spanning 7.29–8.06, reflects consistent high-level performances across his 270 World Cup minutes.\n\nFernandes is a significant creative force, evidenced by 0.333 assists and 0.378 expected assists per 90 minutes at this World Cup. He also demonstrates a strong work rate, completing 2.333 tackles per 90 minutes. While his club level shows a higher xG of 0.321 per 90, his tournament xG stands at 0.161 per 90, alongside 1.333 shots per 90 minutes.\n\nFor his national team, Fernandes operates as a vital link, driving offensive play and providing defensive support. Scouts and fans should continue to observe his consistent high volume of key passes, currently 1.333 per 90 minutes. An increased direct goal threat, building on his club goals per 90 of 0.25, will be key in Portugal's remaining matches.",
+  "voice": "data_analyst",
+  "model": "gemini-2.5-flash",
+  "generated_at": "2026-07-03T06:07:42.894785+00:00"
+}

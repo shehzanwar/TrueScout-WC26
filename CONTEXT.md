@@ -4,7 +4,7 @@
 > developer, or a debugging session 3 months from now. Covers architecture, math, known landmines,
 > and maintenance procedures.
 >
-> **Last updated:** 2026-06-29 (after Phase 3 complete + CI/CD hardening)
+> **Last updated:** 2026-07-03 (post-R16: bracket fix, 100k sims, market value adjustments, Gemini narratives wired)
 
 ---
 
@@ -250,14 +250,23 @@ confidence_score = 0.7 * min(wc_minutes / 270.0, 1.0) + 0.3 * float(has_prior)
 `etl/models/monte_carlo_sim.py`
 
 **Constants:**
-- `N_SIM = 10_000` iterations (pure NumPy, runs in ~0.04s)
+- `N_SIM = 100_000` iterations (pure NumPy, runs in ~0.4s)
 - `TOP_N_PLAYERS = 15` per team for strength calculation
 - `LOGISTIC_SCALE = 1.5` — P(A wins | Δstrength=+1.0) ≈ 82%
 - `SEED = 42`
 - `FALLBACK_STRENGTH = 7.0` — used when a team has no valid posterior ratings
 
 **Team strength:** `mean(posterior_mean)` of the top-15 rated players who appear in the
-Sofascore WC lineups for that national team.
+Sofascore WC lineups for that national team, plus optional `SQUAD_VALUE_ADJUSTMENTS`:
+```python
+SQUAD_VALUE_ADJUSTMENTS = {
+    "France": +0.50, "England": +0.47, "Spain": +0.44,
+    "Portugal": +0.44, "Brazil": +0.41,
+}
+```
+These fractional additions reflect squad market-value depth not fully captured by top-15 player
+averages. Calibrated against Transfermarkt squad valuations; applied before logistic probability
+calculation.
 
 **Match winner:**
 ```python
@@ -572,22 +581,41 @@ conda activate wc26         # Python 3.11
 ### Required `.env` keys
 
 ```
-OPENROUTER_API_KEY=sk-or-...       # required for LLM narratives (get free at openrouter.ai)
+OPENROUTER_API_KEY=sk-or-...       # OpenRouter (legacy; kept for config.py compat)
+GOOGLE_AI_API_KEY=...              # Gemini native API (generate_narratives.py + Next.js route)
 DUCKDB_PATH=data/truescout.duckdb  # optional override; defaults to repo root
 ```
+
+`run_nightly.py` loads `.env` via `python-dotenv` at startup (soft import — no crash if not installed).
+`generate_narratives.py` also loads `.env` directly (same soft import) so it works standalone.
+`frontend/.env.local` must also contain `GOOGLE_AI_API_KEY` for local Next.js dev.
+Vercel: set `GOOGLE_AI_API_KEY` in Project Settings → Environment Variables.
 
 No other secrets required. ESPN and Sofascore are unauthenticated (with TLS spoofing for Sofascore).
 
 ---
 
-## 9. Current Model Output (as of 2026-06-29)
+## 9. Current Model Output (as of 2026-07-03)
 
-Title probability leaders from the most recent CI run:
-- France ~7.1%, Spain ~6.4%, Germany ~6.0%, Portugal ~5.9%
-- `sum(title_prob)` = 1.0000 (verified)
-- 32 teams × 6 rounds = 192 simulation rows
+100k-iteration sim with market value squad adjustments active. R32 complete; QF stage in progress.
 
-One Brier score logged (South Africa vs Canada): `brier_model = 0.1748 < 0.25 (coin)`.
-`brier_skill_vs_coin = 0.30`.
+Title probability leaders:
+- See `frontend/public/data/simulations.json` for latest (regenerated nightly)
+- Argentina ~6.7% (WC-data-dominated; Messi has no club prior → structural underrating)
+- France, Spain, Portugal, Brazil elevated by `SQUAD_VALUE_ADJUSTMENTS`
+- `sum(title_prob)` = 1.0000 (verified by `etl/verify_outputs.py` gate)
 
-Calibration will improve as more knockout matches are graded.
+Known data-coverage gap (as of 2026-07-03):
+- **500 players have WC minutes but no club prior** (`has_prior=False`)
+- Cause 1: non-big-5 leagues (MLS, Saudi Pro League, Liga Portugal, etc.) — Understat doesn't cover these
+- Cause 2: identity matching failures for some big-5 players (Reep → Understat name mismatch)
+- Key affected active players: Cristiano Ronaldo (post=7.04 FWD), Marquinhos (post=7.30 DEF),
+  Alistair Johnston (post=7.18 DEF/Canada), Harry Souttar (post=7.07 DEF/Australia)
+- Fix: wire `market_value_eur` into Bayesian prior as weak signal for no-prior players (next sprint)
+
+Nightly pipeline: 12/12 steps succeed. Sofascore soft-fails on CI (datacenter IP block) — Bronze
+Parquets committed locally after each matchday. Narrative pre-gen (step 9.6) runs but hits
+Gemini 503 quota after ~6 players; on-demand generation via UI button is the active path.
+
+Brier calibration: 7+ graded matches (all R32 knockout matches). Calibration improving as
+more knockout rounds complete.

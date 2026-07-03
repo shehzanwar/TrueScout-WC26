@@ -33,6 +33,12 @@ from pathlib import Path
 ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(ROOT))
 
+try:
+    from dotenv import load_dotenv as _load_dotenv
+    _load_dotenv(ROOT / ".env")
+except ImportError:
+    pass
+
 logger = logging.getLogger(__name__)
 
 OUTPUT_DIR   = ROOT / "frontend" / "public" / "data" / "narratives"
@@ -49,8 +55,7 @@ CIRCUIT_BREAKER = 3
 
 # Model chain mirrors frontend/app/api/narratives/[reep_id]/route.ts
 _PRIMARY_MODEL  = os.environ.get("GOOGLE_AI_MODEL", "gemini-2.5-flash")
-_FALLBACK_MODEL = "gemini-2.0-flash"
-_GEMINI_MODELS  = list(dict.fromkeys([_PRIMARY_MODEL, _FALLBACK_MODEL]))
+_GEMINI_MODELS  = [_PRIMARY_MODEL]
 
 _GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 
@@ -230,13 +235,13 @@ def _call_gemini(api_key: str, model: str, system: str, user: str) -> str | None
                 return None
             return _strip_reasoning_tags(raw) or None
         except urllib.error.HTTPError as exc:
-            if exc.code == 429 and attempt < MAX_RETRIES:
+            if exc.code in (429, 503) and attempt < MAX_RETRIES:
                 try:
                     retry_after = float(exc.headers.get("Retry-After", ""))
                 except (TypeError, ValueError):
                     retry_after = None
                 wait = retry_after if retry_after else backoff
-                logger.warning("429 from %s — retry %d/%d in %.1fs", model, attempt, MAX_RETRIES, wait)
+                logger.warning("HTTP %d from %s — retry %d/%d in %.1fs", exc.code, model, attempt, MAX_RETRIES, wait)
                 time.sleep(wait)
                 backoff *= 2
                 continue

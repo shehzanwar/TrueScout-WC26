@@ -3,7 +3,7 @@
 > Simple Kanban, not a Gantt chart. Track daily progress here (or mirror to GitHub Projects / Trello /
 > Notion). Pairs with [`PRD.md`](PRD.md) and [`ARCHITECTURE.md`](ARCHITECTURE.md).
 >
-> **Last updated:** 2026-07-01 (Senior audit TS-WC26-001 received; Phase 6 audit remediation sprint started — 3 critical gaps + 8 tournament-safe items)
+> **Last updated:** 2026-07-03 (Post-R16 session: bracket pairing fix, 100k sims, market value squad adjustments, Gemini narrative pipeline wired)
 
 ---
 
@@ -145,9 +145,11 @@ PR5d — AI Analyst stabilization (urgent):
 - [x] `config.py` default model → `poolside/laguna-m.1:free`
 
 PR7 — Narrative pre-gen (re-implement after PR5d, with hardened approach):
-- [ ] `etl/models/generate_narratives.py` wired into nightly step 9.6 with Laguna M.1 primary
-- [ ] Templated anti-hallucination pattern: Python emits structured fact bullets; LLM only rephrases; system prompt bans inventing numbers
+- [x] `etl/models/generate_narratives.py` wired into nightly step 9.6 — Gemini 2.5 Flash primary (native REST, no OpenRouter), templated anti-hallucination fact-bullets pattern, 503/429 retry, dotenv loading
+- [x] Templated anti-hallucination pattern: Python emits structured fact bullets; LLM only rephrases; system prompt bans inventing numbers
+- [x] `GOOGLE_AI_API_KEY` wired: `.env` → `run_nightly.py` (dotenv load at startup), `frontend/.env.local` (Next.js local dev), Vercel env var (production)
 - [ ] Frontend short-circuit: pre-gen narrative → instant display; sparse-data players keep "Generate" button
+- **Note:** Nightly pre-gen currently skipped (503 quota hits after ~6 players); on-demand generation via "Generate Scouting Report" button is the active path. Fix: implement exponential cooldown or spread generation across multiple nightly runs.
 
 PR8 extras — story/insight features (after PR7):
 - [ ] Story of the day: ETL diffs overnight sim swings + largest model–market gap; LLM polishes 1-sentence headline; writes `insights.json`
@@ -187,12 +189,25 @@ Deferred (§10.3 — touch math core, ship after tournament):
 ### 🔨 In Progress (today)
 - _(empty — pull from To Do)_
 
+### 📋 To Do — Model data coverage (next sprint)
+- [ ] **Market value prior** — wire `market_value_eur` from `identity_players` / `market_value_pull.py` into `bayesian_ratings.py` as a weak prior signal for players with no Understat coverage. Affects ~500 players (non-big-5 leagues: MLS, Saudi Pro League, Liga Portugal, Eredivisie, Brazilian Série A, Argentine Div1, etc.). Key beneficiaries: Ronaldo (post=7.04 FWD — should be far higher), Marquinhos, and ~498 others.
+- [ ] **Audit non-big-5 league coverage** — query `players.json` for `has_prior=False AND wc_minutes>90` (WC starters with zero club stats). Currently 500 players. Cross-reference with remaining active squads (only ~8 teams still in tournament) to prioritise which market values to fetch first.
+- [ ] **Non-big-5 identity mismatches** — separate from league gap: some big-5 players (e.g. Marquinhos/PSG, Lewis Ferguson/Bologna) show `has_prior=False`, meaning the Understat → Reep identity match failed. Run `audit_player_data.py` + manual check for key starters.
+
 ### 🚧 Blocked
 _(none)_
 
 ### ❌ Abandoned
 - **FBref club priors** — **Permanently dead.** In January 2026, Opta/Stats Perform pulled all advanced metrics (xG, xA, progressive carries, pressures) from FBref as part of a FIFA betting-data licensing deal. The data no longer exists on the site regardless of Cloudflare bypass. `fbref_pull.py` kept for reference only.
 - **FotMob via `sportly` SDK** — `sportly` v1.1.0 IS real (`pip install git+https://github.com/pseudo-r/sportly.git`); installed in wc26 env. But FotMob's API gateway returns 404 for all `/api/*` routes unless the request includes an `x-mas` HMAC token generated inside the mobile app's JS bundle. Every endpoint tested (leagues, matchDetails, matches, playerData) returns 404 HTML. Deferred to V2 scope. `sportly.fotmob` client code is preserved in env for future use.
+
+### ✅ Done (post-Phase 6 additions, 2026-07-02/03)
+- [x] **Bracket pairing order fix** (`monte_carlo_sim.py`) — `_load_bracket()` was sorting `r16_pairs_meta` by `-n_real` for deduplication, silently reordering ESPN fixture slots when confirmed (n_real=2) and TBD (n_real=0) matches were interleaved. Fix: record `pair_to_espn_slot` dict before sort; re-sort `r16_pairs` by ESPN slot index after orphan repair.
+- [x] **Bracket `bracket_slots` parallel fix** — manual patch to `simulations.json` R16 slot_idx=4/5 swap (`bracket_slots` must stay in sync with `pairings.R16` or alt-probability labels show on wrong cards).
+- [x] **Lineup display improvements** (`MatchCard.tsx`) — replaced top-10-by-rating with WC-participant filter (`wc_minutes > 0`), position grouping (GK→DEF→MID→FWD), minutes-based sort within position, position prefix + WC minutes shown per row.
+- [x] **Monte Carlo 100k sims** — `N_SIM` raised from 10,000 → 100,000. Stable title probs.
+- [x] **Market value squad adjustments** (`monte_carlo_sim.py`) — `SQUAD_VALUE_ADJUSTMENTS` dict adds fractional strength bonus proportional to squad market value for France (+0.50), England (+0.47), Spain (+0.44), Portugal (+0.44), Brazil (+0.41).
+- [x] **Gemini narrative pipeline** — `generate_narratives.py`: added dotenv loading, removed dead `gemini-2.0-flash` / `gemini-1.5-flash` fallback (both 404/shut-down), 503 retry support alongside existing 429 retry, primary-only chain (`gemini-2.5-flash`). `run_nightly.py`: dotenv load at startup. `frontend/.env.local`: added `GOOGLE_AI_API_KEY`. `route.ts`: removed dead fallback model, primary-only.
 
 ### ✅ Done
 - [x] Verify report flaws & lock V1 scope (daily batch, drop RAPM/Dixon-Coles, DuckDB-only, OpenRouter)

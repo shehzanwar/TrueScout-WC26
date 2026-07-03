@@ -68,6 +68,10 @@ MIN_WC_MINUTES = 15.0
 # 0.0 = pure archetype mean; 1.0 = full Z-score translation.
 PRIOR_PULL = 0.50
 
+# Market value pull: weaker signal used when has_prior=False but market_value_eur is known.
+# Half of PRIOR_PULL — MV reflects transfer fees and age, not direct performance.
+MV_PRIOR_PULL = 0.20
+
 # Minimum WC players per cluster to use cluster stats; smaller → bucket fallback
 MIN_CLUSTER_WC = 5
 
@@ -171,10 +175,15 @@ def _load_data() -> pd.DataFrame:
         arcs = conn.execute(
             "SELECT reep_id, cluster_id FROM archetypes"
         ).df()
+        mv = conn.execute(
+            "SELECT reep_id, market_value_eur FROM identity_players"
+            " WHERE market_value_eur IS NOT NULL"
+        ).df()
     finally:
         conn.close()
 
     df = df.merge(arcs, on="reep_id", how="left")
+    df = df.merge(mv,   on="reep_id", how="left")
     df["cluster_id"] = df["cluster_id"].fillna(-1).astype(int)
 
     # Defensive: drop rows with no reep_id or no position_bucket
@@ -200,6 +209,20 @@ def _add_prior_composite(df: pd.DataFrame) -> pd.DataFrame:
         df["position_bucket"] == "GK",
         0.0,
         (xg + xa) * elo,
+    )
+
+    # Market value auxiliary signal — log-transformed to compress the €300K–€180M range.
+    # has_mv_prior flags outfield no-prior players that have MV data; GKs excluded
+    # (archetype mean is their only anchor regardless).
+    df["log_mv"] = np.log1p(df["market_value_eur"].fillna(0.0))
+    df["has_mv_prior"] = (
+        df["market_value_eur"].notna()
+        & ~df["has_prior"]
+        & (df["position_bucket"] != "GK")
+    )
+    logger.info(
+        "Market value prior available for %d outfield no-prior players",
+        df["has_mv_prior"].sum(),
     )
     return df
 
@@ -285,8 +308,36 @@ def _bayesian_update(df: pd.DataFrame, stats: pd.DataFrame) -> pd.DataFrame:
     )
     comp_z = comp_z.where(df["has_prior"] & (df["position_bucket"] != "GK"), 0.0)
 
+    # Market value Z-score (per position bucket) for outfield no-prior players.
+    # Reference distribution = all players with MV data in each bucket (stable mean/std).
+    # Zeroed out for has_prior players (their xG/xA composite already handles it)
+    # and for GKs (archetype-mean only).
+    bucket_mv = (
+        df[df["log_mv"] > 0]
+        .groupby("position_bucket")["log_mv"]
+        .agg(mv_mean="mean", mv_std="std")
+        .reset_index()
+    )
+    df = df.merge(bucket_mv, on="position_bucket", how="left")
+    mv_z = (
+        (df["log_mv"] - df["mv_mean"].fillna(0.0))
+        / df["mv_std"].fillna(1.0).clip(lower=1e-8)
+    ).where(df["has_mv_prior"], 0.0).fillna(0.0)
+    df = df.drop(columns=["mv_mean", "mv_std"])
+
+    n_mv = int((mv_z != 0).sum())
+    if n_mv:
+        logger.info(
+            "Market value Z-score applied to %d players (MV_PRIOR_PULL=%.2f)",
+            n_mv, MV_PRIOR_PULL,
+        )
+
     cluster_wc_std = np.sqrt(df["cluster_wc_var"])
-    df["prior_mean"] = df["cluster_wc_mean"] + comp_z * cluster_wc_std * PRIOR_PULL
+    df["prior_mean"] = (
+        df["cluster_wc_mean"]
+        + comp_z * cluster_wc_std * PRIOR_PULL
+        + mv_z   * cluster_wc_std * MV_PRIOR_PULL
+    )
 
     # GK: reset to pure archetype mean (club composite carries no signal)
     df.loc[df["position_bucket"] == "GK", "prior_mean"] = (
@@ -497,6 +548,7 @@ def _validate(df: pd.DataFrame) -> None:
     print(f"  Total players    : {len(df)}")
     print(f"  Has WC data      : {df['has_wc_data'].sum()}")
     print(f"  Has club prior   : {df['has_prior'].sum()}")
+    print(f"  Has MV prior     : {df['has_mv_prior'].sum()}  (no-prior outfield, MV known)")
     print(f"  Both WC + prior  : {(df['has_wc_data'] & df['has_prior']).sum()}")
     print(f"  Shrinkage w >0.5 : {(df['shrinkage_weight'] > 0.5).sum()}  (WC-dominant)")
     print(f"  Shrinkage w <0.2 : {(df['shrinkage_weight'] < 0.2).sum()}  (prior-dominant)")

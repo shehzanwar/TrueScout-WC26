@@ -41,6 +41,13 @@ from datetime import datetime, timezone
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
+# Load .env from project root before any module reads os.environ
+try:
+    from dotenv import load_dotenv as _load_dotenv
+    _load_dotenv(Path(__file__).parent / ".env")
+except ImportError:
+    pass  # python-dotenv not installed; set env vars manually or via Task Scheduler
+
 
 # ---------------------------------------------------------------------------
 # Logging — file + console, configured before any module imports

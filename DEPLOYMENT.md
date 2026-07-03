@@ -29,7 +29,7 @@ GitHub Actions (.github/workflows/nightly.yml)
 Vercel
   auto-deploys on every push to master
   serves the Next.js app + static JSON via CDN
-  Next.js API route /api/narratives/[reep_id] → OpenRouter (server-side)
+  Next.js API route /api/narratives/[reep_id] → Gemini 2.5 Flash (server-side, GOOGLE_AI_API_KEY)
 ```
 
 Data flow on a page request:
@@ -54,18 +54,18 @@ Data flow on a page request:
 
 | Variable | Where to get it | Required? |
 |---|---|---|
-| `OPENROUTER_API_KEY` | [openrouter.ai/keys](https://openrouter.ai/keys) | Yes (for "Generate Report" calls) |
-| `OPENROUTER_MODEL` | e.g. `poolside/laguna-m.1:free` | No (has default — set to override) |
+| `GOOGLE_AI_API_KEY` | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) | Yes (for "Generate Report" calls — Gemini 2.5 Flash) |
+| `OPENROUTER_API_KEY` | [openrouter.ai/keys](https://openrouter.ai/keys) | No (legacy; kept for config.py compat) |
+| `OPENROUTER_MODEL` | e.g. `poolside/laguna-m.1:free` | No |
 
 Add these under **Project Settings → Environment Variables**.
 
 > **AI route notes:**
-> - The narrative route sets `export const maxDuration = 60` — this only takes effect on Vercel **Pro**
->   tier. On Hobby (10s cap) reasoning models like Laguna M.1 will hit the timeout; either upgrade to
->   Pro or rely on the planned PR7 nightly pre-generation so runtime calls are rare.
+> - Uses Gemini 2.5 Flash (`gemini-2.5-flash`) via native REST — no OpenRouter dependency for narratives.
+> - `export const maxDuration = 60` on Vercel Pro only. On Hobby (10s cap) the call may timeout for slow responses.
 > - The route strips `<think>…</think>` reasoning preambles from model output automatically.
-> - On failure the route returns HTTP 502 with `{ error: "<reason>" }` (not a silent 200 fallback) —
->   check Vercel function logs if users report errors.
+> - On failure the route returns HTTP 502 with `{ error: "<reason>" }` — check Vercel function logs if users report errors.
+> - Nightly pre-gen (step 9.6 in `run_nightly.py`) runs but hits Gemini 503 quota after ~6 players; on-demand via UI button is the active path.
 
 ### 3 — Enable GitHub Actions
 
@@ -98,11 +98,15 @@ npm install
 npm run dev          # http://localhost:3000
 ```
 
-For the narrative API route to work locally, create `frontend/.env.local`:
+For the narrative API route to work locally, `frontend/.env.local` needs:
 ```
-OPENROUTER_API_KEY=sk-or-v1-...
-OPENROUTER_MODEL=meta-llama/llama-3.1-8b-instruct:free
+NEXT_PUBLIC_API_URL=http://localhost:8001/api/v1
+GOOGLE_AI_API_KEY=...      # from aistudio.google.com/apikey
+OPENROUTER_API_KEY=...     # legacy; kept for config.py compat
 ```
+
+For narrative pre-gen from the Python pipeline, the project root `.env` also needs `GOOGLE_AI_API_KEY`.
+`run_nightly.py` and `generate_narratives.py` both load it via `python-dotenv` automatically.
 
 ---
 
