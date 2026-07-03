@@ -53,6 +53,7 @@ from etl.db.connection import get_read_conn, write_conn
 logger = logging.getLogger(__name__)
 
 FEATURES_PATH = Path(settings.parquet_silver_dir) / "player_stats" / "features.parquet"
+MV_PARQUET    = Path("data/bronze/market_values.parquet")
 
 # ---------------------------------------------------------------------------
 # Calibration constants
@@ -175,16 +176,22 @@ def _load_data() -> pd.DataFrame:
         arcs = conn.execute(
             "SELECT reep_id, cluster_id FROM archetypes"
         ).df()
-        mv = conn.execute(
-            "SELECT reep_id, market_value_eur FROM identity_players"
-            " WHERE market_value_eur IS NOT NULL"
-        ).df()
     finally:
         conn.close()
 
+    # Market values live in Bronze Parquet (survives nightly identity reload).
+    if MV_PARQUET.exists():
+        mv = pd.read_parquet(MV_PARQUET)[["reep_id", "market_value_eur"]]
+        mv = mv[mv["market_value_eur"].notna() & (mv["market_value_eur"] > 0)]
+        logger.info("Loaded %d market values from %s", len(mv), MV_PARQUET)
+    else:
+        mv = pd.DataFrame(columns=["reep_id", "market_value_eur"])
+        logger.warning("market_values.parquet not found — MV prior disabled")
+
     df = df.merge(arcs, on="reep_id", how="left")
     df = df.merge(mv,   on="reep_id", how="left")
-    df["cluster_id"] = df["cluster_id"].fillna(-1).astype(int)
+    df["cluster_id"]        = df["cluster_id"].fillna(-1).astype(int)
+    df["market_value_eur"]  = pd.to_numeric(df.get("market_value_eur"), errors="coerce")
 
     # Defensive: drop rows with no reep_id or no position_bucket
     df = df[df["reep_id"].notna() & df["position_bucket"].notna()].copy()
@@ -510,21 +517,26 @@ def _validate(df: pd.DataFrame) -> None:
         result = "✓ PASS" if delta_to_prior < delta_to_wc else "✗ FAIL"
         print(f"    |post-prior| = {delta_to_prior:.3f}  |post-WC| = {delta_to_wc:.3f}  → {result}")
 
-    # (b) High-minute WC star: posterior should track the WC observation
+    # (b) High-minute WC star: posterior should track the WC observation.
+    # Uses wc_rating_adjusted (opponent-adjusted) — the same value used as the
+    # Bayesian likelihood input — so |post-WC| is apples-to-apples.
     high_min = df[df["has_wc_data"] & (df["wc_minutes"] >= 270)].copy()
     if not high_min.empty:
         row = high_min.nlargest(1, "wc_rating_avg").iloc[0]
+        adj    = row.get("wc_rating_adjusted")
+        wc_obs = float(adj) if (adj is not None and pd.notna(adj)) else float(row.get("wc_rating_avg", row["prior_mean"]))
         print(f"\n(b) High-minute WC star shrinkage check")
-        print(f"    Player       : {row.get('player_name','?')} ({row.get('nationality','?')})")
-        print(f"    WC minutes   : {row.get('wc_minutes', 0):.0f}")
-        print(f"    WC rating    : {row.get('wc_rating_avg', float('nan')):.3f}")
-        print(f"    Prior mean   : {row['prior_mean']:.3f}")
-        print(f"    Posterior    : {row['posterior_mean']:.3f}")
-        print(f"    Shrinkage w  : {row['shrinkage_weight']:.3f}")
-        delta_to_wc    = abs(row["posterior_mean"] - row.get("wc_rating_avg", row["prior_mean"]))
+        print(f"    Player          : {row.get('player_name','?')} ({row.get('nationality','?')})")
+        print(f"    WC minutes      : {row.get('wc_minutes', 0):.0f}")
+        print(f"    WC rating (raw) : {row.get('wc_rating_avg', float('nan')):.3f}")
+        print(f"    WC rating (adj) : {wc_obs:.3f}  <- used as likelihood")
+        print(f"    Prior mean      : {row['prior_mean']:.3f}")
+        print(f"    Posterior       : {row['posterior_mean']:.3f}")
+        print(f"    Shrinkage w     : {row['shrinkage_weight']:.3f}")
+        delta_to_wc    = abs(row["posterior_mean"] - wc_obs)
         delta_to_prior = abs(row["posterior_mean"] - row["prior_mean"])
-        result = "✓ PASS" if delta_to_wc < delta_to_prior else "✗ FAIL"
-        print(f"    |post-WC| = {delta_to_wc:.3f}  |post-prior| = {delta_to_prior:.3f}  → {result}")
+        result = "PASS" if delta_to_wc < delta_to_prior else "FAIL"
+        print(f"    |post-WC_adj| = {delta_to_wc:.3f}  |post-prior| = {delta_to_prior:.3f}  -> {result}")
 
     # (c) Micro-position ranking: DM vs AM
     dm = df[df["position_micro"] == "Defensive Midfielder"].copy()
