@@ -1,10 +1,11 @@
 import { notFound } from "next/navigation"
 import Link from "next/link"
-import { getPlayer } from "@/lib/server-data"
+import { getPlayer, getSimilarPlayers } from "@/lib/server-data"
 import PlayerRadar from "./PlayerRadar"
 import TacticalAnalysis from "./TacticalAnalysis"
 import RawStats from "./RawStats"
 import MatchTimeline from "./MatchTimeline"
+import SimilarPlayers from "./SimilarPlayers"
 import FifaBadge from "../FifaBadge"
 import { LabelWithInfo } from "../../components/Tooltip"
 
@@ -97,6 +98,8 @@ export default async function PlayerProfilePage({
   const player = await getPlayer(reep_id).catch(() => null)
 
   if (!player) notFound()
+
+  const similar = await getSimilarPlayers(player)
 
   const hdiLow      = player.hdi_low.toFixed(2)
   const hdiHigh     = player.hdi_high.toFixed(2)
@@ -284,6 +287,9 @@ export default async function PlayerProfilePage({
 
       {/* ── Match Timeline ─────────────────────────────────────────── */}
       <MatchTimeline player={player} />
+
+      {/* ── Similar Players ────────────────────────────────────────── */}
+      <SimilarPlayers current={player} players={similar} />
 
       {/* ── Tactical Analysis ──────────────────────────────────────── */}
       <TacticalAnalysis reepId={reep_id} />

@@ -75,3 +75,40 @@ export async function getTopPlayers(
 export async function getInsights(): Promise<InsightsResponse | null> {
   return readDataOrNull<InsightsResponse>("insights.json")
 }
+
+export async function getSimilarPlayers(
+  player: PlayerResponse,
+  limit = 4,
+): Promise<PlayerResponse[]> {
+  const all = readData<PlayerResponse[]>("players.json")
+
+  // Prefer same K-Means cluster (scoped to position_bucket) — tightest match
+  const hasMeaningfulCluster = player.cluster_id !== -1 && player.cluster_id != null
+  let pool: PlayerResponse[] = []
+
+  if (hasMeaningfulCluster) {
+    pool = all.filter(
+      (p) =>
+        p.reep_id !== player.reep_id &&
+        p.position_bucket === player.position_bucket &&
+        p.cluster_id === player.cluster_id &&
+        p.wc_minutes > 0,
+    )
+  }
+
+  // Fallback: same positional micro-role (e.g. all LWs, all CFs)
+  if (pool.length < 2) {
+    pool = all.filter(
+      (p) =>
+        p.reep_id !== player.reep_id &&
+        p.wc_minutes > 0 &&
+        (player.position_micro
+          ? p.position_micro === player.position_micro
+          : p.position_bucket === player.position_bucket),
+    )
+  }
+
+  return pool
+    .sort((a, b) => b.posterior_mean - a.posterior_mean)
+    .slice(0, limit)
+}
