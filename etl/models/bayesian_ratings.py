@@ -85,6 +85,20 @@ MIN_MICRO_N = 8
 # build_features.py before features.parquet is written.
 OPPONENT_ALPHA = 0.5
 
+# Age-position curve (step 6): asymmetric Gaussian applied to prior deviation.
+# prior_mean_adj = cluster_mean + (prior_mean - cluster_mean) * age_factor
+# age_factor = exp(-0.5 * ((age - peak) / σ)^2), clipped to [AGE_FACTOR_FLOOR, 1.0]
+# σ_below (development) is wider than σ_above (decline) — decline is steeper.
+AGE_FACTOR_FLOOR = 0.75   # never discount prior deviation by more than 25%
+
+_AGE_CURVE: dict[str, tuple[float, float, float]] = {
+    # bucket: (peak_age, σ_below, σ_above)
+    "GK":  (29.0, 9.0, 6.0),   # GKs develop slowly, peak late, decline gradually
+    "DEF": (27.0, 7.0, 5.0),
+    "MID": (26.0, 6.0, 5.0),
+    "FWD": (25.0, 6.0, 5.0),
+}
+
 # ---------------------------------------------------------------------------
 # League ELO coefficients (from leagues table, EPL = 1.0 reference)
 # ---------------------------------------------------------------------------
@@ -296,6 +310,51 @@ def _compute_anchor_stats(df: pd.DataFrame) -> pd.DataFrame:
 
 
 # ---------------------------------------------------------------------------
+# Age-position curve  (step 6)
+# ---------------------------------------------------------------------------
+
+def _apply_age_curve(df: pd.DataFrame, prior_mean: pd.Series) -> pd.Series:
+    """
+    Compress the prior-mean deviation from cluster mean for off-peak players.
+
+    age_factor = exp(-0.5 * ((age - peak) / σ)²), clipped to [AGE_FACTOR_FLOOR, 1.0]
+    σ_below (development) is wider than σ_above (decline): players approaching
+    peak get near-zero discount; veterans and teenagers take the biggest hit.
+
+    Result: prior_mean_adj = cluster_mean + (prior_mean - cluster_mean) * age_factor
+    When deviation = 0 (cluster-mean players) the curve has no effect.
+    When has_prior = True the deviation is already grounded in xG/xA data, so
+    the curve provides only a small residual correction for aging/development.
+    """
+    age = pd.to_numeric(df.get("age"), errors="coerce")
+    if age.isna().all():
+        return prior_mean  # no age data — skip
+
+    prior_mean = prior_mean.copy()
+    n_adjusted = 0
+
+    for bucket, (peak, sigma_below, sigma_above) in _AGE_CURVE.items():
+        mask = df["position_bucket"] == bucket
+        if not mask.any():
+            continue
+
+        a   = age[mask].fillna(peak)   # missing age → no adjustment
+        dev = prior_mean[mask] - df.loc[mask, "cluster_wc_mean"]
+
+        sigma = np.where(a <= peak, sigma_below, sigma_above)
+        factor = np.exp(-0.5 * ((a - peak) / sigma) ** 2).clip(lower=AGE_FACTOR_FLOOR)
+
+        prior_mean[mask] = df.loc[mask, "cluster_wc_mean"] + dev * factor
+        n_adjusted += int(mask.sum())
+
+    if n_adjusted:
+        logger.info(
+            "Age-position curve applied to %d players (floor=%.2f)", n_adjusted, AGE_FACTOR_FLOOR
+        )
+    return prior_mean
+
+
+# ---------------------------------------------------------------------------
 # Bayesian update — vectorized Normal-Normal conjugate
 # ---------------------------------------------------------------------------
 
@@ -356,6 +415,13 @@ def _bayesian_update(df: pd.DataFrame, stats: pd.DataFrame) -> pd.DataFrame:
         df["has_prior"] & (df["position_bucket"] != "GK"), np.nan
     ).fillna(6.5)
     df["prior_mean"] = df["prior_mean"].fillna(_fallback)
+
+    # ── Step 6: age-position curve adjustment ──────────────────────────────
+    # Compress the prior deviation from cluster mean for players who are
+    # significantly younger or older than their position's peak age.
+    # Has no effect when prior_mean == cluster_mean (deviation = 0).
+    if "age" in df.columns:
+        df["prior_mean"] = _apply_age_curve(df, df["prior_mean"])
 
     # --- Precisions ---
     sigma2_prior = df["cluster_wc_var"].clip(lower=1e-4).values  # (N,)
