@@ -216,8 +216,34 @@ def aggregate_seasons(frames: list[pd.DataFrame]) -> pd.DataFrame:
     90s × recency-weighted mean across all supplied season DataFrames, grouped
     by player_id.  Older seasons are down-weighted by exp(-λ × seasons_behind)
     where λ = settings.season_decay_lambda (default 1.0 → 2024-25 ≈ 37% of 2025-26).
+
+    Backfill staleness gate: backfill seasons (SEASONS_BACKFILL) are only
+    included for players who ALSO have data in at least one current season
+    (SEASONS).  This prevents stale data from becoming the sole prior signal
+    for players who left the big-5 entirely (e.g. Ronaldo → Al Nassr 2022).
+    Their WC data + MV prior is the more appropriate signal.
     """
     combined = pd.concat(frames, ignore_index=True)
+
+    # Gate: drop backfill-only players (no rows in any current season).
+    current_pids = set(
+        combined.loc[combined["season"].isin(SEASONS), "player_id"].unique()
+    )
+    backfill_only = (
+        ~combined["player_id"].isin(current_pids)
+        & combined["season"].isin(SEASONS_BACKFILL)
+    )
+    n_dropped = backfill_only.sum()
+    if n_dropped:
+        dropped_names = combined.loc[backfill_only, "player_name"].unique()[:5].tolist()
+        logger.info(
+            "Backfill staleness gate: dropped %d rows for %d backfill-only players "
+            "(no current-season data; e.g. %s). WC+MV prior will apply instead.",
+            n_dropped,
+            combined.loc[backfill_only, "player_id"].nunique(),
+            dropped_names,
+        )
+        combined = combined[~backfill_only].copy()
     combined["_90s"] = combined["minutes_played"] / 90.0
 
     # Recency decay: latest season always gets weight 1.0; each step back → ×exp(-λ)
