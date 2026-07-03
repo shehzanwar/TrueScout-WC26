@@ -9,9 +9,18 @@ This script uses botasaurus (headless Edge/Chrome) to pass the challenge reliabl
 Target: www.sofascore.com/api/v1/player (NOT api.sofascore.com — that endpoint
 returns application-level 403 regardless of browser since ~2026-07).
 
+NOTE (2026-07-03): Sofascore added server-side challenge auth to the player
+endpoint (reason="challenge"). All requests currently return 403. Existing
+Bronze Parquet values are preserved; no new values can be fetched until the
+endpoint is reopened or an alternative source is wired.
+
 Output
 ------
-Writes (or updates) market_value_eur (BIGINT) in db.identity_players.
+Writes (or updates) data/bronze/market_values.parquet
+Schema: reep_id (str), market_value_eur (int), fetched_at (datetime)
+
+The parquet is committed to git so it survives DuckDB recreation by load_identity.
+bayesian_ratings.py reads from this file directly — NOT from identity_players.
 
 Usage
 -----
@@ -20,12 +29,15 @@ Usage
 """
 
 import argparse
+import json
 import logging
 import random
 import time
+from datetime import datetime
 from pathlib import Path
 
 import duckdb
+import pandas as pd
 from botasaurus.browser import browser, Driver
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
@@ -33,11 +45,19 @@ log = logging.getLogger(__name__)
 
 DB_PATH   = Path("data/truescout.duckdb")
 API_BASE  = "https://www.sofascore.com/api/v1/player"
+MV_PARQUET = Path("data/bronze/market_values.parquet")
 
 EDGE_PATH = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
 _CHROME_EXE = EDGE_PATH if Path(EDGE_PATH).exists() else None
 
 BATCH_SIZE = 50
+
+
+def _load_existing() -> pd.DataFrame:
+    """Load existing market values from Bronze Parquet (empty DF if not exists)."""
+    if MV_PARQUET.exists():
+        return pd.read_parquet(MV_PARQUET)
+    return pd.DataFrame(columns=["reep_id", "market_value_eur", "fetched_at"])
 
 
 def _fetch_batch(driver: Driver, rows: list[tuple[str, str]]) -> list[tuple[str, str, int | None]]:
@@ -48,7 +68,6 @@ def _fetch_batch(driver: Driver, rows: list[tuple[str, str]]) -> list[tuple[str,
         try:
             driver.get(url)
             text = driver.page_text
-            import json
             data = json.loads(text)
             if "error" in data:
                 code   = data["error"].get("code", 0)
@@ -56,15 +75,13 @@ def _fetch_batch(driver: Driver, rows: list[tuple[str, str]]) -> list[tuple[str,
                 if code == 404:
                     results.append((reep_id, ss_id, 0))
                 elif code == 403 and reason == "challenge":
-                    # Sofascore server-side challenge: endpoint requires auth token.
-                    # No point continuing — all requests will fail the same way.
                     log.error(
                         "Sofascore player endpoint requires challenge auth (ss=%s). "
-                        "Aborting batch — existing DB values are preserved.",
+                        "Aborting — existing Bronze Parquet values are preserved.",
                         ss_id,
                     )
                     results.append((reep_id, ss_id, "CHALLENGE_ABORT"))
-                    return results  # signal caller to stop all batches
+                    return results
                 else:
                     log.warning("API error %d for ss=%s", code, ss_id)
                     results.append((reep_id, ss_id, None))
@@ -83,20 +100,27 @@ def _fetch_batch(driver: Driver, rows: list[tuple[str, str]]) -> list[tuple[str,
 def main(refresh: bool = False) -> None:
     con = duckdb.connect(str(DB_PATH))
 
-    existing_cols = {r[0] for r in con.execute("DESCRIBE identity_players").fetchall()}
-    if "market_value_eur" not in existing_cols:
-        con.execute("ALTER TABLE identity_players ADD COLUMN market_value_eur BIGINT")
-        log.info("Added market_value_eur column to identity_players")
-
     bronze      = Path("data/bronze")
     lineup_glob = (bronze / "sofascore" / "lineups" / "*.parquet").as_posix()
+
+    existing = _load_existing()
+    existing_ids = set(existing["reep_id"].tolist()) if not existing.empty else set()
 
     wc_filter = f"""
         SELECT DISTINCT CAST(player_id AS VARCHAR)
         FROM read_parquet('{lineup_glob}', union_by_name=true)
         WHERE minutes_played > 0
     """
-    null_filter = "market_value_eur IS NULL" if not refresh else "1=1"
+
+    if refresh:
+        null_filter = "1=1"
+    else:
+        # Fetch only players not already in the parquet
+        if existing_ids:
+            ph = ",".join(f"'{r}'" for r in existing_ids)
+            null_filter = f"ip.reep_id NOT IN ({ph})"
+        else:
+            null_filter = "1=1"
 
     rows = con.execute(f"""
         SELECT ip.reep_id, ip.key_sofascore
@@ -105,17 +129,20 @@ def main(refresh: bool = False) -> None:
           AND ip.key_sofascore IN ({wc_filter})
           AND {null_filter}
     """).fetchall()
+    con.close()
 
-    log.info("Fetching market values for %d players (refresh=%s)", len(rows), refresh)
+    log.info(
+        "Fetching market values for %d players (refresh=%s, existing=%d in parquet)",
+        len(rows), refresh, len(existing_ids),
+    )
     if not rows:
-        log.info("Nothing to fetch.")
-        con.close()
+        log.info("Nothing to fetch — all players already in Bronze Parquet.")
         return
 
     batches = [rows[i:i + BATCH_SIZE] for i in range(0, len(rows), BATCH_SIZE)]
-    updated = 0
-    errors  = 0
-    done    = 0
+    new_rows: list[dict] = []
+    errors = 0
+    done   = 0
 
     chrome_kwargs = {"chrome_executable_path": _CHROME_EXE} if _CHROME_EXE else {}
 
@@ -141,32 +168,44 @@ def main(refresh: bool = False) -> None:
                 break
             if mv is None:
                 errors += 1
-            elif mv == 0:
-                con.execute(
-                    "UPDATE identity_players SET market_value_eur = 0 WHERE reep_id = ?",
-                    [reep_id],
-                )
             else:
-                con.execute(
-                    "UPDATE identity_players SET market_value_eur = ? WHERE reep_id = ?",
-                    [mv, reep_id],
-                )
-                updated += 1
+                new_rows.append({
+                    "reep_id":          reep_id,
+                    "market_value_eur": mv,
+                    "fetched_at":       datetime.now(),
+                })
             done += 1
 
-        log.info("  Progress: %d/%d done (%d updated, %d errors)", done, len(rows), updated, errors)
+        log.info("  Progress: %d/%d done (%d new, %d errors)", done, len(rows), len(new_rows), errors)
 
         if challenge_abort:
             log.warning("Stopped early — Sofascore player endpoint requires challenge auth.")
             break
 
-    log.info("Done — %d updated, %d errors", updated, errors)
-    con.close()
+    if new_rows:
+        new_df = pd.DataFrame(new_rows)
+        # Merge: new values override existing for the same reep_id
+        if not existing.empty:
+            merged = (
+                pd.concat([existing, new_df], ignore_index=True)
+                .sort_values("fetched_at", ascending=False)
+                .drop_duplicates(subset=["reep_id"], keep="first")
+            )
+        else:
+            merged = new_df
+
+        MV_PARQUET.parent.mkdir(parents=True, exist_ok=True)
+        merged.to_parquet(MV_PARQUET, index=False)
+        log.info("Written: %s  (%d players total)", MV_PARQUET, len(merged))
+    else:
+        log.info("No new values fetched — Bronze Parquet unchanged.")
+
+    log.info("Done — %d new values, %d errors", len(new_rows), errors)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--refresh", action="store_true",
-                        help="Re-fetch all players, not just those with NULL market_value_eur")
+                        help="Re-fetch all WC players, not just those missing from the parquet")
     args = parser.parse_args()
     main(refresh=args.refresh)
