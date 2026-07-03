@@ -13,7 +13,7 @@ Runs the full pipeline in dependency order:
   8.   Brier tracker      (grade model against new market odds)
   9.   Export JSON        (write frontend/public/data/*.json for Vercel)
   9.5. Verify outputs     (hard assertions on exported JSON — hard-fail gate)
-  9.6. Narrative pre-gen  (OpenRouter; soft-fail — rate limits are expected)
+  9.6. Narrative pre-gen  (Gemini native API; soft-fail — quota exhaustion expected)
 
 Designed for Windows Task Scheduler (single-user V1) and GitHub Actions.
 
@@ -247,7 +247,7 @@ def main() -> None:
     # on GitHub Actions datacenter IPs.  Only math/export failures are fatal.
     _INGESTION = {"1_espn_pull", "2_sofascore_pull", "3_load_matches", "4_load_identity",
                   "4_market_values",  # botasaurus unavailable on CI; skipped by design
-                  "9_narratives"}   # narrative pre-gen: soft-fail (rate limits expected)
+                  "9_narratives"}   # narrative pre-gen: soft-fail (quota exhaustion expected)
     _CRITICAL  = {"5_build_features", "6_bayesian_ratings", "7_monte_carlo_sim",
                   "8_brier_tracker", "9_export_json", "9_verify_outputs"}
 
