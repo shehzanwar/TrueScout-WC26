@@ -51,9 +51,25 @@ LEAGUES = ["EPL", "La_Liga", "Bundesliga", "Serie_A", "Ligue_1"]
 # Understat season key "2024" = 2024/25 season, "2025" = 2025/26 season.
 SEASONS = ["2024", "2025"]
 
+# Historical seasons fetched once via --backfill flag; included in aggregate
+# automatically if their parquets exist. Covers players like Ronaldo (last EPL
+# season 2021-22) who left big-5 before the current window.
+SEASONS_BACKFILL = ["2021", "2022"]
+
 SEASON_LABEL: dict[str, str] = {
+    "2021": "2021-22",
+    "2022": "2022-23",
     "2024": "2024-25",
     "2025": "2025-26",
+}
+
+# Hard-coded understat_id → reep_id overrides for players whose Understat name
+# is ambiguous in identity_players (fails the uniqueness gate in resolve_reep_ids).
+# Key = str(understat_id), value = canonical reep_id.
+REEP_OVERRIDES: dict[str, str] = {
+    "3297": "reep_pcf88f3c4",   # Marquinhos (PSG, centre-back) — 7 Marquinhos in identity
+    "9961": "reep_p2defe7d2",   # Nuno Mendes (PSG) — 2 Nuno Mendes in identity
+    "308":  "reep_pbcc14303",   # Ricardo Rodríguez (Real Betis / Switzerland) — accent mismatch
 }
 
 # Players with fewer minutes across the window are noise; skip them.
@@ -330,9 +346,17 @@ def resolve_reep_ids(df: pd.DataFrame) -> pd.DataFrame:
     df["understat_id"] = df["understat_id"].astype(str).str.strip()
     mapping["understat_id"] = mapping["understat_id"].astype(str).str.strip()
 
-    # --- Pass 1: direct key_understat ---
-    merged = df.merge(mapping, on="understat_id", how="left")
-    pass1 = merged["reep_id"].notna().sum()
+    # --- Pass 0: hard-coded REEP_OVERRIDES (ambiguous names that fail uniqueness gate) ---
+    df["reep_id"] = df["understat_id"].map(REEP_OVERRIDES)
+    pass0 = df["reep_id"].notna().sum()
+    if pass0:
+        logger.info("Pass 0 (REEP_OVERRIDES):         %4d / %d matched", pass0, before)
+
+    # --- Pass 1: direct key_understat (skip rows already resolved by Pass 0) ---
+    unresolved_p0 = df["reep_id"].isna()
+    merged_p1 = df[unresolved_p0].merge(mapping, on="understat_id", how="left")
+    merged = pd.concat([df[~unresolved_p0], merged_p1], ignore_index=True)
+    pass1 = merged["reep_id"].notna().sum() - pass0
     logger.info("Pass 1 (key_understat direct):   %4d / %d matched", pass1, before)
 
     # --- Build normalized name lookup for passes 2 & 3 ---
@@ -429,8 +453,16 @@ def main() -> None:
     )
     parser.add_argument(
         "--season",
-        choices=SEASONS,
-        help="Pull a single season (default: both).",
+        choices=list(SEASON_LABEL.keys()),
+        help="Pull a single season (default: both current seasons).",
+    )
+    parser.add_argument(
+        "--backfill",
+        action="store_true",
+        help=(
+            f"Fetch historical seasons {[SEASON_LABEL[s] for s in SEASONS_BACKFILL]} "
+            "once (skips if parquet already exists), then rebuild aggregate."
+        ),
     )
     parser.add_argument(
         "--validate",
@@ -459,6 +491,39 @@ def main() -> None:
     logger.info("Seasons : %s", ", ".join(SEASON_LABEL[s] for s in seasons_to_run))
 
     season_frames: list[pd.DataFrame] = []
+
+    # --- Backfill: fetch historical seasons (skip if parquet already exists) ---
+    if args.backfill:
+        for season in SEASONS_BACKFILL:
+            bf_path = BRONZE_DIR / f"players_{season}.parquet"
+            if bf_path.exists():
+                logger.info(
+                    "Backfill %s: parquet exists, loading from disk (no re-fetch).",
+                    SEASON_LABEL[season],
+                )
+                season_frames.append(pd.read_parquet(bf_path))
+                continue
+            logger.info("Backfill %s: fetching ...", SEASON_LABEL[season])
+            bf_rows: list[dict] = []
+            for league in LEAGUES:
+                try:
+                    bf_rows.extend(fetch_season(league, season))
+                except Exception as exc:
+                    logger.warning("Failed %s / %s -- %s", league, SEASON_LABEL[season], exc)
+            if bf_rows:
+                df_bf = pd.DataFrame(bf_rows)
+                _write_parquet(df_bf, bf_path)
+                season_frames.append(df_bf)
+
+    # --- Load existing backfill parquets even on normal runs (so aggregate includes them) ---
+    else:
+        for season in SEASONS_BACKFILL:
+            bf_path = BRONZE_DIR / f"players_{season}.parquet"
+            if bf_path.exists():
+                logger.info(
+                    "Including existing backfill %s in aggregate.", SEASON_LABEL[season]
+                )
+                season_frames.append(pd.read_parquet(bf_path))
 
     for season in seasons_to_run:
         season_rows: list[dict] = []
