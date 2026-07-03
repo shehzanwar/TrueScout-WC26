@@ -118,12 +118,19 @@ function ratingColor(pct: number): string {
   return "text-slate-500"
 }
 
+interface LineupPlayer extends PlayerSearchResult {
+  wc_minutes: number
+  position_macro: string
+}
+
+const POS_ORDER: Record<string, number> = { GK: 0, DEF: 1, MID: 2, FWD: 3 }
+
 function LineupList({
   teamName,
   players,
 }: {
   teamName: string
-  players: PlayerSearchResult[]
+  players: LineupPlayer[]
 }) {
   if (players.length === 0) {
     return (
@@ -141,12 +148,18 @@ function LineupList({
           href={`/players/${p.reep_id}`}
           className="flex items-center justify-between py-1 px-1.5 rounded hover:bg-slate-800 transition-colors group"
         >
-          <span className="text-xs text-slate-400 group-hover:text-slate-100 truncate transition-colors">
-            {p.name ?? p.reep_id}
-          </span>
-          <span className={`text-[11px] font-bold tabular-nums ml-2 shrink-0 ${ratingColor(p.percentile_rank)}`}>
-            {p.posterior_mean.toFixed(2)}
-          </span>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-[9px] text-slate-600 w-6 shrink-0 font-mono uppercase">{p.position_macro}</span>
+            <span className="text-xs text-slate-400 group-hover:text-slate-100 truncate transition-colors">
+              {p.name ?? p.reep_id}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 ml-2 shrink-0">
+            <span className="text-[10px] text-slate-600 tabular-nums">{Math.round(p.wc_minutes)}'</span>
+            <span className={`text-[11px] font-bold tabular-nums ${ratingColor(p.percentile_rank)}`}>
+              {p.posterior_mean.toFixed(2)}
+            </span>
+          </div>
         </Link>
       ))}
     </div>
@@ -173,8 +186,8 @@ export default function MatchCard({ match }: { match: Matchup }) {
   const [lineupsLoaded, setLineupsLoaded] = useState(false)
   const [lineupsLoading, setLineupsLoading] = useState(false)
   const [teamPlayers, setTeamPlayers] = useState<{
-    home: PlayerSearchResult[]
-    away: PlayerSearchResult[]
+    home: LineupPlayer[]
+    away: LineupPlayer[]
   } | null>(null)
 
   const loadLineups = useCallback(async () => {
@@ -185,15 +198,15 @@ export default function MatchCard({ match }: { match: Matchup }) {
       if (!res.ok) return
       const all = (await res.json()) as PlayerResponse[]
 
-      const byNat = (nat: string): PlayerSearchResult[] =>
+      const byNat = (nat: string): LineupPlayer[] =>
         all
-          .filter((p) => (p.national_team ?? p.nationality) === nat)
-          .sort(
-            (a, b) =>
-              b.confidence_score - a.confidence_score ||
-              b.posterior_mean - a.posterior_mean,
-          )
-          .slice(0, 10)
+          .filter((p) => (p.national_team ?? p.nationality) === nat && (p.wc_minutes ?? 0) > 0)
+          .sort((a, b) => {
+            const posA = POS_ORDER[a.position_macro] ?? 9
+            const posB = POS_ORDER[b.position_macro] ?? 9
+            if (posA !== posB) return posA - posB
+            return (b.wc_minutes ?? 0) - (a.wc_minutes ?? 0)
+          })
           .map((p) => ({
             reep_id:          p.reep_id,
             name:             p.name,
@@ -204,6 +217,7 @@ export default function MatchCard({ match }: { match: Matchup }) {
             posterior_mean:   p.posterior_mean,
             confidence_score: p.confidence_score,
             percentile_rank:  p.percentile_rank,
+            wc_minutes:       p.wc_minutes ?? 0,
           }))
 
       setTeamPlayers({ home: byNat(home.name), away: byNat(away.name) })
