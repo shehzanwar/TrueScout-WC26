@@ -38,6 +38,9 @@ _GLOBAL_MEAN_RATING: float = 6.8
 _FORM_HALF_LIFE_DAYS: float = 60.0
 _FORM_CUTOFF_DAYS:    int   = 180
 
+# FBref international form parquet (step 4)
+_BRONZE_FBREF = Path(settings.parquet_bronze_dir) / "fbref"
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -347,6 +350,82 @@ def load_sofascore_club_priors() -> pd.DataFrame:
     return agg
 
 
+def load_fbref_intl_form() -> pd.DataFrame:
+    """
+    Load FBref international tournament / qualifying form as a fallback prior.
+
+    Uses data/bronze/fbref/intl_form.parquet (written by fbref_intl_pull.py).
+    Joins on identity_players.key_fbref (8-char FBref hex) → reep_id.
+    Aggregates per player across all competitions: minutes-weighted per-90 rates.
+    Prefers xG/xA where FBref provides them; falls back to goals/assists.
+
+    Applied as tertiary prior: only fills players with has_prior=False after
+    Understat and Sofascore club-stats passes.
+
+    Returns an empty DataFrame if parquet not found or no matches.
+    """
+    path = _BRONZE_FBREF / "intl_form.parquet"
+    if not path.exists():
+        logger.info("fbref intl_form.parquet not found — skipping international form prior")
+        return pd.DataFrame()
+
+    df = pd.read_parquet(path)
+    if df.empty:
+        return pd.DataFrame()
+
+    # key_fbref → reep_id lookup
+    conn = get_read_conn()
+    try:
+        fbref_bridge = conn.execute("""
+            SELECT key_fbref, reep_id
+            FROM identity_players
+            WHERE key_fbref IS NOT NULL AND key_fbref != ''
+        """).df()
+    finally:
+        conn.close()
+
+    merged = df.merge(fbref_bridge, left_on="fbref_id", right_on="key_fbref", how="inner")
+    if merged.empty:
+        logger.warning("fbref_intl: no FBref IDs matched to reep_ids")
+        return pd.DataFrame()
+
+    # Filter: at least 45 minutes in a competition to count
+    merged = merged[merged["minutes"].fillna(0) >= 45].copy()
+    if merged.empty:
+        return pd.DataFrame()
+
+    agg_rows: list[dict] = []
+    for reep_id, grp in merged.groupby("reep_id"):
+        total_mins = float(grp["minutes"].fillna(0).sum())
+        if total_mins < 90:
+            continue
+
+        xg_total = float(grp["xg"].fillna(0).sum())
+        xa_total = float(grp["xa"].fillna(0).sum())
+        g_total  = float(grp["goals"].fillna(0).sum())
+        a_total  = float(grp["assists"].fillna(0).sum())
+
+        # Prefer xG/xA (available for major tournaments); fall back to goals/assists
+        xg_p90 = (xg_total / total_mins * 90) if xg_total > 0 else (g_total / total_mins * 90)
+        xa_p90 = (xa_total / total_mins * 90) if xa_total > 0 else (a_total / total_mins * 90)
+
+        primary_comp = grp.loc[grp["minutes"].fillna(0).idxmax(), "competition"]
+
+        agg_rows.append({
+            "reep_id":         reep_id,
+            "prior_xg_per_90": xg_p90,
+            "prior_xa_per_90": xa_p90,
+            "prior_minutes":   total_mins,
+            "prior_matches":   float(grp["competition"].nunique()),
+            "league":          primary_comp,
+            "prior_source":    "fbref_intl",
+        })
+
+    result = pd.DataFrame(agg_rows)
+    logger.info("FBref international form priors: %d players", len(result))
+    return result
+
+
 # ---------------------------------------------------------------------------
 # Bridge: sofascore_id → reep_id
 # ---------------------------------------------------------------------------
@@ -580,10 +659,11 @@ def build_features() -> pd.DataFrame:
       5. Assign position bucket (reep > Sofascore > Understat).
       6. Drop players with neither WC data nor club prior.
     """
-    wc         = load_wc_features()
-    bridge     = build_sofascore_bridge()
-    priors     = load_club_priors()
-    ss_priors  = load_sofascore_club_priors()
+    wc           = load_wc_features()
+    bridge       = build_sofascore_bridge()
+    priors       = load_club_priors()
+    ss_priors    = load_sofascore_club_priors()
+    intl_priors  = load_fbref_intl_form()
 
     # 3.1 — Opponent-strength adjustment (requires bridge for sc_id → reep_id mapping)
     if wc.shape[0] > 0:
@@ -685,6 +765,28 @@ def build_features() -> pd.DataFrame:
                 logger.info(
                     "Sofascore club-stats prior filled for %d players (goals/90+assists/90 proxy)",
                     n_ss_filled,
+                )
+
+    # FBref international form: tertiary fallback for players still without any prior
+    if not intl_priors.empty:
+        still_no_prior = ~features["has_prior"]
+        if still_no_prior.any():
+            intl_fill = intl_priors.set_index("reep_id")
+            fill_ids  = features.loc[still_no_prior, "reep_id"].values
+            for col in ("prior_xg_per_90", "prior_xa_per_90", "league"):
+                if col in intl_fill.columns:
+                    features.loc[still_no_prior, col] = (
+                        pd.Series(fill_ids).map(intl_fill[col]).values
+                    )
+            features.loc[still_no_prior, "has_prior"] = (
+                features.loc[still_no_prior, "prior_xg_per_90"].notna()
+            )
+            n_intl = int(features.loc[still_no_prior, "prior_xg_per_90"].notna().sum())
+            if n_intl:
+                logger.info(
+                    "FBref international form prior filled for %d players "
+                    "(qualifying/tournament xG+xA)",
+                    n_intl,
                 )
 
     # Task 5 — Defensive-action boost for DEF/GK
