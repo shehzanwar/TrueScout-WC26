@@ -124,10 +124,12 @@ def main(refresh: bool = False) -> None:
             create_error_logs=False,
             **chrome_kwargs,
         )
-        def run_batch(driver: Driver, batch=batch):
-            return _fetch_batch(driver, batch)
+        def run_batch(driver: Driver, data):
+            return _fetch_batch(driver, data)
 
-        results = run_batch(batch)
+        # Wrap batch in a list so botasaurus calls run_batch once with the
+        # full batch (it iterates the outer list, not the inner tuples).
+        results = run_batch([batch])[0]
 
         for reep_id, ss_id, mv in results:
             if mv is None:
