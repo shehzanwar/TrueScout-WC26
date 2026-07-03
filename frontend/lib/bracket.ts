@@ -299,6 +299,19 @@ export function buildBracket(
     prevCode  = code
   }
 
+  // Reorder R32 slots for correct visual alignment.
+  // The Connector component assumes adjacent slot pairs feed the same R16 match,
+  // but ESPN chronological order doesn't honour this. Flatten pairings.R16 to get
+  // the display order: [pair0_a, pair0_b, pair1_a, pair1_b, ...].
+  const r16PairingOrder = sim.pairings?.["R16"]
+  if (r16PairingOrder) {
+    const displayOrder = r16PairingOrder.flatMap(([a, b]) => [a, b])
+    rounds[0] = {
+      ...rounds[0],
+      slots: displayOrder.map((i) => rounds[0].slots[i]),
+    }
+  }
+
   // Champion: top team in the W round (sorted advance_prob DESC = title_prob DESC)
   const wRound = sim.rounds.find(r => r.round === "W")
   const champTeam = wRound?.teams[0]
