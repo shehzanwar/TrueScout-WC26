@@ -34,10 +34,8 @@ function getPlayers(): PlayerResponse[] {
 // Native Gemini REST API — more reliable than the OpenAI-compat wrapper
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 
-// Model chain: 2.5-flash primary, 2.0-flash fallback
-const PRIMARY_MODEL  = process.env.GOOGLE_AI_MODEL ?? "gemini-2.5-flash"
-const FALLBACK_MODEL = "gemini-2.0-flash"
-const MODELS = [...new Set([PRIMARY_MODEL, FALLBACK_MODEL])]
+const PRIMARY_MODEL = process.env.GOOGLE_AI_MODEL ?? "gemini-2.5-flash"
+const MODELS = [PRIMARY_MODEL]
 
 const _ANTI_YAPPING =
   "\n\nCRITICAL FORMATTING RULE: Do NOT output your chain of thought, reasoning process, " +
