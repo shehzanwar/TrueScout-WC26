@@ -34,6 +34,10 @@ _OPPONENT_ALPHA: float = settings.opponent_alpha
 # Fallback global mean when player_ratings is empty (first run or CI)
 _GLOBAL_MEAN_RATING: float = 6.8
 
+# Rolling-form time-decay (step 5): half-life 60 days, 6-month cutoff
+_FORM_HALF_LIFE_DAYS: float = 60.0
+_FORM_CUTOFF_DAYS:    int   = 180
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -432,7 +436,8 @@ def _apply_opponent_adjustment(wc: pd.DataFrame, bridge: pd.DataFrame) -> pd.Dat
             SELECT
                 CAST(event_id AS BIGINT) AS event_id,
                 home_team_id,
-                away_team_id
+                away_team_id,
+                match_date
             FROM read_parquet('{events_glob}', union_by_name=true)
         """).df()
     except Exception as exc:
@@ -466,20 +471,41 @@ def _apply_opponent_adjustment(wc: pd.DataFrame, bridge: pd.DataFrame) -> pd.Dat
     raw["opp_key"] = list(zip(raw["event_id"].astype(int), raw["opp_side"]))
     raw["opp_strength"] = raw["opp_key"].map(team_strength).fillna(global_mean)
 
-    # Adjusted rating per match row, then mean per player
+    # Opponent-adjusted per-match rating
     raw["adjusted_rating"] = raw["rating"] * (raw["opp_strength"] / global_mean) ** _OPPONENT_ALPHA
+
+    # ── Step 5: exponential time-decay ──────────────────────────────────────
+    # Attach match_date; compute days_ago from today; apply half-life decay weight.
+    # Matches older than FORM_CUTOFF_DAYS are excluded from the weighted mean.
+    # Within WC 2026 (~21-day spread) the decay is modest but grows as the
+    # tournament progresses; it becomes more meaningful for knockout matches vs
+    # group-stage matches played 3–4 weeks earlier.
+    raw = raw.merge(events[["event_id", "match_date"]], on="event_id", how="left")
+    today = pd.Timestamp.now(tz="UTC").normalize().tz_localize(None)
+    raw["match_dt"] = pd.to_datetime(raw["match_date"], errors="coerce")
+    raw["days_ago"] = (today - raw["match_dt"]).dt.days.fillna(0).clip(lower=0)
+    raw = raw[raw["days_ago"] <= _FORM_CUTOFF_DAYS]
+    raw["decay_w"] = np.exp(-np.log(2) / _FORM_HALF_LIFE_DAYS * raw["days_ago"])
+
+    # Time-decay weighted mean of opponent-adjusted ratings per player
+    def _weighted_mean(g: pd.DataFrame) -> float:
+        w = g["decay_w"].values
+        r = g["adjusted_rating"].values
+        total_w = w.sum()
+        return float((r * w).sum() / total_w) if total_w > 0 else float(r.mean())
+
     adj = (
-        raw.groupby("sofascore_id")["adjusted_rating"]
-        .mean()
-        .reset_index()
-        .rename(columns={"adjusted_rating": "wc_rating_adjusted"})
+        raw.groupby("sofascore_id")
+        .apply(_weighted_mean)
+        .reset_index(name="wc_rating_adjusted")
     )
 
     wc = wc.merge(adj, on="sofascore_id", how="left")
     n_adj = wc["wc_rating_adjusted"].notna().sum()
     logger.info(
-        "Opponent-strength adjustment (α=%.2f, global_mean=%.3f): %d players adjusted.",
-        _OPPONENT_ALPHA, global_mean, n_adj,
+        "Opponent-strength adjustment + time-decay "
+        "(α=%.2f, half_life=%dd, global_mean=%.3f): %d players adjusted.",
+        _OPPONENT_ALPHA, int(_FORM_HALF_LIFE_DAYS), global_mean, n_adj,
     )
     return wc
 
