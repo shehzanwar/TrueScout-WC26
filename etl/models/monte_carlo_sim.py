@@ -213,6 +213,17 @@ def _load_bracket(
 
         r16_pairs_meta.append((home_n - 1, away_n - 1, n_real))  # back to 0-indexed
 
+    # Record ESPN fixture slot order before the dedup sort so we can restore it
+    # afterwards.  The sort by -n_real is needed for deduplication (confirmed data
+    # wins over stale placeholders), but it also reorders DISTINCT slots when some
+    # are confirmed (n_real=2) and others are still TBD (n_real=0) — e.g. a
+    # confirmed R16 match can jump ahead of an earlier TBD slot.
+    pair_to_espn_slot: dict[frozenset, int] = {}
+    for espn_slot, (a, b, _) in enumerate(r16_pairs_meta):
+        key: frozenset = frozenset([a, b])
+        if key not in pair_to_espn_slot:
+            pair_to_espn_slot[key] = espn_slot
+
     # Deduplicate: ESPN occasionally emits BOTH the stale "Round of 32 N Winner"
     # placeholder AND the updated real-team-name entry for the same bracket slot
     # in the same nightly pull (the resolved entry has a higher n_real score).
@@ -288,6 +299,12 @@ def _load_bracket(
             f"Could only build {len(r16_pairs)}/8 R16 bracket pairs after repair.  "
             "Check Bronze R16 fixture data."
         )
+
+    # Restore ESPN fixture slot order (the dedup sort can reorder slots when
+    # confirmed and TBD matches are interleaved — e.g. a confirmed match at
+    # ESPN slot 5 jumping ahead of a TBD match at slot 4).
+    # Orphan-repaired pairs (not in pair_to_espn_slot) sort last.
+    r16_pairs.sort(key=lambda p: pair_to_espn_slot.get(frozenset(p), len(r16_pairs_meta)))
 
     # Build bracket positions: for each R16 pair (a, b) in order, place
     # r32_fixtures[a] then r32_fixtures[b] as consecutive 4-slot sections.
