@@ -104,13 +104,99 @@ _AGE_CURVE: dict[str, tuple[float, float, float]] = {
 # ---------------------------------------------------------------------------
 
 _LEAGUE_ELO: dict[str, float] = {
-    "EPL":        1.000,
-    "La_Liga":    0.926,
-    "Bundesliga": 0.918,
-    "Serie_A":    0.909,
-    "Ligue_1":    0.908,
+    # ── Tier 1: Big-5 European leagues (EPL = 1.000 reference) ──────────────
+    "EPL":            1.000,
+    "Premier League": 1.000,   # FBref / understat name variant
+    "La_Liga":        0.926,
+    "LaLiga":         0.926,   # variant (no underscore)
+    "Bundesliga":     0.918,
+    "Serie_A":        0.909,
+    "Serie A":        0.909,   # variant (space not underscore)
+    "Ligue_1":        0.908,
+    "Ligue 1":        0.908,   # variant (space not underscore)
+
+    # ── Tier 2: Strong European leagues (UEFA coefficient ~0.80–0.85) ────────
+    "Liga Portugal Betclic": 0.840,    # Primeira Liga (Portugal)
+    "Primeira Liga":          0.840,
+    "Brasileirão Betano":     0.835,   # Brazil Série A
+    "Liga Profesional de Fútbol": 0.790,  # Argentina
+    "Trendyol Süper Lig":     0.785,   # Turkey
+    "VriendenLoterij Eredivisie": 0.820,  # Netherlands (PSV, Ajax, Feyenoord)
+    "Eredivisie":             0.820,
+    "Pro League":             0.810,   # Belgian Pro League
+    "Jupiler Pro League":     0.810,
+    "2. Bundesliga":          0.820,   # Germany second tier
+    "LaLiga 2":               0.815,   # Spain second tier
+    "Serie B":                0.805,   # Italy second tier
+    "Ligue 2":                0.800,   # France second tier
+
+    # ── Tier 3: Mid-table European + major non-European (0.70–0.79) ─────────
+    "Russian Premier League": 0.755,
+    "Championship":           0.755,   # England Championship
+    "Swiss Super League":     0.750,
+    "Austrian Bundesliga":    0.750,
+    "Czech First League":     0.720,
+    "Niké Liga":              0.720,   # Slovak Superliga
+    "Danish Superliga":       0.730,
+    "Scottish Premiership":   0.715,   # Celtic/Rangers dominance, weak depth
+    "Allsvenskan":            0.720,   # Sweden
+    "Eliteserien":            0.715,   # Norway
+    "Ekstraklasa":            0.715,   # Poland
+    "Stoiximan Super League": 0.710,   # Greece
+    "HNL":                    0.710,   # Croatia
+    "SuperLiga României":     0.695,
+    "OTP Bank Liga":          0.690,   # Hungary
+    "Parva Liga":             0.680,   # Bulgaria
+    "Challenger Pro League":  0.755,   # Belgian second tier (treat ≈ Pro League)
+    "Liga MX, Apertura":      0.720,
+    "Liga MX, Clausura":      0.720,
+    "Eerste Divisie":         0.770,   # Dutch second tier
+
+    # ── Tier 4: Weaker / non-European leagues (< 0.70) ───────────────────────
+    "MLS":                    0.685,
+    "Stars League":           0.645,   # Saudi Pro League
+    "Saudi Pro League":       0.645,
+    "K League 1":             0.680,   # South Korea
+    "J1 League":              0.695,   # Japan
+    "A-League Men":           0.625,   # Australia
+    "Persian Gulf Pro League": 0.645,  # Iran
+    "Egyptian Premier League": 0.610,
+    "Uzbekistan Super League": 0.560,
+    "South African Premier Division": 0.555,
+    "Tunisian Ligue Professionnelle 1": 0.580,
+    "Indonesian Super League": 0.540,
+    "Liga FUTVE":             0.510,   # Venezuela
+    "Liga Panameña de Fútbol, Clausura": 0.520,
+    "Liga Nacional de Fútbol de Guatemala, Apertura": 0.510,
+    "Israeli Premier League": 0.690,
+    "Stoiximan Super League": 0.710,
+    "Cyprus League by Stoiximan": 0.640,
+    "UAE Pro League":         0.610,
+    "League One":             0.730,   # England League One (Tier 3)
+    "2. Liga":                0.720,   # Austria second tier
+    "Trendyol 1.Lig":         0.720,   # Turkey second tier
+    "Primera Federación":     0.790,   # Spain third tier (actually high quality)
+    "PrvaLiga":               0.700,   # Slovenia
+    "Serie C, Girone C":      0.760,   # Italy third tier
+    "Betinia Liga":           0.640,
+    "LigaPro Serie A":        0.660,   # Ecuador
+    "Primera División, Apertura": 0.680,  # Uruguay
+    "USL Championship":       0.640,   # USA second tier
+
+    # ── International competitions — apply no discount (ELO=1.0) ───────────
+    # Players sourced from intl competitions usually have xg=xa=0, so ELO
+    # has no effect; set 1.0 to be accurate and avoid accidental weighting.
+    "WC 2026":                    1.000,
+    "WC 2026 Qual CONMEBOL":      1.000,
+    "WC 2026 Qual CONCACAF":      1.000,
+    "Africa Cup of Nations 2023": 1.000,
+    "Copa America 2024":          1.000,
+    "UEFA Euro 2024":             1.000,
 }
-_MEAN_ELO = float(np.mean(list(_LEAGUE_ELO.values())))  # ≈ 0.932
+_MEAN_ELO = float(
+    np.mean([v for k, v in _LEAGUE_ELO.items()
+             if k in ("EPL","La_Liga","Bundesliga","Serie_A","Ligue_1")])
+)  # ≈ 0.932 — used only for unrecognised leagues
 
 # ---------------------------------------------------------------------------
 # Micro-position mapping (Tier 2)
