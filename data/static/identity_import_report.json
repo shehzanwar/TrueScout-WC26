@@ -1,0 +1,589 @@
+{
+  "run_at": "2026-07-04T02:28:47.688801+00:00",
+  "dry_run": false,
+  "json_path": "C:\\Users\\couga\\Downloads\\player_profiles.json",
+  "inserted": [
+    {
+      "reep_id": "reep_pa7823850",
+      "sofascore_id": "918547",
+      "name": "Mahdi Soliman",
+      "national_team": "Egypt",
+      "position": "GK",
+      "dob": "1987-06-08",
+      "country": "Egypt",
+      "action": "inserted_new"
+    },
+    {
+      "reep_id": "reep_p07e31ad7",
+      "sofascore_id": "918913",
+      "name": "Hamdy Fathy",
+      "national_team": "Egypt",
+      "position": "MID",
+      "dob": "1994-09-29",
+      "country": "Egypt",
+      "action": "inserted_new"
+    },
+    {
+      "reep_id": "reep_p7d19acdc",
+      "sofascore_id": "920476",
+      "name": "Saad Al Rousan",
+      "national_team": "Jordan",
+      "position": "DEF",
+      "dob": "1997-02-01",
+      "country": "Jordan",
+      "action": "inserted_new"
+    },
+    {
+      "reep_id": "reep_pf14ec3d4",
+      "sofascore_id": "954107",
+      "name": "Noureddin Zaid",
+      "national_team": "Jordan",
+      "position": "GK",
+      "dob": "1993-01-25",
+      "country": "Jordan",
+      "action": "inserted_new"
+    },
+    {
+      "reep_id": "reep_ped44685a",
+      "sofascore_id": "980580",
+      "name": "Juan Portilla",
+      "national_team": "Colombia",
+      "position": "MID",
+      "dob": "1998-09-12",
+      "country": "Colombia",
+      "action": "inserted_new"
+    },
+    {
+      "reep_id": "reep_pdc8e81f8",
+      "sofascore_id": "1000809",
+      "name": "Amine Ben Hmida",
+      "national_team": "Tunisia",
+      "position": "DEF",
+      "dob": "1995-12-15",
+      "country": "Tunisia",
+      "action": "inserted_new"
+    },
+    {
+      "reep_id": "reep_p6c97a34d",
+      "sofascore_id": "1009476",
+      "name": "Jin-gyu Kim",
+      "national_team": "South Korea",
+      "position": "MID",
+      "dob": "1997-02-24",
+      "country": "South Korea",
+      "action": "inserted_new"
+    },
+    {
+      "reep_id": "reep_p23692f84",
+      "sofascore_id": "1010634",
+      "name": "Hyeon-gyu Oh",
+      "national_team": "South Korea",
+      "position": "FWD",
+      "dob": "2001-04-12",
+      "country": "South Korea",
+      "action": "inserted_new"
+    },
+    {
+      "reep_id": "reep_pb6d56883",
+      "sofascore_id": "1083016",
+      "name": "Mohamed Naceur Almanai",
+      "national_team": "Qatar",
+      "position": "MID",
+      "dob": "2003-10-30",
+      "country": "Qatar",
+      "action": "inserted_new"
+    },
+    {
+      "reep_id": "reep_p20656bb6",
+      "sofascore_id": "1122369",
+      "name": "Husam Ali Mohammad Abudahab",
+      "national_team": "Jordan",
+      "position": "DEF",
+      "dob": "2000-05-13",
+      "country": "Jordan",
+      "action": "inserted_new"
+    },
+    {
+      "reep_id": "reep_pfb69fed6",
+      "sofascore_id": "1154613",
+      "name": "Wi-je Cho",
+      "national_team": "South Korea",
+      "position": "DEF",
+      "dob": "2001-08-25",
+      "country": "South Korea",
+      "action": "inserted_new"
+    },
+    {
+      "reep_id": "reep_p9e9c515c",
+      "sofascore_id": "1163991",
+      "name": "Munaf Younus",
+      "national_team": "Iraq",
+      "position": "DEF",
+      "dob": "1996-11-16",
+      "country": "Iraq",
+      "action": "inserted_new"
+    },
+    {
+      "reep_id": "reep_pe6658039",
+      "sofascore_id": "1217937",
+      "name": "Edgardo Fariña",
+      "national_team": "Panama",
+      "position": "DEF",
+      "dob": "2001-09-21",
+      "country": "Panama",
+      "action": "inserted_new"
+    },
+    {
+      "reep_id": "reep_pe50c94eb",
+      "sofascore_id": "1384367",
+      "name": "Woodensky Pierre",
+      "national_team": "Haiti",
+      "position": "MID",
+      "dob": "2004-12-28",
+      "country": "Haiti",
+      "action": "inserted_new"
+    },
+    {
+      "reep_id": "reep_pd0ad821d",
+      "sofascore_id": "1392829",
+      "name": "Amine Sbai",
+      "national_team": "Morocco",
+      "position": "MID",
+      "dob": "2000-11-05",
+      "country": "Morocco",
+      "action": "inserted_new"
+    },
+    {
+      "reep_id": "reep_pc9769096",
+      "sofascore_id": "1418782",
+      "name": "Mostafa Ziko",
+      "national_team": "Egypt",
+      "position": "MID",
+      "dob": "1997-04-27",
+      "country": "Egypt",
+      "action": "inserted_new"
+    },
+    {
+      "reep_id": "reep_p0d73da77",
+      "sofascore_id": "1980828",
+      "name": "Mohamed Alaa",
+      "national_team": "Egypt",
+      "position": "GK",
+      "dob": "1999-09-01",
+      "country": "Egypt",
+      "action": "inserted_new"
+    },
+    {
+      "reep_id": "reep_p854e180c",
+      "sofascore_id": "2018130",
+      "name": "Abdelmouhib Chamakh",
+      "national_team": "Tunisia",
+      "position": "GK",
+      "dob": "2001-08-25",
+      "country": "Tunisia",
+      "action": "inserted_new"
+    },
+    {
+      "reep_id": "reep_p784471e8",
+      "sofascore_id": "2018330",
+      "name": "Raed Chikhaoui",
+      "national_team": "Tunisia",
+      "position": "DEF",
+      "dob": "2004-06-09",
+      "country": "Tunisia",
+      "action": "inserted_new"
+    },
+    {
+      "reep_id": "reep_p80bf704f",
+      "sofascore_id": "2048339",
+      "name": "Mohammad Abu Ghoush",
+      "national_team": "Jordan",
+      "position": "DEF",
+      "dob": "2005-07-13",
+      "country": "Jordan",
+      "action": "inserted_new"
+    }
+  ],
+  "updated": [
+    {
+      "reep_id": "reep_pc020334f",
+      "sofascore_id": "884944",
+      "name": "Jurien Gaari",
+      "national_team": "Curacao",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_pd606418e",
+      "sofascore_id": "886117",
+      "name": "Ross Stewart",
+      "national_team": "Scotland",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_p82c21467",
+      "sofascore_id": "888896",
+      "name": "Ahmed Basil",
+      "national_team": "Iraq",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_pb049e0a6",
+      "sofascore_id": "891157",
+      "name": "Meshaal Barsham",
+      "national_team": "Qatar",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_p782b015b",
+      "sofascore_id": "902083",
+      "name": "Liam Millar",
+      "national_team": "Canada",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_p0117b8f0",
+      "sofascore_id": "911427",
+      "name": "Ahmed Fathi",
+      "national_team": "Qatar",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_p09eeb3f9",
+      "sofascore_id": "911853",
+      "name": "Logan Costa",
+      "national_team": "Cabo Verde",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_p2e48e8d8",
+      "sofascore_id": "915325",
+      "name": "Amir Al-Ammari",
+      "national_team": "Iraq",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_p3d0714b2",
+      "sofascore_id": "919793",
+      "name": "Ayoub El Kaabi",
+      "national_team": "Morocco",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_pf0c39818",
+      "sofascore_id": "926479",
+      "name": "Akmal Mozgovoy",
+      "national_team": "Uzbekistan",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_pe09b81c1",
+      "sofascore_id": "931705",
+      "name": "Willer Ditta",
+      "national_team": "Colombia",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_p81e92d3a",
+      "sofascore_id": "933433",
+      "name": "Homam Al-Amin",
+      "national_team": "Qatar",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_p8b74947c",
+      "sofascore_id": "934354",
+      "name": "Antoine Semenyo",
+      "national_team": "Ghana",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_p6f1d0151",
+      "sofascore_id": "936558",
+      "name": "Josué Duverger",
+      "national_team": "Haiti",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_p37db1834",
+      "sofascore_id": "953995",
+      "name": "Soufiane Rahimi",
+      "national_team": "Morocco",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_pd80a2cc7",
+      "sofascore_id": "954524",
+      "name": "Abdulla Abdullaev",
+      "national_team": "Uzbekistan",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_pf1cc2eda",
+      "sofascore_id": "959750",
+      "name": "Callan Elliot",
+      "national_team": "New Zealand",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_p8a255b5f",
+      "sofascore_id": "966059",
+      "name": "Ricardo Goss",
+      "national_team": "South Africa",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_p10b3c45a",
+      "sofascore_id": "966547",
+      "name": "Noni Madueke",
+      "national_team": "England",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_p33c03b2e",
+      "sofascore_id": "970370",
+      "name": "Joseph Anang",
+      "national_team": "Ghana",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_p1a8ecbc5",
+      "sofascore_id": "978392",
+      "name": "Avazbek Ulmasaliyev",
+      "national_team": "Uzbekistan",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_p8579ec4b",
+      "sofascore_id": "980664",
+      "name": "Saleem Obaid",
+      "national_team": "Jordan",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_p4ed9f7c8",
+      "sofascore_id": "986341",
+      "name": "Mohammad Abu Zrayq",
+      "national_team": "Jordan",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_p36ddd58c",
+      "sofascore_id": "994556",
+      "name": "Carney Chukwuemeka",
+      "national_team": "Austria",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_p24752da4",
+      "sofascore_id": "997817",
+      "name": "Ibrahim Sadeh",
+      "national_team": "Jordan",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_pbaee92c1",
+      "sofascore_id": "1005744",
+      "name": "Marvin Keller",
+      "national_team": "Switzerland",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_p83adb003",
+      "sofascore_id": "1012458",
+      "name": "Mahmud Abunada",
+      "national_team": "Qatar",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_p5fc6b299",
+      "sofascore_id": "1018018",
+      "name": "Mohamed Tougai",
+      "national_team": "Algeria",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_p8bf5d906",
+      "sofascore_id": "1048372",
+      "name": "Ziyad Aljohani",
+      "national_team": "Saudi Arabia",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_pc72fcc44",
+      "sofascore_id": "1049270",
+      "name": "Tyrick Bodak",
+      "national_team": "Curacao",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_p7c89f165",
+      "sofascore_id": "1085536",
+      "name": "Bradley Cross",
+      "national_team": "South Africa",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_p30ca9a9c",
+      "sofascore_id": "1105836",
+      "name": "Matías Galarza",
+      "national_team": "Paraguay",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_p5bfb796e",
+      "sofascore_id": "1158813",
+      "name": "Mo Abualnadi",
+      "national_team": "Jordan",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_p4b83419b",
+      "sofascore_id": "1160969",
+      "name": "Brian Cipenga",
+      "national_team": "DR Congo",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_p1d2db37b",
+      "sofascore_id": "1172773",
+      "name": "Luis Romo",
+      "national_team": "Mexico",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_p48c7a503",
+      "sofascore_id": "1179164",
+      "name": "Thapelo Maseko",
+      "national_team": "South Africa",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_p74b29c56",
+      "sofascore_id": "1210653",
+      "name": "Kamogelo Sebelebele",
+      "national_team": "South Africa",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_p198d7697",
+      "sofascore_id": "1396639",
+      "name": "Ayoub Al Oui",
+      "national_team": "Qatar",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_pcd0a919f",
+      "sofascore_id": "1402850",
+      "name": "Tyler Fletcher",
+      "national_team": "Scotland",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_pd0dc5b05",
+      "sofascore_id": "1411105",
+      "name": "Paul Okon-Engstler",
+      "national_team": "Australia",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_p80b3bb61",
+      "sofascore_id": "1457083",
+      "name": "Benjamin Asare",
+      "national_team": "Ghana",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_p6a7243ef",
+      "sofascore_id": "1457997",
+      "name": "Ali Al Azaizeh",
+      "national_team": "Jordan",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_pc337ac5c",
+      "sofascore_id": "1470073",
+      "name": "Tholo Thabang Matuludi",
+      "national_team": "South Africa",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_p406f50d3",
+      "sofascore_id": "1480544",
+      "name": "Tarek Alaa",
+      "national_team": "Egypt",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_p8190649e",
+      "sofascore_id": "1501518",
+      "name": "Tahsin Mohammed Jamshid",
+      "national_team": "Qatar",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_p1ca7d9c3",
+      "sofascore_id": "1503088",
+      "name": "Achref Abada",
+      "national_team": "Algeria",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_p120a7c2d",
+      "sofascore_id": "1587186",
+      "name": "Mladen Jurkas",
+      "national_team": "Bosnia & Herzegovina",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_p00907632",
+      "sofascore_id": "1597255",
+      "name": "Bekhruz Karimov",
+      "national_team": "Uzbekistan",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_pf62d6dab",
+      "sofascore_id": "1843356",
+      "name": "Zaid Ismail",
+      "national_team": "Iraq",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_pb2161a07",
+      "sofascore_id": "1892282",
+      "name": "Issa Laye",
+      "national_team": "Qatar",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_p89e6bc33",
+      "sofascore_id": "1910804",
+      "name": "Khulumani Ndamane",
+      "national_team": "South Africa",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_pf78c9e22",
+      "sofascore_id": "1931626",
+      "name": "Hugo Sochurek",
+      "national_team": "Czechia",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_p917a928e",
+      "sofascore_id": "2058228",
+      "name": "Mbekezeli Mbokazi",
+      "national_team": "South Africa",
+      "action": "updated_existing"
+    },
+    {
+      "reep_id": "reep_p2fee686f",
+      "sofascore_id": "2239188",
+      "name": "Anas Badawi",
+      "national_team": "Jordan",
+      "action": "updated_existing"
+    }
+  ],
+  "skipped_error": [],
+  "skipped_already_linked": 42
+}

@@ -617,6 +617,149 @@ def _load_completed_r32(
     return completed
 
 
+def _load_completed_later_rounds(
+    conn: duckdb.DuckDBPyConnection,
+    bracket_order: list[str],
+    r16_pairs: list[tuple[int, int]],
+    completed_r32: dict[int, int],
+) -> dict[str, dict[int, int]]:
+    """
+    Return lock-in dicts for R16, QF, SF, F completed matches.
+
+    Each dict maps sim_match_idx → winner_original_bracket_pos (0-31),
+    analogous to completed_r32.  Only called after _load_completed_r32 so
+    we can resolve R32 winners into bracket positions first.
+
+    Returns: {"R16": {...}, "QF": {...}, "SF": {...}, "F": {...}}
+    """
+    bronze    = Path(settings.parquet_bronze_dir)
+    espn_glob = (bronze / "espn" / "matches" / "*.parquet").as_posix()
+
+    manual_path = Path(__file__).parent.parent.parent / "data" / "static" / "manual_winners.json"
+    manual_winners: dict[str, str] = {}
+    try:
+        raw = json.loads(manual_path.read_text(encoding="utf-8"))
+        manual_winners = {str(k): v for k, v in raw.get("events", {}).items()}
+    except Exception:
+        pass
+
+    round_map = {
+        "Round of 16": "R16",
+        "Quarterfinal": "QF",
+        "Semifinal": "SF",
+        "Final": "F",
+    }
+
+    try:
+        later_df = conn.execute(f"""
+            SELECT event_id, round_name, home_team_name, away_team_name,
+                   home_score, away_score
+            FROM read_parquet('{espn_glob}', union_by_name=true)
+            WHERE round_name IN ('Round of 16','Quarterfinal','Semifinal','Final')
+              AND is_completed = TRUE
+        """).df()
+    except Exception as exc:
+        logger.warning("Cannot load completed R16+ results: %s", exc)
+        return {}
+
+    if later_df.empty:
+        return {}
+
+    # Map canonical name → original bracket position (0-31)
+    team_to_bracket_pos: dict[str, int] = {
+        team: pos for pos, team in enumerate(bracket_order)
+    }
+
+    result: dict[str, dict[int, int]] = {"R16": {}, "QF": {}, "SF": {}, "F": {}}
+
+    # Build expected bracket-slot ordering for R16: slot j → (r32_a_idx, r32_b_idx)
+    # r16_pairs[j] = (espn_r32_idx_a, espn_r32_idx_b); bracket positions for
+    # slot j are (2j, 2j+1) in the bracket array after R32.
+    # We need to map each completed R16 match to a slot index (0-7).
+    #
+    # Strategy: for each completed R16 row, look up BOTH teams' original bracket
+    # positions, then derive which R16 slot that is.
+    #
+    # After R32, the surviving team from bracket match j occupies slot j in the
+    # 16-team array.  R16 slot k contains bracket-level positions 2k and 2k+1
+    # (one from each of the two R32 matches in r16_pairs[k]).
+
+    # Build a helper: original bracket pos → R16 slot
+    # R16 slot k contains R32 winners from r16_pairs[k] = (a, b).
+    # R32 match a produces the winner from bracket positions 2a,2a+1.
+    # In our bracket_order layout, r16_pairs[k] = (a, b) where a and b are
+    # ESPN R32 match indices.  Bracket position for R32 match j is 2j/2j+1.
+    # After lock-in, completed_r32[j] gives the winner bracket pos.
+    # For unsimulated R32 matches (not in completed_r32), we don't know
+    # the winner upfront — but we can still match by team name.
+
+    for _, row in later_df.iterrows():
+        rnd_code = round_map.get(row["round_name"])
+        if rnd_code is None:
+            continue
+
+        home_norm = _normalize(str(row["home_team_name"]))
+        away_norm = _normalize(str(row["away_team_name"]))
+
+        home_bpos = team_to_bracket_pos.get(home_norm)
+        away_bpos = team_to_bracket_pos.get(away_norm)
+
+        if home_bpos is None or away_bpos is None:
+            logger.warning(
+                "%s lock-in: cannot map '%s' or '%s' to bracket position — skipping.",
+                rnd_code, row["home_team_name"], row["away_team_name"],
+            )
+            continue
+
+        # Determine winner
+        ev_id = str(int(row["event_id"]))
+        if float(row["home_score"]) > float(row["away_score"]):
+            winner_bpos = home_bpos
+        elif float(row["away_score"]) > float(row["home_score"]):
+            winner_bpos = away_bpos
+        else:
+            manual_winner = manual_winners.get(ev_id)
+            if not manual_winner:
+                logger.warning(
+                    "%s draw event %s (%s vs %s) has no manual winner — skipping.",
+                    rnd_code, ev_id, row["home_team_name"], row["away_team_name"],
+                )
+                continue
+            winner_norm = _normalize(manual_winner)
+            winner_bpos = home_bpos if winner_norm == home_norm else (
+                away_bpos if winner_norm == away_norm else None
+            )
+            if winner_bpos is None:
+                continue
+
+        # Derive sim_match_idx for this round.
+        # In R16 (16 teams alive): slot k holds the two R32 winners from
+        # r16_pairs[k].  Those winners came from bracket positions within
+        # r16_pairs[k] sub-section: bracket positions 4k, 4k+1, 4k+2, 4k+3
+        # in the original 32-slot bracket.
+        # Slot k = home_bpos // 4  (both teams from same 4-slot section).
+        if rnd_code == "R16":
+            sim_match_idx = min(home_bpos, away_bpos) // 4
+        elif rnd_code == "QF":
+            sim_match_idx = min(home_bpos, away_bpos) // 8
+        elif rnd_code == "SF":
+            sim_match_idx = min(home_bpos, away_bpos) // 16
+        else:  # Final
+            sim_match_idx = 0
+
+        result[rnd_code][sim_match_idx] = winner_bpos
+        logger.info(
+            "%s lock-in: slot %d — %s wins (bracket pos %d).",
+            rnd_code, sim_match_idx, bracket_order[winner_bpos], winner_bpos,
+        )
+
+    for rnd, d in result.items():
+        if d:
+            logger.info("Locked %d completed %s result(s) for simulation.", len(d), rnd)
+
+    return result
+
+
 # ---------------------------------------------------------------------------
 # Per-match Bradley-Terry probabilities
 # ---------------------------------------------------------------------------
@@ -673,6 +816,7 @@ def _run_sim(
     scale: float,
     seed: int,
     completed_r32: dict[int, int] | None = None,
+    completed_later: dict[str, dict[int, int]] | None = None,
 ) -> tuple[np.ndarray, dict[str, np.ndarray]]:
     """
     Pure NumPy vectorised Monte Carlo bracket.
@@ -719,12 +863,19 @@ def _run_sim(
 
         winners = np.where(rand < p_left, left, right)
 
-        # Override with confirmed R32 results so completed matches aren't re-simulated.
-        # In round_idx==1 (R32), team indices equal bracket positions, so assigning
-        # winner_bracket_pos directly is correct.
+        # Override with confirmed results so completed matches aren't re-simulated.
+        # R32 (round_idx==1): team indices == bracket positions, direct assignment.
+        # R16/QF/SF/F: winners array at this point holds original bracket positions
+        # (team indices), so assigning winner_bracket_pos is equally valid.
+        round_code = ROUNDS[round_idx - 1]
         if round_idx == 1 and completed_r32:
             for match_idx, winner_bracket_pos in completed_r32.items():
                 winners[:, match_idx] = winner_bracket_pos
+        elif completed_later:
+            later = completed_later.get(round_code, {})
+            for match_idx, winner_bracket_pos in later.items():
+                if match_idx < winners.shape[1]:
+                    winners[:, match_idx] = winner_bracket_pos
 
         current = winners
 
@@ -963,6 +1114,11 @@ def main() -> None:
         # 4b. Load completed R32 results so the sim locks in actual winners
         completed_r32 = _load_completed_r32(conn, bracket_order)
 
+        # 4b2. Load completed R16/QF/SF/F results for lock-in
+        completed_later = _load_completed_later_rounds(
+            conn, bracket_order, r16_pairs, completed_r32
+        )
+
         # 4c. Persist per-match BT probabilities BEFORE simulation and lock-in.
         #     export_json.py reads these to display what the model predicted for
         #     each game, so completed matches don't show 100%/0%.
@@ -980,6 +1136,7 @@ def main() -> None:
             scale=args.scale,
             seed=args.seed,
             completed_r32=completed_r32,
+            completed_later=completed_later,
         )
         elapsed = time.perf_counter() - t0
         logger.info("Simulation complete in %.2fs.", elapsed)

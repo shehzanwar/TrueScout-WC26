@@ -1,0 +1,20 @@
+{
+  "_instructions": "Manual key_fbref overrides applied after each identity load (load_identity.py). Use when the Reep register has a wrong FBref ID. Set key_fbref to null to fall back to position-based prior. Run etl/audits/audit_player_data.py to discover new cases.",
+  "key_fbref_null": {
+    "reep_p7a3ab4b8": {
+      "_name": "Promise David / Promise Akinpelu",
+      "_sofascore_id": "1119328",
+      "_reason": "Reep register links to fbref_id=dbe19468 which belongs to a South American 'Promise David' playing CONMEBOL qualifying. Canada's Promise David has no usable FBref link."
+    },
+    "reep_pab166a78": {
+      "_name": "Ali Ahmed",
+      "_sofascore_id": "1464637",
+      "_reason": "Reep register links to fbref_id=540a5be1 which contains WC 2026 Qual CONMEBOL rows (Canada does not play CONMEBOL qualifying). Cross-contamination with a CONMEBOL player of the same name."
+    },
+    "reep_p3c5a20aa": {
+      "_name": "Nathan Saliba",
+      "_sofascore_id": "1093229",
+      "_reason": "Reep register links to fbref_id=44cfc681 which contains WC 2026 Qual CONMEBOL rows (200 min, 2g) mixed with legitimate Canada data. The CONMEBOL rows inflate his prior to 7.717 — clearly from a different player."
+    }
+  }
+}

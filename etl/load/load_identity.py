@@ -34,8 +34,9 @@ from etl.db.connection import write_conn
 
 logger = logging.getLogger(__name__)
 
-_PEOPLE_PARQUET   = Path(settings.parquet_bronze_dir) / "reep" / "people" / "people.parquet"
-_OVERRIDES_FILE   = Path(__file__).parent.parent.parent / "data" / "static" / "position_overrides.json"
+_PEOPLE_PARQUET      = Path(settings.parquet_bronze_dir) / "reep" / "people" / "people.parquet"
+_OVERRIDES_FILE      = Path(__file__).parent.parent.parent / "data" / "static" / "position_overrides.json"
+_IDENTITY_OVERRIDES  = Path(__file__).parent.parent.parent / "data" / "static" / "identity_overrides.json"
 
 
 def load_identity() -> int:
@@ -54,6 +55,10 @@ def load_identity() -> int:
             "identity_players will stay empty; pipeline falls back to prior-only.",
             _PEOPLE_PARQUET,
         )
+        # Still apply overrides so manual fixes aren't lost even without a fresh parquet
+        n_identity = _apply_identity_overrides()
+        if n_identity:
+            logger.info("identity_overrides: nulled key_fbref on %d rows (no parquet)", n_identity)
         return 0
 
     parquet_path = _PEOPLE_PARQUET.as_posix()
@@ -124,6 +129,11 @@ def load_identity() -> int:
     if n_overridden:
         logger.info("position_overrides: applied %d manual overrides", n_overridden)
 
+    # Apply identity overrides — nulls bad key_fbref links that survive Reep reloads
+    n_identity = _apply_identity_overrides()
+    if n_identity:
+        logger.info("identity_overrides: nulled key_fbref on %d rows", n_identity)
+
     logger.info(
         "identity_players: %d total rows  (%d with key_sofascore)", total, with_sc
     )
@@ -163,6 +173,40 @@ def _apply_position_overrides() -> int:
                 continue
             sql = f"UPDATE identity_players SET {', '.join(set_parts)} WHERE reep_id = '{reep_id}'"
             conn.execute(sql)
+            updated += 1
+
+    return updated
+
+
+def _apply_identity_overrides() -> int:
+    """
+    Apply manual identity overrides from data/static/identity_overrides.json.
+
+    Currently supports nulling key_fbref for confirmed wrong Reep register links
+    (players whose FBref ID points to a different player with the same name, often
+    a CONMEBOL player cross-contaminating a CONCACAF player's prior).
+
+    Returns the number of rows updated.
+    """
+    if not _IDENTITY_OVERRIDES.exists():
+        return 0
+    try:
+        data = json.loads(_IDENTITY_OVERRIDES.read_text(encoding="utf-8"))
+        nulls: dict = data.get("key_fbref_null", {})
+    except Exception as exc:
+        logger.warning("identity_overrides: failed to load — %s", exc)
+        return 0
+
+    if not nulls:
+        return 0
+
+    updated = 0
+    with write_conn() as conn:
+        for reep_id in nulls:
+            conn.execute(
+                "UPDATE identity_players SET key_fbref = NULL WHERE reep_id = ?",
+                [reep_id],
+            )
             updated += 1
 
     return updated
