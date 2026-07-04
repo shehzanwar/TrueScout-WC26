@@ -394,6 +394,86 @@ def fetch_rounds(client: SofascoreClient) -> list[int]:
     return available
 
 
+def fetch_events_by_date(
+    client: SofascoreClient,
+    date_str: str,
+) -> list[dict]:
+    """
+    Fetch completed WC 2026 events for a calendar date via the scheduled-events endpoint.
+
+    Endpoint: /sport/football/scheduled-events/{date_str}
+    Filters to: unique_tournament_id == WC_TOURNAMENT_ID, completed status.
+
+    Use this for knockout rounds (R32, R16, …) which return 404 from /events/round/{N}.
+    """
+    path = f"/sport/football/scheduled-events/{date_str}"
+    data = client.get(path, f"date-{date_str}")
+    if data is None:
+        logger.error("No response for date %s.", date_str)
+        return []
+
+    events: list[dict] = data.get("events", []) or []
+    wc_completed = [
+        e for e in events
+        if (
+            ((e.get("tournament") or {}).get("uniqueTournament") or {}).get("id") == WC_TOURNAMENT_ID
+            and (e.get("status") or {}).get("type") in COMPLETED_STATUSES
+        )
+    ]
+    logger.info(
+        "Date %s: %d total events / %d WC completed",
+        date_str, len(events), len(wc_completed),
+    )
+    return wc_completed
+
+
+def fetch_cuptrees_events(client: SofascoreClient) -> list[tuple[str, list[int]]]:
+    """
+    Fetch the WC 2026 knockout bracket via the cuptrees endpoint and return
+    (round_name, [event_id, ...]) for every finished round.
+
+    Endpoint: /unique-tournament/{id}/season/{season_id}/cuptrees
+    This works where /events/round/{N} returns 404 for knockout rounds.
+    """
+    path = f"/unique-tournament/{WC_TOURNAMENT_ID}/season/{WC_SEASON_ID}/cuptrees"
+    data = client.get(path, "cuptrees")
+    if not data:
+        return []
+
+    trees = data.get("cupTrees") or []
+    if not trees:
+        logger.warning("cuptrees response had no cupTrees array.")
+        return []
+
+    result: list[tuple[str, list[int]]] = []
+    for rnd in trees[0].get("rounds") or []:
+        round_name: str = rnd.get("description", "Knockout")
+        finished_ids: list[int] = []
+        for block in rnd.get("blocks") or []:
+            for raw_ev in block.get("events") or []:
+                eid = raw_ev if isinstance(raw_ev, int) else (raw_ev.get("id") if isinstance(raw_ev, dict) else None)
+                if eid and block.get("finished"):
+                    finished_ids.append(int(eid))
+        if finished_ids:
+            logger.info("cuptrees: %s — %d finished events", round_name, len(finished_ids))
+            result.append((round_name, finished_ids))
+
+    return result
+
+
+def fetch_event_metadata(client: SofascoreClient, event_id: int) -> dict | None:
+    """
+    Fetch full event metadata for a single match by ID.
+
+    Endpoint: /event/{event_id}
+    Returns the event dict suitable for passing to parse_events().
+    """
+    data = client.get(f"/event/{event_id}", "event")
+    if not data:
+        return None
+    return data.get("event")
+
+
 def pull_round_events(
     client: SofascoreClient,
     round_number: int,
@@ -719,16 +799,22 @@ def diagnose() -> None:
 def main(
     round_numbers: list[int],
     all_rounds: bool,
+    dates: list[str] | None = None,
+    knockout: bool = False,
 ) -> None:
     """
     End-to-end Sofascore batch pull.
 
     Modes:
-      --round N [N …]  Pull specific round(s).
-      --all-rounds     Fetch the rounds list first, then sweep every round.
+      --round N [N …]   Pull specific round(s) via /events/round/{N}.
+      --all-rounds      Fetch the rounds list then sweep every round.
+      --date DATE …     Pull events for calendar date(s) via the scheduled-events
+                        endpoint (returns 404 for most dates — prefer --knockout).
+      --knockout        Fetch the cuptrees bracket, extract all finished R32/R16/QF/SF/F
+                        event IDs, then pull lineups + stats per event.
 
-    Parquet files are named by round (events_round_001.parquet …) so re-runs
-    are idempotent — existing files are overwritten with fresh data.
+    Parquet files are named by round (events_round_001.parquet …) or by
+    knockout round slug (events_kt_round-of-32.parquet …) so re-runs are idempotent.
     """
     logging.basicConfig(
         level=logging.INFO,
@@ -743,6 +829,164 @@ def main(
     total_events = total_players = total_stat_rows = 0
 
     with SofascoreClient() as client:
+        # ── Knockout bracket mode (cuptrees) ────────────────────────────────
+        if knockout:
+            kt_rounds = fetch_cuptrees_events(client)
+            if not kt_rounds:
+                logger.error("cuptrees returned no finished rounds — aborting.")
+                return
+
+            for round_name, event_ids in kt_rounds:
+                round_slug = round_name.lower().replace(" ", "-").replace("/", "-")
+                logger.info("── Knockout: %s (%d events) ──", round_name, len(event_ids))
+                fetch_ts = datetime.now(tz=timezone.utc)
+
+                raw_events: list[dict] = []
+                all_lineups: list[pd.DataFrame] = []
+                all_statistics: list[pd.DataFrame] = []
+
+                for idx, event_id in enumerate(event_ids, start=1):
+                    logger.info("  [%d/%d] event_id=%d", idx, len(event_ids), event_id)
+
+                    # Full event metadata (for events parquet)
+                    _sleep()
+                    ev_meta = fetch_event_metadata(client, event_id)
+                    if ev_meta:
+                        raw_events.append(ev_meta)
+                        home_team_id = _int((ev_meta.get("homeTeam") or {}).get("id"))
+                        away_team_id = _int((ev_meta.get("awayTeam") or {}).get("id"))
+                        label = (
+                            f"{(ev_meta.get('homeTeam') or {}).get('name', '?')} vs "
+                            f"{(ev_meta.get('awayTeam') or {}).get('name', '?')}"
+                        )
+                        logger.info("    %s", label)
+                    else:
+                        home_team_id = away_team_id = None
+
+                    _sleep()
+                    raw_lineups = client.get(f"/event/{event_id}/lineups", f"kt-{round_slug}")
+                    if raw_lineups:
+                        ldf = parse_lineups(event_id, raw_lineups, home_team_id, away_team_id, fetch_ts)
+                        if not ldf.empty:
+                            logger.info("    lineups: %d players", len(ldf))
+                            all_lineups.append(ldf)
+
+                    _sleep()
+                    raw_stats = client.get(f"/event/{event_id}/statistics", f"kt-{round_slug}")
+                    if raw_stats:
+                        sdf = parse_statistics(event_id, raw_stats, fetch_ts)
+                        if not sdf.empty:
+                            logger.info("    statistics: %d metric rows", len(sdf))
+                            all_statistics.append(sdf)
+
+                if raw_events:
+                    events_df = parse_events(raw_events, round_slug, fetch_ts)
+                    _write_parquet(
+                        events_df, EVENTS_SCHEMA,
+                        BRONZE_SS_EVENTS / f"events_kt_{round_slug}.parquet",
+                    )
+                if all_lineups:
+                    _write_parquet(
+                        pd.concat(all_lineups, ignore_index=True), LINEUPS_SCHEMA,
+                        BRONZE_SS_LINEUPS / f"lineups_kt_{round_slug}.parquet",
+                    )
+                if all_statistics:
+                    _write_parquet(
+                        pd.concat(all_statistics, ignore_index=True), STATISTICS_SCHEMA,
+                        BRONZE_SS_STATS / f"statistics_kt_{round_slug}.parquet",
+                    )
+
+                total_events += len(raw_events)
+                total_players += sum(len(df) for df in all_lineups)
+                total_stat_rows += sum(len(df) for df in all_statistics)
+
+            try:
+                with write_conn() as conn:
+                    refresh_parquet_views(conn)
+            except Exception as exc:
+                logger.error("refresh_parquet_views failed: %s", exc)
+
+            logger.info(
+                "=== Sofascore knockout pull complete: %d events | %d player rows | %d stat rows ===",
+                total_events, total_players, total_stat_rows,
+            )
+            return
+
+        # ── Date-based mode (knockout rounds) ───────────────────────────────
+        if dates:
+            for date_str in dates:
+                logger.info("── Date %s ──", date_str)
+                fetch_ts = datetime.now(tz=timezone.utc)
+
+                raw_events = fetch_events_by_date(client, date_str)
+                if not raw_events:
+                    logger.info("  No completed WC events for %s — skipping.", date_str)
+                    continue
+
+                events_df = parse_events(raw_events, date_str, fetch_ts)
+                _write_parquet(
+                    events_df, EVENTS_SCHEMA,
+                    BRONZE_SS_EVENTS / f"events_date_{date_str}.parquet",
+                )
+
+                all_lineups: list[pd.DataFrame] = []
+                all_statistics: list[pd.DataFrame] = []
+
+                for idx, event in enumerate(raw_events, start=1):
+                    event_id: int = int(event["id"])
+                    home_team_id = _int((event.get("homeTeam") or {}).get("id"))
+                    away_team_id = _int((event.get("awayTeam") or {}).get("id"))
+                    label = (
+                        f"{(event.get('homeTeam') or {}).get('name', '?')} vs "
+                        f"{(event.get('awayTeam') or {}).get('name', '?')}"
+                    )
+                    logger.info("  [%d/%d] Event %d — %s", idx, len(raw_events), event_id, label)
+
+                    _sleep()
+                    raw_lineups = client.get(f"/event/{event_id}/lineups", f"date-{date_str}")
+                    if raw_lineups:
+                        ldf = parse_lineups(event_id, raw_lineups, home_team_id, away_team_id, fetch_ts)
+                        if not ldf.empty:
+                            logger.info("    lineups: %d players", len(ldf))
+                            all_lineups.append(ldf)
+
+                    _sleep()
+                    raw_stats = client.get(f"/event/{event_id}/statistics", f"date-{date_str}")
+                    if raw_stats:
+                        sdf = parse_statistics(event_id, raw_stats, fetch_ts)
+                        if not sdf.empty:
+                            logger.info("    statistics: %d metric rows", len(sdf))
+                            all_statistics.append(sdf)
+
+                if all_lineups:
+                    _write_parquet(
+                        pd.concat(all_lineups, ignore_index=True), LINEUPS_SCHEMA,
+                        BRONZE_SS_LINEUPS / f"lineups_date_{date_str}.parquet",
+                    )
+                if all_statistics:
+                    _write_parquet(
+                        pd.concat(all_statistics, ignore_index=True), STATISTICS_SCHEMA,
+                        BRONZE_SS_STATS / f"statistics_date_{date_str}.parquet",
+                    )
+
+                total_events += len(raw_events)
+                total_players += sum(len(df) for df in all_lineups)
+                total_stat_rows += sum(len(df) for df in all_statistics)
+
+            # Refresh views once after all date pulls
+            try:
+                with write_conn() as conn:
+                    refresh_parquet_views(conn)
+            except Exception as exc:
+                logger.error("refresh_parquet_views failed: %s", exc)
+
+            logger.info(
+                "=== Sofascore date pull complete: %d events | %d player rows | %d stat rows ===",
+                total_events, total_players, total_stat_rows,
+            )
+            return
+
+        # ── Round-based mode (group stage) ──────────────────────────────────
         if all_rounds:
             rounds_to_pull = fetch_rounds(client)
             if not rounds_to_pull:
@@ -868,8 +1112,11 @@ Examples:
   # Pull multiple rounds
   python -m etl.sources.sofascore_pull --round 1 --round 2 --round 3
 
-  # Sweep every available round (initial load + nightly refresh)
+  # Sweep every available round (group stage)
   python -m etl.sources.sofascore_pull --all-rounds
+
+  # Pull all finished knockout rounds (R32, R16, QF, SF, F) via the bracket tree
+  python -m etl.sources.sofascore_pull --knockout
         """,
     )
 
@@ -886,6 +1133,26 @@ Examples:
         "--all-rounds",
         action="store_true",
         help="Fetch the rounds list then sweep every available round.",
+    )
+    mode_group.add_argument(
+        "--date",
+        dest="dates",
+        action="append",
+        metavar="YYYY-MM-DD",
+        help=(
+            "Pull WC events for a calendar date via the scheduled-events endpoint "
+            "(repeatable: --date 2026-06-28 --date 2026-06-29). "
+            "NOTE: this endpoint 404s — use --knockout instead for knockout rounds."
+        ),
+    )
+    mode_group.add_argument(
+        "--knockout",
+        action="store_true",
+        help=(
+            "Fetch the cuptrees bracket to get all finished knockout event IDs "
+            "(R32/R16/QF/SF/F), then pull lineups and statistics per event. "
+            "Use this instead of --all-rounds for knockout rounds."
+        ),
     )
     mode_group.add_argument(
         "--diagnose",
@@ -905,6 +1172,8 @@ Examples:
     main(
         round_numbers=args.rounds or [],
         all_rounds=args.all_rounds,
+        dates=args.dates or None,
+        knockout=args.knockout,
     )
 
 
