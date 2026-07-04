@@ -365,6 +365,22 @@ _TABLES: list[str] = [
         PRIMARY KEY (run_date, round, team_id)
     )
     """,
+
+    # ── Per-match Bradley-Terry probabilities (pre-simulation, pre-lock-in) ──
+    # Stores the raw head-to-head logistic probability for each R32 match so
+    # the matchups page can display what the model predicted for each game
+    # rather than the post-lock-in simulation advance_prob (which jumps to 1.0
+    # for completed match winners once the bracket lock-in is applied).
+    """
+    CREATE TABLE IF NOT EXISTS match_probs (
+        run_date   DATE    NOT NULL,
+        team_left  VARCHAR NOT NULL,   -- bracket_order[2j]
+        team_right VARCHAR NOT NULL,   -- bracket_order[2j+1]
+        prob_left  DOUBLE  NOT NULL,   -- P(team_left wins)
+        prob_right DOUBLE  NOT NULL,   -- P(team_right wins)
+        PRIMARY KEY (run_date, team_left, team_right)
+    )
+    """,
 ]
 
 
