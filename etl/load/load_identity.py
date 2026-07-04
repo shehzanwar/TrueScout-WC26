@@ -37,6 +37,7 @@ logger = logging.getLogger(__name__)
 _PEOPLE_PARQUET      = Path(settings.parquet_bronze_dir) / "reep" / "people" / "people.parquet"
 _OVERRIDES_FILE      = Path(__file__).parent.parent.parent / "data" / "static" / "position_overrides.json"
 _IDENTITY_OVERRIDES  = Path(__file__).parent.parent.parent / "data" / "static" / "identity_overrides.json"
+_MARKET_VALUES_PARQUET = Path(settings.parquet_bronze_dir) / "market_values.parquet"
 
 
 def load_identity() -> int:
@@ -55,10 +56,13 @@ def load_identity() -> int:
             "identity_players will stay empty; pipeline falls back to prior-only.",
             _PEOPLE_PARQUET,
         )
-        # Still apply overrides so manual fixes aren't lost even without a fresh parquet
+        # Still apply overrides/market values so manual fixes aren't lost
         n_identity = _apply_identity_overrides()
         if n_identity:
             logger.info("identity_overrides: nulled key_fbref on %d rows (no parquet)", n_identity)
+        n_mv = _apply_market_values()
+        if n_mv:
+            logger.info("market_values: populated %d rows (no parquet)", n_mv)
         return 0
 
     parquet_path = _PEOPLE_PARQUET.as_posix()
@@ -134,10 +138,55 @@ def load_identity() -> int:
     if n_identity:
         logger.info("identity_overrides: nulled key_fbref on %d rows", n_identity)
 
+    # Re-apply market values from bronze parquet (Reep reload wipes market_value_eur)
+    n_mv = _apply_market_values()
+    if n_mv:
+        logger.info("market_values: populated %d rows from bronze parquet", n_mv)
+
     logger.info(
         "identity_players: %d total rows  (%d with key_sofascore)", total, with_sc
     )
     return with_sc
+
+
+def _apply_market_values() -> int:
+    """
+    Populate identity_players.market_value_eur from data/bronze/market_values.parquet.
+
+    The Reep parquet reload wipes market_value_eur (the column exists in the DDL
+    but Reep doesn't carry market values). Re-applying from the Bronze parquet
+    ensures the squad-value strength adjustment in monte_carlo_sim fires every run.
+
+    Returns the number of rows updated.
+    """
+    if not _MARKET_VALUES_PARQUET.exists():
+        return 0
+    try:
+        import pandas as pd
+        mv = pd.read_parquet(_MARKET_VALUES_PARQUET)
+        mv = mv[mv["market_value_eur"].notna() & (mv["market_value_eur"] > 0)]
+    except Exception as exc:
+        logger.warning("market_values: failed to load parquet — %s", exc)
+        return 0
+
+    if mv.empty:
+        return 0
+
+    updated = 0
+    with write_conn() as conn:
+        # Ensure the column exists (older DBs might not have it yet)
+        existing = {r[0] for r in conn.execute("DESCRIBE identity_players").fetchall()}
+        if "market_value_eur" not in existing:
+            conn.execute("ALTER TABLE identity_players ADD COLUMN market_value_eur BIGINT DEFAULT 0")
+
+        for _, row in mv.iterrows():
+            conn.execute(
+                "UPDATE identity_players SET market_value_eur = ? WHERE reep_id = ?",
+                [int(row["market_value_eur"]), row["reep_id"]],
+            )
+            updated += 1
+
+    return updated
 
 
 def _apply_position_overrides() -> int:
