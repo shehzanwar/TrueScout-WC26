@@ -1,4 +1,4 @@
-// FIFA-style 0-99 rating chip — shared across profile page and search results.
+// TrueScout Rating chip (0-99) — shared across profile page and search results.
 // Intentionally no "use client" — renders in both Server and Client components.
 
 export type FifaBand = {
@@ -50,7 +50,7 @@ export default function FifaBadge({
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full font-bold tabular-nums border ${bg} ${text} ${border} ${sizeClasses}`}
-      title={`FIFA-style rating: ${fifa.overall} · ${fifa.band}`}
+      title={`TrueScout Rating: ${fifa.overall} · ${fifa.band}`}
     >
       {fifa.overall}
       <span className="font-normal opacity-70 text-[0.8em]">{fifa.band}</span>

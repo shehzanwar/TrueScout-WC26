@@ -12,7 +12,9 @@ frontend/lib/server-data.ts can drop-in replace the API calls.
 """
 import json
 import math
+import re
 import sys
+import unicodedata
 from pathlib import Path
 
 import numpy as np
@@ -69,6 +71,37 @@ def _safe_str(v):
     except (TypeError, ValueError):
         pass
     return str(v)
+
+
+# ---------------------------------------------------------------------------
+# TrueScout Rating — confidence-penalised composite
+# ---------------------------------------------------------------------------
+# Pulls low-evidence ratings toward the WC-calibrated average so that players
+# with sparse data (no club stats, few WC minutes) don't artificially top rankings.
+#
+#   TrueScout Rating = confidence × posterior_mean + (1 − confidence) × ANCHOR
+#
+# A player with confidence=1.0 gets their full posterior; confidence=0.0 gets
+# the global anchor (7.0). Intermediate values blend linearly.
+# ANCHOR matches the Bayesian model's mean prior (cluster_wc_mean averages ≈ 7.0).
+_TS_RATING_ANCHOR = 7.0
+
+
+def _truescout_rating(posterior_mean: float | None, confidence_score: float | None) -> float | None:
+    if posterior_mean is None or confidence_score is None:
+        return None
+    cs = max(0.0, min(1.0, confidence_score))
+    return round(cs * posterior_mean + (1.0 - cs) * _TS_RATING_ANCHOR, 4)
+
+
+def _slugify(name: str) -> str:
+    """Convert a player name to a URL-safe slug (e.g. 'Erling Haaland' → 'erling-haaland')."""
+    name = unicodedata.normalize("NFD", name)
+    name = "".join(c for c in name if unicodedata.category(c) != "Mn")
+    name = name.lower()
+    name = re.sub(r"[^a-z0-9\s-]", "", name)
+    name = re.sub(r"\s+", "-", name.strip())
+    return re.sub(r"-+", "-", name)
 
 
 # ---------------------------------------------------------------------------
@@ -636,11 +669,11 @@ _DEFAULT_WEIGHTS: list[float] = [0.25, 0.25, 0.25, 0.25]
 # Position-specific axis labels (5 items: shooting, creativity, defending, wc_form, overall)
 _RADAR_AXES: dict[str, list[str]] = {
     "GK":  ["Shot Stopping", "Distribution", "Defending",  "WC Form", "Overall"],
-    "DEF": ["Shooting",      "Playmaking",   "Defending",  "WC Form", "Overall"],
-    "MID": ["Shooting",      "Playmaking",   "Defending",  "WC Form", "Overall"],
-    "FWD": ["Shooting",      "Playmaking",   "Defending",  "WC Form", "Overall"],
+    "DEF": ["Shooting",      "Creativity",   "Defending",  "WC Form", "Overall"],
+    "MID": ["Shooting",      "Creativity",   "Defending",  "WC Form", "Overall"],
+    "FWD": ["Shooting",      "Creativity",   "Defending",  "WC Form", "Overall"],
 }
-_DEFAULT_AXES: list[str] = ["Shooting", "Playmaking", "Defending", "WC Form", "Overall"]
+_DEFAULT_AXES: list[str] = ["Shooting", "Creativity", "Defending", "WC Form", "Overall"]
 
 
 # ---------------------------------------------------------------------------
@@ -1252,7 +1285,9 @@ def export_players(conn) -> list:
 
         p: dict = {
             "reep_id":          reep_id,
+            "slug":             _slugify(str(name)) if name else None,
             "name":             _safe_str(name),
+            "truescout_rating": _truescout_rating(_safe_float(posterior_mean), _safe_float(confidence_score)),
             "nationality":      _safe_str(nationality),
             "national_team":    nt,
             "age_at_wc":        age_at_wc,

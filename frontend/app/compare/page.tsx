@@ -5,7 +5,16 @@ import path from "path"
 import type { PlayerResponse } from "@/lib/api"
 import CompareClient from "./CompareClient"
 
-export const metadata: Metadata = { title: "Compare" }
+export const metadata: Metadata = {
+  title: "Compare Players",
+  description: "Side-by-side Bayesian rating and attribute breakdown for any two WC 2026 players.",
+  openGraph: {
+    title: "Compare Players · TrueScout WC 2026",
+    description: "Side-by-side rating and attribute breakdown for any two WC 2026 players.",
+    type: "website",
+  },
+  twitter: { card: "summary_large_image" },
+}
 
 function loadPlayers(): PlayerResponse[] {
   try {

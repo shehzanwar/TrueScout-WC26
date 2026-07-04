@@ -1,5 +1,5 @@
 import Link from "next/link"
-import type { PlayerResponse } from "@/lib/api"
+import { playerSlug, type PlayerResponse } from "@/lib/api"
 import FifaBadge from "../FifaBadge"
 import { FlagIcon } from "@/app/components/FlagIcon"
 
@@ -58,7 +58,7 @@ export default function SimilarPlayers({
         {players.map((p) => (
           <Link
             key={p.reep_id}
-            href={`/players/${p.reep_id}`}
+            href={`/players/${playerSlug(p)}`}
             className="group flex flex-col gap-1.5 p-3 rounded-lg bg-slate-800/40 hover:bg-slate-800 border border-slate-700/40 hover:border-slate-600 transition-colors"
           >
             {/* Nationality */}
