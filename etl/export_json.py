@@ -711,7 +711,10 @@ def _fifa_score(
     if posterior_mean is None or percentile_rank is None:
         return None
     baseline = 10 + (pos_mean - 1.0) * (89.0 / 9.0)
-    z = (posterior_mean - pos_mean) / max(pos_std, 0.05)
+    # Floor of 0.35: prevents z-score inflation when posteriors cluster near the
+    # prior (pos_std ≈ 0.10). Requires a 0.35-point deviation from position
+    # mean to earn z=1 — only genuine outliers reach Elite/World Class bands.
+    z = (posterior_mean - pos_mean) / max(pos_std, 0.35)
     z = max(-3.0, min(3.0, z))
     absolute = baseline + z * (89.0 / 18.0)   # ±1 sigma = ±4.9 pts; ±3 sigma = ±14.8 pts
     relative = 10 + percentile_rank * 89.0
@@ -1434,11 +1437,19 @@ def export_insights(
         }
 
     # ── Top performers  (highest posterior_mean with ≥ 180 WC minutes) ──────
+    # Only include players from teams still active (title_prob > 0).
+    active_teams: set[str] = set()
+    for _sim_rnd in sims.get("rounds", []):
+        for t in _sim_rnd.get("teams", []):
+            if (t.get("title_prob") or 0) > 0:
+                active_teams.add(t["team_id"])
+
     top_performers = []
     eligible = [
         p for p in players
         if (p.get("wc_minutes") or 0) >= 180
         and p.get("posterior_mean") is not None
+        and (not active_teams or (p.get("national_team") or p.get("nationality")) in active_teams)
     ]
     eligible.sort(key=lambda p: -(p["posterior_mean"] or 0))
     for p in eligible[:5]:
@@ -1453,25 +1464,44 @@ def export_insights(
     # ── Overnight deltas ─────────────────────────────────────────────────────
     overnight: list[dict] = []
     if prev_sims and prev_sims.get("rounds") and sims.get("rounds"):
+        prev_run_date = prev_sims.get("run_date", "")
+
+        # Only show overnight for teams that played a completed match since the
+        # last run. This prevents model-recalibration swings (LOGISTIC_SCALE
+        # changes, prior updates, etc.) from appearing as performance changes.
+        recently_played: set[str] = set()
+        for _rnd_data in matchups.values():
+            for m in _rnd_data.get("matches", []):
+                if not m.get("is_completed"):
+                    continue
+                md = (m.get("match_date") or "")[:10]
+                if prev_run_date and md and md > prev_run_date:
+                    recently_played.add(m.get("home", {}).get("name", ""))
+                    recently_played.add(m.get("away", {}).get("name", ""))
+        recently_played.discard("")
+
         # Build prev title_prob map
         prev_map: dict[str, float] = {}
-        for rnd in prev_sims.get("rounds", []):
-            for t in rnd.get("teams", []):
+        for sim_rnd in prev_sims.get("rounds", []):
+            for t in sim_rnd.get("teams", []):
                 if t.get("title_prob") is not None:
                     prev_map[t["team_id"]] = float(t["title_prob"])
 
         curr_map: dict[str, float] = {}
-        for rnd in sims.get("rounds", []):
-            for t in rnd.get("teams", []):
+        for sim_rnd in sims.get("rounds", []):
+            for t in sim_rnd.get("teams", []):
                 if t.get("title_prob") is not None:
                     curr_map.setdefault(t["team_id"], float(t["title_prob"]))
 
         for team_id, curr_tp in curr_map.items():
             prev_tp = prev_map.get(team_id)
-            if prev_tp is not None:
-                delta = round(curr_tp - prev_tp, 4)
-                if abs(delta) >= 0.003:
-                    overnight.append({"team": team_id, "delta": delta, "title_prob": curr_tp})
+            if prev_tp is None:
+                continue
+            if recently_played and team_id not in recently_played:
+                continue
+            delta = round(curr_tp - prev_tp, 4)
+            if abs(delta) >= 0.003:
+                overnight.append({"team": team_id, "delta": delta, "title_prob": curr_tp})
         overnight.sort(key=lambda x: -abs(x["delta"]))
         overnight = overnight[:5]
 
