@@ -131,6 +131,8 @@ SELECT
     SUM(COALESCE(saves, 0))                 AS wc_saves_raw,
     SUM(COALESCE(passes_completed, 0))      AS wc_passes_completed_raw,
     SUM(COALESCE(passes_attempted, 0))      AS wc_passes_attempted_raw,
+    SUM(COALESCE(yellow_cards, 0))          AS wc_yellow_cards_total,
+    SUM(COALESCE(red_cards, 0))             AS wc_red_cards_total,
     AVG(rating)                             AS wc_rating_avg
 FROM read_parquet('{lineup_glob}', union_by_name=true)
 WHERE minutes_played > 0

@@ -211,6 +211,23 @@ export default function RawStats({ player }: { player: PlayerResponse }) {
                 showPer90={showPer90}
               />
             )}
+            {/* Cards — shown for all positions when data is present */}
+            {(player.wc_yellow_cards_total ?? 0) > 0 && (
+              <StatTile
+                label="Yellow cards"
+                totalVal={fmt(player.wc_yellow_cards_total, 0)}
+                per90Val="—"
+                showPer90={showPer90}
+              />
+            )}
+            {(player.wc_red_cards_total ?? 0) > 0 && (
+              <StatTile
+                label="Red cards"
+                totalVal={fmt(player.wc_red_cards_total, 0)}
+                per90Val="—"
+                showPer90={showPer90}
+              />
+            )}
           </motion.div>
         </div>
       )}

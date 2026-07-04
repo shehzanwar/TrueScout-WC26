@@ -202,6 +202,8 @@ export interface PlayerResponse {
   wc_passes_attempted_raw?: number
   wc_passes_completed_per_90?: number
   wc_pass_completion_pct?: number
+  wc_yellow_cards_total?: number | null
+  wc_red_cards_total?: number | null
   has_prior?: boolean
   prior_goals_per_90?: number
   prior_assists_per_90?: number
