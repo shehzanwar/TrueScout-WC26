@@ -84,8 +84,28 @@ export async function getTopPlayers(
   minConfidence = 0.5,
 ): Promise<PlayerResponse[]> {
   const players = readData<PlayerResponse[]>("players.json")
+
+  // Build the set of teams still active in the tournament (title_prob > 0).
+  // Eliminates group-stage exits (e.g. Turkey) that would otherwise rank highly
+  // due to strong Bayesian priors with no R32+ minutes to update them down.
+  const sims = readDataOrNull<SimulationsResponse>("simulations.json")
+  const activeTeams = new Set<string>()
+  if (sims) {
+    for (const rnd of sims.rounds) {
+      for (const t of rnd.teams) {
+        if (t.title_prob > 0) activeTeams.add(t.team_id)
+      }
+    }
+  }
+
   return players
-    .filter((p) => p.confidence_score >= minConfidence)
+    .filter(
+      (p) =>
+        p.confidence_score >= minConfidence &&
+        (activeTeams.size === 0 ||
+          activeTeams.has(p.national_team ?? "") ||
+          activeTeams.has(p.nationality ?? "")),
+    )
     .sort((a, b) => b.posterior_mean - a.posterior_mean)
     .slice(0, limit)
 }

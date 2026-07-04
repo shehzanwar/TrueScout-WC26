@@ -110,11 +110,15 @@ export function buildBracket(
     return -(p * Math.log2(p) + q * Math.log2(q))
   }
 
-  // chaosScore: average binary entropy of top.prob across all slots in a round
+  // chaosScore: average binary entropy of top.prob across PENDING (not yet
+  // completed) slots only. Completed matches have a known winner and no
+  // remaining uncertainty — including them would drag the score toward 0 as
+  // the bracket fills in, making chaos appear to "decrease" over time.
   function roundChaos(slots: BracketSlot[]): number {
-    if (!slots.length) return 0
-    const sum = slots.reduce((acc, s) => acc + binEntropy(s.top.slotProb ?? 0.5), 0)
-    return sum / slots.length
+    const pending = slots.filter(s => !s.isCompleted)
+    if (!pending.length) return 0
+    const sum = pending.reduce((acc, s) => acc + binEntropy(s.top.slotProb ?? 0.5), 0)
+    return sum / pending.length
   }
 
   // teamData: build a BracketTeam for `name` as it appears in `displayRound`
