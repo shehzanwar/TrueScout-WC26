@@ -197,6 +197,7 @@ export default function CalibrationScatter({ entries }: { entries: BrierEntry[] 
             stroke="#059669"
             strokeWidth={1}
             r={5}
+            isAnimationActive={false}
           >
             <LabelList dataKey="winner" position="top" offset={5} style={{ fill: "#475569", fontSize: 9 }} />
           </Scatter>
@@ -208,6 +209,7 @@ export default function CalibrationScatter({ entries }: { entries: BrierEntry[] 
             stroke="#d97706"
             strokeWidth={1}
             r={5}
+            isAnimationActive={false}
           >
             <LabelList dataKey="winner" position="top" offset={5} style={{ fill: "#475569", fontSize: 9 }} />
           </Scatter>

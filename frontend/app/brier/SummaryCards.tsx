@@ -38,8 +38,8 @@ function Card({ children, delay = 0 }: { children: React.ReactNode; delay?: numb
   return (
     <motion.div
       className="bg-slate-900 border border-slate-800 rounded-xl p-5"
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ y: 5 }}
+      animate={{ y: 0 }}
       transition={{ duration: 0.35, delay, ease: "easeOut" as const }}
     >
       {children}
