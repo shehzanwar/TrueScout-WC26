@@ -1,7 +1,10 @@
+import type { Metadata } from "next"
 import { getBrier } from "@/lib/server-data"
 import SummaryCards from "./SummaryCards"
 import MatchLogTable from "./MatchLogTable"
 import CalibrationScatter from "./CalibrationScatter"
+
+export const metadata: Metadata = { title: "Track Record" }
 
 export default async function BrierPage() {
   const data = await getBrier().catch(() => null)

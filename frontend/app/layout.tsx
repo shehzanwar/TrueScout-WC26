@@ -15,8 +15,24 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "TrueScout — WC 2026 Intelligence",
+  title: {
+    default: "TrueScout — WC 2026 Intelligence",
+    template: "%s · TrueScout",
+  },
   description: "Monte Carlo bracket simulation and player ratings for the 2026 FIFA World Cup",
+  metadataBase: new URL("https://truescout.vercel.app"),
+  openGraph: {
+    siteName: "TrueScout",
+    type: "website",
+    locale: "en_US",
+    title: "TrueScout — WC 2026 Intelligence",
+    description: "Monte Carlo bracket simulation and player ratings for the 2026 FIFA World Cup",
+  },
+  twitter: {
+    card: "summary",
+    title: "TrueScout — WC 2026 Intelligence",
+    description: "Monte Carlo bracket simulation and player ratings for the 2026 FIFA World Cup",
+  },
 }
 
 export default function RootLayout({

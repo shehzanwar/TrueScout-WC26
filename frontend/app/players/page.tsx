@@ -1,4 +1,7 @@
+import type { Metadata } from "next"
 import PlayerSearchClient from "./PlayerSearchClient"
+
+export const metadata: Metadata = { title: "Player Search" }
 
 export default async function PlayersPage({
   searchParams,

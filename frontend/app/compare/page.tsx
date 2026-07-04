@@ -1,8 +1,11 @@
+import type { Metadata } from "next"
 import { Suspense } from "react"
 import { readFileSync } from "fs"
 import path from "path"
 import type { PlayerResponse } from "@/lib/api"
 import CompareClient from "./CompareClient"
+
+export const metadata: Metadata = { title: "Compare" }
 
 function loadPlayers(): PlayerResponse[] {
   try {
