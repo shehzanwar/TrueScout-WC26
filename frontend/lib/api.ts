@@ -338,6 +338,23 @@ export function playerSlug(player: {
   return player.reep_id
 }
 
+/**
+ * URL-safe slug from a nation/team name.
+ * "Bosnia & Herzegovina" → "bosnia-and-herzegovina"
+ * "United States" → "united-states"
+ */
+export function nationSlug(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+}
+
 // ---------------------------------------------------------------------------
 // Client-side fetchers (safe to call from browser Client Components)
 // ---------------------------------------------------------------------------

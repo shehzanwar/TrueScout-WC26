@@ -16,6 +16,51 @@ import type {
   PlayerResponse,
   InsightsResponse,
 } from "./api"
+import { nationSlug } from "./api"
+
+// ---------------------------------------------------------------------------
+// Nation types
+// ---------------------------------------------------------------------------
+
+export type NationMatch = {
+  round: string
+  event_id: string
+  match_date: string
+  opponent: string
+  isHome: boolean
+  teamScore: number | null
+  oppScore: number | null
+  winner: string | null
+  completed: boolean
+}
+
+export type NationSummary = {
+  name: string
+  slug: string
+  title_prob: number
+  eliminated: boolean
+  current_round: string
+}
+
+export type NationDetail = NationSummary & {
+  sim_rounds: { round: string; advance_prob: number; title_prob: number }[]
+  matches: NationMatch[]
+  squad: PlayerResponse[]
+}
+
+const KNOCKOUT_ROUNDS = ["R32", "R16", "QF", "SF", "F"] as const
+
+function nationSlugs(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+}
 
 function readData<T>(filename: string): T {
   const filePath = path.join(process.cwd(), "public", "data", filename)
@@ -112,6 +157,122 @@ export async function getTopPlayers(
 
 export async function getInsights(): Promise<InsightsResponse | null> {
   return readDataOrNull<InsightsResponse>("insights.json")
+}
+
+// ---------------------------------------------------------------------------
+// Nations — derived from simulations + matchups + players
+// ---------------------------------------------------------------------------
+
+function buildNationSummaries(): NationSummary[] {
+  const sims = readDataOrNull<SimulationsResponse>("simulations.json")
+  const allMatchups = readDataOrNull<Record<string, MatchupsResponse>>("matchups.json")
+  if (!sims) return []
+
+  // R32 teams: every team that appears in any simulation round
+  const teamSet = new Set<string>()
+  const titleProbMap = new Map<string, number>()
+  const advanceProbMap = new Map<string, Map<string, number>>()
+
+  for (const rnd of sims.rounds) {
+    for (const t of rnd.teams) {
+      teamSet.add(t.team_id)
+      if (!titleProbMap.has(t.team_id) || rnd.round === "R32") {
+        titleProbMap.set(t.team_id, t.title_prob)
+      }
+      if (!advanceProbMap.has(t.team_id)) advanceProbMap.set(t.team_id, new Map())
+      advanceProbMap.get(t.team_id)!.set(rnd.round, t.advance_prob)
+    }
+  }
+
+  // Determine the highest round each team appeared in matchups
+  const lastRoundMap = new Map<string, string>()
+  if (allMatchups) {
+    for (const round of KNOCKOUT_ROUNDS) {
+      const rnd = allMatchups[round]
+      if (!rnd) continue
+      for (const m of rnd.matches) {
+        if (teamSet.has(m.home.name)) lastRoundMap.set(m.home.name, round)
+        if (teamSet.has(m.away.name)) lastRoundMap.set(m.away.name, round)
+      }
+    }
+  }
+
+  return Array.from(teamSet).map((name) => {
+    const tp = titleProbMap.get(name) ?? 0
+    return {
+      name,
+      slug: nationSlugs(name),
+      title_prob: tp,
+      eliminated: tp === 0,
+      current_round: lastRoundMap.get(name) ?? "R32",
+    }
+  })
+}
+
+export async function getAllNations(): Promise<NationSummary[]> {
+  return buildNationSummaries()
+}
+
+export async function getNationDetail(slug: string): Promise<NationDetail | null> {
+  const summaries = buildNationSummaries()
+  const summary = summaries.find((n) => n.slug === slug)
+  if (!summary) return null
+
+  const name = summary.name
+  const sims = readDataOrNull<SimulationsResponse>("simulations.json")
+  const allMatchups = readDataOrNull<Record<string, MatchupsResponse>>("matchups.json")
+  const allPlayers = readDataOrNull<PlayerResponse[]>("players.json")
+
+  // Sim rounds: what does the model say for each round?
+  const sim_rounds: NationDetail["sim_rounds"] = []
+  if (sims) {
+    for (const rnd of sims.rounds) {
+      const entry = rnd.teams.find((t) => t.team_id === name)
+      if (entry) {
+        sim_rounds.push({ round: rnd.round, advance_prob: entry.advance_prob, title_prob: entry.title_prob })
+      }
+    }
+  }
+
+  // Matches: all rounds where this team appears
+  const matches: NationMatch[] = []
+  if (allMatchups) {
+    for (const round of KNOCKOUT_ROUNDS) {
+      const rnd = allMatchups[round]
+      if (!rnd) continue
+      for (const m of rnd.matches) {
+        const isHome = m.home.name === name
+        const isAway = m.away.name === name
+        if (!isHome && !isAway) continue
+        const opponent = isHome ? m.away.name : m.home.name
+        const teamScore = isHome ? m.home.score : m.away.score
+        const oppScore  = isHome ? m.away.score : m.home.score
+        matches.push({
+          round,
+          event_id: m.event_id,
+          match_date: m.match_date,
+          opponent,
+          isHome,
+          teamScore: teamScore ?? null,
+          oppScore:  oppScore ?? null,
+          winner: m.winner ?? null,
+          completed: m.is_completed,
+        })
+      }
+    }
+  }
+
+  // Squad: players who represented this nation at the WC
+  const squad = (allPlayers ?? [])
+    .filter((p) => (p.national_team ?? p.nationality) === name && (p.wc_minutes ?? 0) > 0)
+    .sort((a, b) => b.posterior_mean - a.posterior_mean)
+
+  return { ...summary, sim_rounds, matches, squad }
+}
+
+export async function getNationSlugs(): Promise<string[]> {
+  const summaries = buildNationSummaries()
+  return summaries.map((n) => n.slug)
 }
 
 export async function getSimilarPlayers(
