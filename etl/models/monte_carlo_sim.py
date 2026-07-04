@@ -515,6 +515,109 @@ def _compute_rest_adjustments(
 
 
 # ---------------------------------------------------------------------------
+# Load completed R32 results for lock-in
+# ---------------------------------------------------------------------------
+
+def _load_completed_r32(
+    conn: duckdb.DuckDBPyConnection,
+    bracket_order: list[str],
+) -> dict[int, int]:
+    """
+    Return {sim_match_idx: winner_bracket_pos} for every completed R32 match.
+
+    sim_match_idx is 0-15: match j involves bracket positions 2j (home) and
+    2j+1 (away).  winner_bracket_pos is the bracket position (0-31) of the
+    team that actually advanced.
+
+    Draw outcomes (FT-Pens) are resolved via data/static/manual_winners.json.
+    Unfinished matches are simply omitted — they will be simulated normally.
+    """
+    bronze    = Path(settings.parquet_bronze_dir)
+    espn_glob = (bronze / "espn" / "matches" / "*.parquet").as_posix()
+
+    manual_path = Path(__file__).parent.parent.parent / "data" / "static" / "manual_winners.json"
+    manual_winners: dict[str, str] = {}
+    try:
+        raw = json.loads(manual_path.read_text(encoding="utf-8"))
+        manual_winners = {str(k): v for k, v in raw.get("events", {}).items()}
+    except Exception as exc:
+        logger.warning("Could not load manual_winners.json: %s", exc)
+
+    try:
+        r32_df = conn.execute(f"""
+            SELECT event_id, home_team_name, away_team_name,
+                   home_score, away_score, is_completed
+            FROM read_parquet('{espn_glob}', union_by_name=true)
+            WHERE round_name = 'Round of 32' AND is_completed = TRUE
+        """).df()
+    except Exception as exc:
+        logger.warning("Cannot load completed R32 results: %s — no lock-in.", exc)
+        return {}
+
+    if r32_df.empty:
+        logger.info("No completed R32 matches — nothing to lock in.")
+        return {}
+
+    bracket_team_to_pos: dict[str, int] = {
+        team: pos for pos, team in enumerate(bracket_order)
+    }
+
+    completed: dict[int, int] = {}
+    for row in r32_df.itertuples(index=False):
+        home_norm = _normalize(row.home_team_name)
+        away_norm = _normalize(row.away_team_name)
+
+        home_pos = bracket_team_to_pos.get(home_norm)
+        away_pos = bracket_team_to_pos.get(away_norm)
+
+        if home_pos is None or away_pos is None:
+            logger.warning(
+                "Cannot find bracket position for '%s' (pos=%s) vs '%s' (pos=%s) — skipping lock-in.",
+                row.home_team_name, home_pos, row.away_team_name, away_pos,
+            )
+            continue
+
+        # Bracket positions for R32 match j: 2j (home, even) and 2j+1 (away, odd).
+        # min picks the even position; //2 gives the simulation match index.
+        sim_match_idx = min(home_pos, away_pos) // 2
+
+        ev_id = str(int(row.event_id))
+        if row.home_score > row.away_score:
+            winner_pos = home_pos
+        elif row.away_score > row.home_score:
+            winner_pos = away_pos
+        else:
+            # Equal score — FT-Pens or AET draw (resolve via manual_winners.json)
+            manual_winner = manual_winners.get(ev_id)
+            if not manual_winner:
+                logger.warning(
+                    "Completed draw in event %s (%s vs %s) has no manual winner — skipping.",
+                    ev_id, row.home_team_name, row.away_team_name,
+                )
+                continue
+            winner_norm = _normalize(manual_winner)
+            if winner_norm == home_norm:
+                winner_pos = home_pos
+            elif winner_norm == away_norm:
+                winner_pos = away_pos
+            else:
+                logger.warning(
+                    "Manual winner '%s' doesn't match either team in event %s — skipping.",
+                    manual_winner, ev_id,
+                )
+                continue
+
+        completed[sim_match_idx] = winner_pos
+        logger.info(
+            "R32 lock-in: sim match %d — %s wins (bracket pos %d).",
+            sim_match_idx, bracket_order[winner_pos], winner_pos,
+        )
+
+    logger.info("Locked %d completed R32 result(s) for simulation.", len(completed))
+    return completed
+
+
+# ---------------------------------------------------------------------------
 # Vectorised single-elimination tournament
 # ---------------------------------------------------------------------------
 
@@ -523,6 +626,7 @@ def _run_sim(
     n_sim: int,
     scale: float,
     seed: int,
+    completed_r32: dict[int, int] | None = None,
 ) -> tuple[np.ndarray, dict[str, np.ndarray]]:
     """
     Pure NumPy vectorised Monte Carlo bracket.
@@ -568,6 +672,14 @@ def _run_sim(
         rand   = rng.random((n_sim, n_matches))
 
         winners = np.where(rand < p_left, left, right)
+
+        # Override with confirmed R32 results so completed matches aren't re-simulated.
+        # In round_idx==1 (R32), team indices equal bracket positions, so assigning
+        # winner_bracket_pos directly is correct.
+        if round_idx == 1 and completed_r32:
+            for match_idx, winner_bracket_pos in completed_r32.items():
+                winners[:, match_idx] = winner_bracket_pos
+
         current = winners
 
         # Store who wins each match slot for this round (int16 saves ~50% memory vs int32)
@@ -802,6 +914,9 @@ def main() -> None:
             [strengths_map[t] for t in bracket_order], dtype=np.float64
         )
 
+        # 4b. Load completed R32 results so the sim locks in actual winners
+        completed_r32 = _load_completed_r32(conn, bracket_order)
+
         # 5. Simulate
         logger.info(
             "Running %d iterations (scale=%.2f, seed=%d) ...",
@@ -812,6 +927,7 @@ def main() -> None:
             n_sim=args.n_sim,
             scale=args.scale,
             seed=args.seed,
+            completed_r32=completed_r32,
         )
         elapsed = time.perf_counter() - t0
         logger.info("Simulation complete in %.2fs.", elapsed)
