@@ -1,3 +1,4 @@
+import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import { getPlayer, getSimilarPlayers } from "@/lib/server-data"
@@ -88,6 +89,16 @@ function Chevron() {
 // ---------------------------------------------------------------------------
 // Page (Server Component)
 // ---------------------------------------------------------------------------
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ reep_id: string }>
+}): Promise<Metadata> {
+  const { reep_id } = await params
+  const player = await getPlayer(reep_id).catch(() => null)
+  return { title: player?.name ?? reep_id }
+}
 
 export default async function PlayerProfilePage({
   params,

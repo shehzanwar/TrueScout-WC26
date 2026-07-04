@@ -1,6 +1,9 @@
+import type { Metadata } from "next"
 import { getMatchups } from "@/lib/server-data"
 import RoundSelector from "./RoundSelector"
 import MatchCardGrid from "./MatchCardGrid"
+
+export const metadata: Metadata = { title: "Matchups" }
 
 const VALID_ROUNDS = new Set(["R32", "R16", "QF", "SF", "F"])
 

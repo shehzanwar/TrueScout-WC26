@@ -1,6 +1,9 @@
+import type { Metadata } from "next"
 import { getSimulations, getMatchups } from "@/lib/server-data"
 import { buildBracket } from "@/lib/bracket"
 import BracketGrid from "./BracketGrid"
+
+export const metadata: Metadata = { title: "Bracket" }
 
 export default async function BracketPage() {
   const [simData, r32Data, r16Data] = await Promise.all([
