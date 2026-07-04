@@ -406,6 +406,23 @@ def export_matchups(conn) -> dict:
     except Exception:
         pass
 
+    # Per-R32-match BT probabilities written by monte_carlo_sim.py before lock-in.
+    # Keyed both ways so lookup works regardless of ESPN home/away ordering.
+    bt_r32: dict[tuple[str, str], tuple[float, float]] = {}
+    try:
+        bt_rows = conn.execute("""
+            SELECT team_left, team_right, prob_left, prob_right
+            FROM match_probs
+            WHERE run_date = (SELECT MAX(run_date) FROM match_probs)
+        """).fetchall()
+        for t_l, t_r, p_l, p_r in bt_rows:
+            t_l_n = NAME_ALIASES.get(t_l, t_l)
+            t_r_n = NAME_ALIASES.get(t_r, t_r)
+            bt_r32[(t_l_n, t_r_n)] = (round(p_l, 4), round(p_r, 4))
+            bt_r32[(t_r_n, t_l_n)] = (round(p_r, 4), round(p_l, 4))
+    except Exception:
+        pass
+
     result: dict = {}
     for round_code, round_name in ROUND_MAP.items():
         next_round = NEXT_ROUND.get(round_code, "W")
@@ -466,12 +483,17 @@ def export_matchups(conn) -> dict:
             if market_home is None and ev_str in manual_odds:
                 market_home, market_away = manual_odds[ev_str]
 
-            model_home = sim_map.get(h_norm)
-            model_away = sim_map.get(a_norm)
-            if model_home is not None:
-                model_home = round(model_home, 4)
-            if model_away is not None:
-                model_away = round(model_away, 4)
+            # For R32, use the pre-simulation BT head-to-head probability so
+            # completed matches don't show 100%/0% from the lock-in override.
+            if round_code == "R32" and (h_norm, a_norm) in bt_r32:
+                model_home, model_away = bt_r32[(h_norm, a_norm)]
+            else:
+                model_home = sim_map.get(h_norm)
+                model_away = sim_map.get(a_norm)
+                if model_home is not None:
+                    model_home = round(model_home, 4)
+                if model_away is not None:
+                    model_away = round(model_away, 4)
 
             h_rest, a_rest   = rest_days_map.get(str(event_id), (None, None))
             h_km,   a_km     = travel_km_map.get(str(event_id), (None, None))

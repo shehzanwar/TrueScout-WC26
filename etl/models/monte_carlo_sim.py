@@ -618,6 +618,52 @@ def _load_completed_r32(
 
 
 # ---------------------------------------------------------------------------
+# Per-match Bradley-Terry probabilities
+# ---------------------------------------------------------------------------
+
+def _write_match_probs(
+    conn: duckdb.DuckDBPyConnection,
+    bracket_order: list[str],
+    strengths: np.ndarray,
+    scale: float,
+    run_date: "date",
+) -> None:
+    """
+    Compute and store the raw head-to-head BT probability for each R32 match.
+
+    These are computed BEFORE the simulation and BEFORE any lock-in override,
+    so they reflect the model's genuine prediction for each game regardless of
+    whether the match has already been played.  export_json.py reads this table
+    to display per-match model probabilities on the matchups page.
+    """
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS match_probs (
+            run_date   DATE    NOT NULL,
+            team_left  VARCHAR NOT NULL,
+            team_right VARCHAR NOT NULL,
+            prob_left  DOUBLE  NOT NULL,
+            prob_right DOUBLE  NOT NULL,
+            PRIMARY KEY (run_date, team_left, team_right)
+        )
+    """)
+    conn.execute("DELETE FROM match_probs WHERE run_date = ?", [str(run_date)])
+
+    n_matches = len(strengths) // 2
+    rows: list[tuple] = []
+    for j in range(n_matches):
+        s_l = float(strengths[2 * j])
+        s_r = float(strengths[2 * j + 1])
+        p_l = 1.0 / (1.0 + 10.0 ** (-(s_l - s_r) / scale))
+        rows.append((str(run_date), bracket_order[2 * j], bracket_order[2 * j + 1], p_l, 1.0 - p_l))
+
+    conn.executemany(
+        "INSERT INTO match_probs (run_date, team_left, team_right, prob_left, prob_right) VALUES (?, ?, ?, ?, ?)",
+        rows,
+    )
+    logger.info("match_probs: wrote %d R32 BT probabilities for %s.", len(rows), run_date)
+
+
+# ---------------------------------------------------------------------------
 # Vectorised single-elimination tournament
 # ---------------------------------------------------------------------------
 
@@ -916,6 +962,12 @@ def main() -> None:
 
         # 4b. Load completed R32 results so the sim locks in actual winners
         completed_r32 = _load_completed_r32(conn, bracket_order)
+
+        # 4c. Persist per-match BT probabilities BEFORE simulation and lock-in.
+        #     export_json.py reads these to display what the model predicted for
+        #     each game, so completed matches don't show 100%/0%.
+        if not args.validate:
+            _write_match_probs(conn, bracket_order, strengths_vec, args.scale, date.today())
 
         # 5. Simulate
         logger.info(
