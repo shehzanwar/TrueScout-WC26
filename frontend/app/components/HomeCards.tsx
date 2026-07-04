@@ -143,7 +143,7 @@ function CalibrationCard({ summary, entries }: { summary: BrierSummary; entries:
         <>
           <div className="grid grid-cols-3 gap-3 py-1">
             <StatPill value={String(summary.n_matches)} label="Graded" />
-            <StatPill value={brierModel} label="Accuracy" accent />
+            <StatPill value={brierModel} label="Brier Score" accent />
             <StatPill value={skillPct} label="Edge" accent={skillPos} />
           </div>
           {summary.brier_skill_vs_coin != null && (
@@ -171,7 +171,7 @@ function CalibrationCard({ summary, entries }: { summary: BrierSummary; entries:
                     {e.home_team} <span className="text-slate-600">vs</span> {e.away_team}
                   </span>
                   <span className="text-slate-500 font-mono">
-                    Accuracy: {e.brier_model?.toFixed(3) ?? "—"}
+                    Brier: {e.brier_model?.toFixed(3) ?? "—"}
                   </span>
                 </div>
               ))}
@@ -191,7 +191,7 @@ function MatchOfTheDayCard({ match }: { match: Matchup }) {
   const { home, away, match_date } = match
   const dateStr = (() => {
     try {
-      return new Date(match_date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
+      return new Date(match_date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
     } catch { return match_date }
   })()
 

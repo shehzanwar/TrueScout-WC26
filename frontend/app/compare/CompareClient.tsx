@@ -182,7 +182,7 @@ function PlayerCard({ player, side }: { player: PlayerResponse; side: "left" | "
       </p>
       {player.fifa?.overall != null && (
         <p className="text-xs text-slate-600">
-          FIFA {player.fifa.overall} · {player.fifa.band}
+          Rating {player.fifa.overall} · {player.fifa.band}
         </p>
       )}
       <span className={`text-[11px] font-medium ${conf.cls}`}>{conf.label} confidence</span>
