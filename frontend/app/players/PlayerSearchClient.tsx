@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
-import { searchPlayers, type PlayerSearchResult } from "@/lib/api"
+import { searchPlayers, playerSlug, type PlayerSearchResult } from "@/lib/api"
 import FifaBadge from "./FifaBadge"
 import { FlagIcon } from "@/app/components/FlagIcon"
 
@@ -26,7 +26,7 @@ function SearchResultRow({ player }: { player: PlayerSearchResult }) {
   const conf = confidenceLabel(player.confidence_score)
   return (
     <Link
-      href={`/players/${player.reep_id}`}
+      href={`/players/${playerSlug(player)}`}
       className="flex items-center gap-3 px-4 py-3 hover:bg-slate-800 rounded-lg transition-colors group"
     >
       {/* Flag */}
@@ -46,7 +46,7 @@ function SearchResultRow({ player }: { player: PlayerSearchResult }) {
       <div className="flex flex-col items-end gap-0.5 shrink-0">
         <FifaBadge fifa={player.fifa} size="sm" />
         <p className={`text-[11px] tabular-nums ${ratingColor(player.percentile_rank)}`}>
-          {player.posterior_mean.toFixed(2)}/10
+          {player.truescout_rating.toFixed(2)}/10
         </p>
         <p className={`text-[10px] ${conf.color}`}>{conf.label}</p>
       </div>

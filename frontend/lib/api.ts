@@ -150,6 +150,8 @@ export interface MatchLogEntry {
 
 export interface PlayerResponse {
   reep_id: string
+  slug?: string              // URL-safe name, e.g. "erling-haaland"
+  truescout_rating?: number  // confidence × posterior + (1−confidence) × 7.0
   name: string | null
   nationality: string | null
   national_team: string | null   // derived from Sofascore lineups — authoritative team membership
@@ -221,12 +223,14 @@ export interface PlayerResponse {
 
 export interface PlayerSearchResult {
   reep_id: string
+  slug?: string
   name: string | null
   nationality: string | null
   national_team: string | null
   position_micro: string | null
   position_macro: string
   posterior_mean: number
+  truescout_rating: number   // confidence × posterior + (1−confidence) × 7.0
   confidence_score: number
   percentile_rank: number
   fifa?: { overall: number | null; band: string }
@@ -292,6 +296,46 @@ export function normalizeString(str: string): string {
     .toLowerCase()
 }
 
+/**
+ * Confidence-penalised TrueScout Rating.
+ * Matches the Python formula in export_json.py: _truescout_rating()
+ * Used client-side as a fallback until the next pipeline run emits the field.
+ */
+const _TS_ANCHOR = 7.0
+export function trueScoutRating(player: {
+  truescout_rating?: number
+  posterior_mean: number
+  confidence_score: number
+}): number {
+  if (player.truescout_rating != null) return player.truescout_rating
+  const cs = Math.max(0, Math.min(1, player.confidence_score))
+  return cs * player.posterior_mean + (1 - cs) * _TS_ANCHOR
+}
+
+/**
+ * Compute a URL-safe slug from a player name, or fall back to reep_id.
+ * Uses the pre-computed slug from the JSON when present; otherwise derives
+ * it on the fly so client-side links work before the next pipeline run.
+ */
+export function playerSlug(player: {
+  slug?: string
+  name?: string | null
+  reep_id: string
+}): string {
+  if (player.slug) return player.slug
+  if (player.name) {
+    return player.name
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, "")
+      .trim()
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+  }
+  return player.reep_id
+}
+
 // ---------------------------------------------------------------------------
 // Client-side fetchers (safe to call from browser Client Components)
 // ---------------------------------------------------------------------------
@@ -316,23 +360,21 @@ export async function searchPlayers(q: string): Promise<PlayerSearchResult[]> {
   const query = normalizeString(q.trim())
   return players
     .filter((p) => normalizeString(p.name ?? "").includes(query))
-    .sort(
-      (a, b) =>
-        b.confidence_score - a.confidence_score ||
-        b.posterior_mean - a.posterior_mean
-    )
+    .sort((a, b) => trueScoutRating(b) - trueScoutRating(a))
     .slice(0, 20)
     .map((p) => ({
-      reep_id:          p.reep_id,
-      name:             p.name,
-      nationality:      p.nationality,
-      national_team:    p.national_team ?? null,
-      position_micro:   p.position_micro,
-      position_macro:   p.position_macro,
-      posterior_mean:   p.posterior_mean,
-      confidence_score: p.confidence_score,
-      percentile_rank:  p.percentile_rank,
-      fifa:             p.fifa ? { overall: p.fifa.overall, band: p.fifa.band } : undefined,
+      reep_id:           p.reep_id,
+      slug:              p.slug,
+      name:              p.name,
+      nationality:       p.nationality,
+      national_team:     p.national_team ?? null,
+      position_micro:    p.position_micro,
+      position_macro:    p.position_macro,
+      posterior_mean:    p.posterior_mean,
+      truescout_rating:  trueScoutRating(p),
+      confidence_score:  p.confidence_score,
+      percentile_rank:   p.percentile_rank,
+      fifa:              p.fifa ? { overall: p.fifa.overall, band: p.fifa.band } : undefined,
     }))
 }
 

@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import Link from "next/link"
+import { trueScoutRating } from "@/lib/api"
 import { getPlayer, getSimilarPlayers } from "@/lib/server-data"
 import PlayerRadar from "./PlayerRadar"
 import TacticalAnalysis from "./TacticalAnalysis"
@@ -97,7 +98,30 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { reep_id } = await params
   const player = await getPlayer(reep_id).catch(() => null)
-  return { title: player?.name ?? reep_id }
+
+  const name     = player?.name ?? reep_id
+  const position = player?.position_detail ?? player?.position_micro ?? player?.position_macro ?? ""
+  const nat      = player?.nationality ?? ""
+  const rating   = player?.posterior_mean != null ? `${player.posterior_mean.toFixed(2)}/10` : null
+
+  const description = [nat, position, rating ? `TrueScout rating: ${rating}` : null]
+    .filter(Boolean)
+    .join(" · ")
+
+  return {
+    title: name,
+    description,
+    openGraph: {
+      title: `${name} · TrueScout WC 2026`,
+      description,
+      type: "profile",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${name} · TrueScout WC 2026`,
+      description,
+    },
+  }
 }
 
 export default async function PlayerProfilePage({
@@ -112,6 +136,7 @@ export default async function PlayerProfilePage({
 
   const similar = await getSimilarPlayers(player)
 
+  const tsRating    = trueScoutRating(player)
   const hdiLow      = player.hdi_low.toFixed(2)
   const hdiHigh     = player.hdi_high.toFixed(2)
   const clubPct     = `${Math.round(player.shrinkage_weight * 100)}%`
@@ -186,11 +211,9 @@ export default async function PlayerProfilePage({
             ]
               .filter(Boolean)
               .join(" · ")}
-            {player.posterior_mean != null && (
-              <span className="ml-2 text-slate-600">
-                {player.posterior_mean.toFixed(2)}/10
-              </span>
-            )}
+            <span className="ml-2 text-slate-600">
+              {tsRating.toFixed(2)}/10
+            </span>
           </p>
         </div>
         <ConfidenceBadge score={player.confidence_score} />
@@ -208,22 +231,22 @@ export default async function PlayerProfilePage({
           <StatRow
             label={
               <LabelWithInfo
-                label="Overall Rating"
-                tip="A weighted blend of club form (last 2 seasons) and World Cup performance, on a 0-10 scale."
+                label="TrueScout Rating"
+                tip="Confidence-weighted composite: high-evidence players keep their full Bayesian rating; sparse-data players are pulled toward the WC average (7.0). Formula: confidence × posterior + (1 − confidence) × 7.0."
               />
             }
-            value={player.posterior_mean.toFixed(2)}
+            value={tsRating.toFixed(2)}
             sub={pctLabel}
           />
           <StatRow
             label={
               <LabelWithInfo
-                label="Rating Range"
-                tip="Accounting for sample size, the player's true rating almost certainly falls within this range."
+                label="Bayesian Posterior"
+                tip="Raw Bayesian rating: a weighted blend of club form (last 2 seasons) and World Cup performance before the confidence penalty is applied."
               />
             }
-            value={`${hdiLow} – ${hdiHigh}`}
-            sub={`likely between these two values`}
+            value={player.posterior_mean.toFixed(2)}
+            sub={`HDI ${hdiLow} – ${hdiHigh}`}
           />
           <StatRow
             label={

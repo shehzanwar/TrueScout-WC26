@@ -21,7 +21,7 @@ const DEFAULT_AXES: { key: keyof RadarMetrics; label: string; description: strin
   },
   {
     key: "creativity",
-    label: "Playmaking",
+    label: "Creativity",
     description: "xA, key passes & assists per 90 — within position group",
   },
   {

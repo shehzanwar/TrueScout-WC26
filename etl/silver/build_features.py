@@ -54,7 +54,6 @@ _REEP_BUCKET: dict[str, str] = {
     "defender": "DEF", "full-back": "DEF", "centre-back": "DEF",
     "centre back": "DEF", "center back": "DEF",
     "stopper": "DEF", "sweeper": "DEF",
-    "wing back": "DEF", "wing-back": "DEF",
     # "wing half" is a historical midfield role (holding/box-to-box in old 4-4-2)
     "wing half": "MID",
     "right back": "DEF", "left back": "DEF",
@@ -63,6 +62,10 @@ _REEP_BUCKET: dict[str, str] = {
     "defensive midfielder": "MID", "attacking midfielder": "MID",
     "wide midfielder": "MID", "winger": "MID",
     "left winger": "MID", "right winger": "MID",
+    # Wing-backs in modern football (3-5-2/5-3-2) are attacking wide players,
+    # not pure defenders — bucket them with midfielders so they rank against
+    # wide midfielders/wingers rather than centre-backs and full-backs.
+    "wing back": "MID", "wing-back": "MID",
     "inside forward": "MID",
     # Forwards
     "forward": "FWD", "attacker": "FWD", "centre-forward": "FWD",
@@ -443,6 +446,10 @@ def load_fbref_intl_form() -> pd.DataFrame:
                 "(cross-contamination guard)", n_stripped,
             )
         merged = merged[~(is_concacaf & is_conmebol_qual)].copy()
+
+    # Strip the live WC competition — using WC goals as a club-form prior
+    # creates circular contamination (WC performance inflates its own prior).
+    merged = merged[merged["competition"] != "WC 2026"].copy()
 
     # Filter: at least 45 minutes in a competition to count
     merged = merged[merged["minutes"].fillna(0) >= 45].copy()

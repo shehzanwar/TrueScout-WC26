@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import Link from "next/link"
-import type { Matchup, PlayerSearchResult, PlayerResponse } from "@/lib/api"
+import { playerSlug, trueScoutRating, type Matchup, type PlayerSearchResult, type PlayerResponse } from "@/lib/api"
 import { FlagIcon } from "@/app/components/FlagIcon"
 
 // ---------------------------------------------------------------------------
@@ -145,7 +145,7 @@ function LineupList({
       {players.map((p) => (
         <Link
           key={p.reep_id}
-          href={`/players/${p.reep_id}`}
+          href={`/players/${playerSlug(p)}`}
           className="flex items-center justify-between py-1 px-1.5 rounded hover:bg-slate-800 transition-colors group"
         >
           <div className="flex items-center gap-1.5 min-w-0">
@@ -215,6 +215,7 @@ export default function MatchCard({ match }: { match: Matchup }) {
             position_micro:   p.position_micro,
             position_macro:   p.position_macro,
             posterior_mean:   p.posterior_mean,
+            truescout_rating: trueScoutRating(p),
             confidence_score: p.confidence_score,
             percentile_rank:  p.percentile_rank,
             wc_minutes:       p.wc_minutes ?? 0,
