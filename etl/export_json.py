@@ -551,7 +551,10 @@ def export_brier(conn) -> dict:
                model_prob, market_prob, brier_model, brier_market,
                log_loss_model, log_loss_market
         FROM brier_log
-        QUALIFY ROW_NUMBER() OVER (PARTITION BY event_id ORDER BY run_date DESC) = 1
+        QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY COALESCE(event_id, home_team || '-' || away_team)
+            ORDER BY run_date DESC
+        ) = 1
         ORDER BY CAST(event_id AS BIGINT)
     """).fetchall()
 

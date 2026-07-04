@@ -905,7 +905,7 @@ def _compute_bracket_slots(
     """
     Convert per-sim slot-winner arrays into a JSON-serialisable distribution.
 
-    For each (round, slot_idx) returns the top team plus up to 2 alternates
+    For each (round, slot_idx) returns the top team plus up to 4 alternates
     with their probability of winning that specific match slot.  The frontend
     uses this to fix the Colombia-over-Argentina bracket-coherence bug.
 
@@ -960,7 +960,7 @@ def _compute_bracket_slots(
                     "round":    round_code,
                     "slot_idx": int(export_idx),
                     "top":      entries[0],
-                    "alt":      entries[1:3],   # up to 2 alternates
+                    "alt":      entries[1:5],   # up to 4 alternates
                 })
 
     pairings = {
