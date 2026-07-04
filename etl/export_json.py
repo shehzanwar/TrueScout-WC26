@@ -881,6 +881,7 @@ _RAW_STAT_COLS: list[str] = [
     "wc_shots_raw", "wc_sot_raw", "wc_key_passes_raw",
     "wc_tackles_raw", "wc_interceptions_raw", "wc_clearances_raw", "wc_saves_raw",
     "wc_passes_completed_raw", "wc_passes_attempted_raw",
+    "wc_yellow_cards_total", "wc_red_cards_total",
     "wc_goals_per_90", "wc_assists_per_90", "wc_xg_per_90", "wc_xa_per_90",
     "wc_shots_per_90", "wc_sot_per_90", "wc_key_passes_per_90",
     "wc_tackles_per_90", "wc_interceptions_per_90", "wc_clearances_per_90",
