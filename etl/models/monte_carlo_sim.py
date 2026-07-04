@@ -62,7 +62,9 @@ logger = logging.getLogger(__name__)
 
 N_SIM             = 100_000
 TOP_N_PLAYERS     = 15
-LOGISTIC_SCALE    = 0.5   # calibrated: delta=0.35 (France-Sweden) → 83% (market=82.9%)
+LOGISTIC_SCALE    = 1.0   # delta=0.35 → 69% per match; 0.5 → 76%.  Was 0.5 but that
+                          # compounded across 5 rounds to give ~44% title prob for France
+                          # (single R32 calibration doesn't survive multi-round compounding).
 SEED              = 42
 FALLBACK_STRENGTH = 7.0   # used when a team has no valid posterior ratings
 

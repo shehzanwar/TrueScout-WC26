@@ -136,15 +136,23 @@ def run_pipeline() -> dict[str, bool]:
         lambda: espn_main(date_str=None, group_stage=False, knockout=True),
     )
 
-    # Step 2 — Sofascore pull (all rounds, including newly-played knockout rounds)
+    # Step 2 — Sofascore pull (group stage — rounds 1/2/3 via /events/round/{N})
     # Soft-fail: Cloudflare blocks are expected; downstream steps use cached data.
     results["2_sofascore_pull"] = _step(
-        "Sofascore pull (all rounds)",
+        "Sofascore pull (group stage rounds)",
         lambda: sofascore_main(round_numbers=[], all_rounds=True),
     )
-    if not results["2_sofascore_pull"]:
+
+    # Step 2.5 — Sofascore knockout pull via cuptrees bracket
+    # /events/round/{N} returns 404 for R32/R16/QF/SF/F; cuptrees endpoint works.
+    # Soft-fail: if cuptrees is unavailable we fall back to previously cached parquets.
+    results["2_sofascore_knockout"] = _step(
+        "Sofascore pull (knockout bracket)",
+        lambda: sofascore_main(round_numbers=[], all_rounds=False, knockout=True),
+    )
+    if not results["2_sofascore_pull"] and not results["2_sofascore_knockout"]:
         logger.warning(
-            "   ⚠  Sofascore step failed — Steps 5–7 will use previously cached "
+            "   ⚠  Both Sofascore steps failed — Steps 5–7 will use previously cached "
             "lineups/stats. Model quality is unaffected until new matches are played."
         )
 
@@ -252,7 +260,8 @@ def main() -> None:
     # ── Exit logic: distinguish ingestion failures from pipeline failures ────
     # Ingestion steps (1–3) are non-critical: Sofascore is permanently blocked
     # on GitHub Actions datacenter IPs.  Only math/export failures are fatal.
-    _INGESTION = {"1_espn_pull", "2_sofascore_pull", "3_load_matches", "4_load_identity",
+    _INGESTION = {"1_espn_pull", "2_sofascore_pull", "2_sofascore_knockout",
+                  "3_load_matches", "4_load_identity",
                   "4_market_values",  # botasaurus unavailable on CI; skipped by design
                   "9_narratives"}   # narrative pre-gen: soft-fail (quota exhaustion expected)
     _CRITICAL  = {"5_build_features", "6_bayesian_ratings", "7_monte_carlo_sim",

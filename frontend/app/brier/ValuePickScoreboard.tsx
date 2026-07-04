@@ -5,15 +5,19 @@ import { FlagIcon } from "@/app/components/FlagIcon"
 // Types + helpers
 // ---------------------------------------------------------------------------
 
-const EDGE_THRESHOLD = 0.10   // model must be ≥10pp above market to qualify
+// A significant disagreement: |model_prob − market_prob| ≥ 10pp
+const EDGE_THRESHOLD = 0.10
 
 interface ValuePick {
-  entry:       BrierEntry
-  backedTeam:  string
-  edgePct:     number    // absolute edge in percentage points
-  correct:     boolean
-  brierDelta:  number | null  // brier_market − brier_model (positive = model won)
-  round:       string
+  entry:          BrierEntry
+  backedTeam:     string          // team the model gives >50% to
+  modelPct:       number          // model probability for the backed team
+  marketPct:      number          // market implied probability for same team
+  edgePct:        number          // |model − market| on the backed team (always positive)
+  edgeSign:       number          // +1 = model more confident, −1 = model less confident
+  correct:        boolean
+  brierDelta:     number | null   // brier_market − brier_model (positive = model won)
+  round:          string
 }
 
 const ROUND_ORDER: Record<string, number> = { R32: 0, R16: 1, QF: 2, SF: 3, F: 4 }
@@ -32,13 +36,23 @@ function extractPicks(entries: BrierEntry[]): ValuePick[] {
 
   for (const e of entries) {
     if (e.model_prob === null || e.market_prob === null) continue
-    const edge = e.model_prob - e.market_prob   // positive = model favours home more than market
 
-    if (Math.abs(edge) < EDGE_THRESHOLD) continue
+    // model_prob is always the HOME team's win probability.
+    // "Model picks" whoever the model gives ≥50% to — not the side that merely
+    // has a larger gap vs the market.
+    const homeWin   = e.model_prob >= 0.5
+    const backedTeam  = homeWin ? e.home_team : e.away_team
 
-    const backedTeam = edge > 0 ? e.home_team : e.away_team
-    const edgePct    = Math.abs(edge)
-    const correct    = e.advanced_team === backedTeam
+    // Translate both probs to the backed team's perspective
+    const modelPct  = homeWin ? e.model_prob       : 1 - e.model_prob
+    const marketPct = homeWin ? e.market_prob       : 1 - e.market_prob
+
+    const rawEdge   = modelPct - marketPct          // + = model more confident on this pick
+    const edgePct   = Math.abs(rawEdge)
+
+    if (edgePct < EDGE_THRESHOLD) continue
+
+    const correct   = e.advanced_team === backedTeam
     const brierDelta =
       e.brier_model !== null && e.brier_market !== null
         ? e.brier_market - e.brier_model
@@ -47,7 +61,10 @@ function extractPicks(entries: BrierEntry[]): ValuePick[] {
     picks.push({
       entry: e,
       backedTeam,
+      modelPct,
+      marketPct,
       edgePct,
+      edgeSign: Math.sign(rawEdge),
       correct,
       brierDelta,
       round: shortRound(e.round),
@@ -84,7 +101,7 @@ export default function ValuePickScoreboard({ entries }: { entries: BrierEntry[]
           Value Pick Scoreboard
         </p>
         <p className="text-xs text-slate-500 mt-0.5">
-          Matches where our model gave ≥10pp more probability than the market · wins and losses both shown
+          Matches where model and market diverged by ≥10pp — model's actual pick shown
         </p>
 
         {picks.length > 0 && (
@@ -117,14 +134,14 @@ export default function ValuePickScoreboard({ entries }: { entries: BrierEntry[]
       {/* Body */}
       {picks.length === 0 ? (
         <div className="px-5 py-8 text-center text-xs text-slate-600">
-          No significant edges called yet — threshold is model ≥10pp above market.
+          No significant edges called yet — threshold is |model − market| ≥ 10pp.
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[540px]">
+          <table className="w-full min-w-[580px]">
             <thead>
               <tr className="border-b border-slate-800 bg-slate-950/50">
-                {["Round", "Match", "Model backed", "Edge", "Result", "Δ Brier"].map((h, i) => (
+                {["Round", "Match", "Model pick", "Model", "Market", "Result", "Δ Brier"].map((h, i) => (
                   <th
                     key={h}
                     className={`px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500
@@ -149,6 +166,12 @@ export default function ValuePickScoreboard({ entries }: { entries: BrierEntry[]
                       ? "text-rose-400"
                       : "text-slate-400"
 
+                // Edge label: show direction of disagreement
+                const edgeLabel = pick.edgeSign >= 0
+                  ? `+${(pick.edgePct * 100).toFixed(1)}pp`
+                  : `−${(pick.edgePct * 100).toFixed(1)}pp`
+                const edgeColor = pick.edgeSign >= 0 ? "text-emerald-400" : "text-amber-400"
+
                 return (
                   <tr
                     key={e.event_id}
@@ -172,8 +195,13 @@ export default function ValuePickScoreboard({ entries }: { entries: BrierEntry[]
                       <FlagIcon name={pick.backedTeam} size={12} />
                       {" "}{pick.backedTeam}
                     </td>
-                    <td className="px-3 py-3 text-right text-emerald-400 font-semibold tabular-nums whitespace-nowrap">
-                      +{(pick.edgePct * 100).toFixed(1)}pp
+                    {/* Model prob for the backed team */}
+                    <td className={`px-3 py-3 text-right font-mono tabular-nums whitespace-nowrap ${edgeColor}`}>
+                      {(pick.modelPct * 100).toFixed(1)}%
+                    </td>
+                    {/* Market implied prob for same team */}
+                    <td className="px-3 py-3 text-right font-mono tabular-nums text-slate-500 whitespace-nowrap">
+                      {(pick.marketPct * 100).toFixed(1)}%
                     </td>
                     <td className="px-3 py-3 text-right whitespace-nowrap">
                       {pick.correct ? (
@@ -194,7 +222,7 @@ export default function ValuePickScoreboard({ entries }: { entries: BrierEntry[]
       )}
 
       <div className="px-5 py-3 border-t border-slate-800 text-[10px] text-slate-700">
-        Δ Brier = market_brier − model_brier · positive = model did better than market on that pick · threshold: |model − market| ≥ 10pp
+        Model / Market columns show win probability for the model&apos;s pick · Δ Brier = market_brier − model_brier · positive = model outperformed market
       </div>
     </div>
   )
