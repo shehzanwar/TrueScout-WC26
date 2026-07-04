@@ -165,6 +165,7 @@ _LEAGUE_ELO: dict[str, float] = {
     "South African Premier Division": 0.555,
     "Tunisian Ligue Professionnelle 1": 0.580,
     "Indonesian Super League": 0.540,
+    "Indonesia Super League":  0.540,   # alias: name used in features.parquet
     "Liga FUTVE":             0.510,   # Venezuela
     "Liga Panameña de Fútbol, Clausura": 0.520,
     "Liga Nacional de Fútbol de Guatemala, Apertura": 0.510,
