@@ -50,10 +50,28 @@ export async function getBrier(): Promise<BrierResponse> {
   return readData<BrierResponse>("brier.json")
 }
 
-export async function getPlayer(reep_id: string): Promise<PlayerResponse> {
+function slugify(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+}
+
+export async function getPlayer(idOrSlug: string): Promise<PlayerResponse> {
   const players = readData<PlayerResponse[]>("players.json")
-  const player = players.find((p) => p.reep_id === reep_id)
-  if (!player) throw new Error(`Player not found: ${reep_id}`)
+  // Prefer exact reep_id match (fast path)
+  let player = players.find((p) => p.reep_id === idOrSlug)
+  // Fall back to slug — use pre-computed slug when present, derive from name otherwise
+  if (!player) {
+    player = players.find(
+      (p) => (p.slug ?? (p.name ? slugify(p.name) : null)) === idOrSlug
+    )
+  }
+  if (!player) throw new Error(`Player not found: ${idOrSlug}`)
   return player
 }
 

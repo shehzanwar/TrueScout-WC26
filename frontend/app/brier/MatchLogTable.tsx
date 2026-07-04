@@ -203,7 +203,7 @@ export default function MatchLogTable({ entries }: { entries: BrierEntry[] }) {
           Match Log
         </p>
         <p className="text-xs text-slate-500 mt-0.5">
-          All graded knockout fixtures · click column headers to sort
+          All graded knockout fixtures · probabilities locked in before kickoff · click to sort
         </p>
 
         {/* Legend */}
@@ -230,7 +230,7 @@ export default function MatchLogTable({ entries }: { entries: BrierEntry[] }) {
               <th className="px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500">
                 Winner
               </th>
-              <Th label="Model %"     sortKey="modelProb"  current={sortKey} dir={sortDir} onClick={handleSort} align="right" />
+              <Th label="Model % *"   sortKey="modelProb"  current={sortKey} dir={sortDir} onClick={handleSort} align="right" />
               <Th label="Market %"    sortKey="marketProb" current={sortKey} dir={sortDir} onClick={handleSort} align="right" />
               <Th label="Δ Brier"     sortKey="brierDelta" current={sortKey} dir={sortDir} onClick={handleSort} align="right" />
             </tr>
@@ -282,8 +282,9 @@ export default function MatchLogTable({ entries }: { entries: BrierEntry[] }) {
         </table>
       </div>
 
-      <div className="px-5 py-3 border-t border-slate-800 text-[10px] text-slate-700">
-        Δ Brier = market_brier − model_brier · positive = model did better
+      <div className="px-5 py-3 border-t border-slate-800 text-[10px] text-slate-700 space-y-0.5">
+        <p>Δ Brier = market_brier − model_brier · positive = model did better</p>
+        <p>* Model % = pre-match probability, locked in before kickoff — differs from live simulation odds shown on the dashboard</p>
       </div>
     </div>
   )

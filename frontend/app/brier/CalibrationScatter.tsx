@@ -98,7 +98,7 @@ function ScatterTooltip({
       </p>
       <p className="text-slate-500">{d.label} · {d.round}</p>
       <div className="flex justify-between gap-4 pt-0.5">
-        <span className="text-emerald-400">Model {modelPct}%</span>
+        <span className="text-emerald-400">Pre-match model {modelPct}%</span>
         <span className="text-slate-400">Market {mktPct}%</span>
       </div>
       <p className={`text-[11px] font-medium ${deltaColor}`}>
@@ -139,7 +139,7 @@ export default function CalibrationScatter({ entries }: { entries: BrierEntry[] 
           Calibration Scatter
         </p>
         <p className="text-xs text-slate-500 mt-0.5">
-          Each dot = one graded match · dots above the diagonal = model more confident than market · hover for details
+          Each dot = one graded match · axes show pre-match probabilities locked in before kickoff · dots above the diagonal = model more confident than market
         </p>
       </div>
 
@@ -167,7 +167,7 @@ export default function CalibrationScatter({ entries }: { entries: BrierEntry[] 
             tickFormatter={(v: number) => `${Math.round(v * 100)}%`}
             tick={{ fill: "#64748b", fontSize: 11 }}
             label={{
-              value: "Model probability for winner",
+              value: "Pre-match model prob. for winner",
               angle: -90,
               position: "insideLeft",
               offset: 12,

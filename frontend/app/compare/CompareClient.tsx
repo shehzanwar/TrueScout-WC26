@@ -3,8 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
-import type { PlayerResponse } from "@/lib/api"
-import { normalizeString } from "@/lib/api"
+import { normalizeString, playerSlug, trueScoutRating, type PlayerResponse } from "@/lib/api"
 import { FlagIcon } from "@/app/components/FlagIcon"
 
 function confBadge(score: number) {
@@ -50,7 +49,7 @@ function PlayerSearchBox({
   const results = q.trim().length >= 2
     ? all
         .filter((p) => normalizeString(p.name ?? "").includes(normalizeString(q)))
-        .sort((a, b) => b.confidence_score - a.confidence_score || b.posterior_mean - a.posterior_mean)
+        .sort((a, b) => trueScoutRating(b) - trueScoutRating(a))
         .slice(0, 8)
     : []
 
@@ -80,7 +79,7 @@ function PlayerSearchBox({
                 </p>
               </div>
               <span className="text-xs font-mono text-emerald-400 shrink-0">
-                {p.posterior_mean.toFixed(2)}
+                {trueScoutRating(p).toFixed(2)}
               </span>
             </button>
           ))}
@@ -100,22 +99,24 @@ function MetricBar({
   valB,
   fmt = (v: number) => v.toFixed(2),
   invert = false,   // lower is better
+  neutral = false,  // no winner highlight (contextual metrics)
 }: {
   label: string
   valA: number | null | undefined
   valB: number | null | undefined
   fmt?: (v: number) => string
   invert?: boolean
+  neutral?: boolean
 }) {
   const a = valA ?? 0
   const b = valB ?? 0
   const max = Math.max(a, b, 0.001)
 
-  const aWins = invert ? a < b : a > b
-  const bWins = invert ? b < a : b > a
+  const aWins = !neutral && (invert ? a < b : a > b)
+  const bWins = !neutral && (invert ? b < a : b > a)
 
-  const aColor = valA == null ? "bg-slate-700" : aWins ? "bg-emerald-500" : bWins ? "bg-slate-600" : "bg-slate-600"
-  const bColor = valB == null ? "bg-slate-700" : bWins ? "bg-emerald-500" : aWins ? "bg-slate-600" : "bg-slate-600"
+  const aColor = valA == null ? "bg-slate-700" : aWins ? "bg-emerald-500" : "bg-slate-600"
+  const bColor = valB == null ? "bg-slate-700" : bWins ? "bg-emerald-500" : "bg-slate-600"
   const aText  = aWins ? "text-emerald-400" : "text-slate-400"
   const bText  = bWins ? "text-emerald-400" : "text-slate-400"
 
@@ -168,7 +169,7 @@ function PlayerCard({ player, side }: { player: PlayerResponse; side: "left" | "
     <div className={`flex flex-col gap-1 ${align}`}>
       <FlagIcon name={player.nationality} size={36} />
       <Link
-        href={`/players/${player.reep_id}`}
+        href={`/players/${playerSlug(player)}`}
         className="text-base font-bold text-slate-100 hover:text-emerald-400 transition-colors leading-tight"
       >
         {player.name ?? player.reep_id}
@@ -177,7 +178,7 @@ function PlayerCard({ player, side }: { player: PlayerResponse; side: "left" | "
         {player.nationality} · {player.position_detail ?? player.position_micro ?? player.position_macro}
       </p>
       <p className="text-2xl font-bold text-emerald-400 tabular-nums mt-1">
-        {player.posterior_mean.toFixed(2)}
+        {trueScoutRating(player).toFixed(2)}
         <span className="text-sm text-slate-500 font-normal">/10</span>
       </p>
       {player.fifa?.overall != null && (
@@ -255,9 +256,9 @@ export default function CompareClient({ allPlayers }: { allPlayers: PlayerRespon
             <p className="text-xs uppercase tracking-wider text-slate-600">Head-to-head</p>
 
             <MetricBar
-              label="Overall Rating"
-              valA={playerA.posterior_mean}
-              valB={playerB.posterior_mean}
+              label="TrueScout Rating"
+              valA={trueScoutRating(playerA)}
+              valB={trueScoutRating(playerB)}
             />
             <MetricBar
               label="Rating range (high)"
@@ -299,13 +300,14 @@ export default function CompareClient({ allPlayers }: { allPlayers: PlayerRespon
               valA={playerA.shrinkage_weight}
               valB={playerB.shrinkage_weight}
               fmt={(v) => `${Math.round(v * 100)}%`}
+              neutral
             />
           </div>
 
           {/* Verdict */}
           <div className="border-t border-slate-800 pt-4">
             {(() => {
-              const delta = playerA.posterior_mean - playerB.posterior_mean
+              const delta = trueScoutRating(playerA) - trueScoutRating(playerB)
               const absDelta = Math.abs(delta)
               const winner = delta > 0 ? playerA : delta < 0 ? playerB : null
               if (!winner) {
