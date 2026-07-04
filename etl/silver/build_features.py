@@ -319,6 +319,10 @@ def load_sofascore_club_priors() -> pd.DataFrame:
         .rank(method="dense", ascending=False)
     )
     df = df[df["_yr_rank"] <= RECENT_N].drop(columns=["_yr_rank"])
+    # Require ≥5 appearances to filter cup/small-sample noise.
+    # e.g. Canadian Championship rows (3 apps, 1.6 goals/90) massively inflate
+    # the weighted-average prior via tiny denominators.
+    df = df[df["appearances"].fillna(0) >= 5].copy()
     # Keep only rows with enough minutes to be meaningful
     df = df[df["minutes_played"].fillna(0) >= 90].copy()
     if df.empty:
@@ -364,7 +368,22 @@ def load_fbref_intl_form() -> pd.DataFrame:
     Understat and Sofascore club-stats passes.
 
     Returns an empty DataFrame if parquet not found or no matches.
+
+    NOTE: The FBref intl parquet includes WC 2026 Qual CONMEBOL rows for ALL
+    players scraped. The Reep register occasionally maps CONCACAF players
+    (Canada, USA, Mexico, etc.) to the same FBref ID as a South American player
+    with the same name, causing their goals/minutes to be double-counted.
+    We strip CONMEBOL qualifying rows for players whose WC national team is
+    a CONCACAF confederation member to prevent this contamination.
     """
+    # CONCACAF WC 2026 teams — must not absorb CONMEBOL qualifying stats
+    _CONCACAF_TEAMS = {
+        "Canada", "United States", "Mexico", "Costa Rica", "Honduras", "Panama",
+        "Jamaica", "Curaçao", "Haiti", "El Salvador", "Suriname",
+        "Trinidad and Tobago", "Guadeloupe", "Guatemala",
+    }
+    _CONMEBOL_QUAL = "WC 2026 Qual CONMEBOL"
+
     path = _BRONZE_FBREF / "intl_form.parquet"
     if not path.exists():
         logger.info("fbref intl_form.parquet not found — skipping international form prior")
@@ -374,7 +393,7 @@ def load_fbref_intl_form() -> pd.DataFrame:
     if df.empty:
         return pd.DataFrame()
 
-    # key_fbref → reep_id lookup
+    # key_fbref → reep_id lookup, also grab WC national team via Sofascore lineups
     conn = get_read_conn()
     try:
         fbref_bridge = conn.execute("""
@@ -382,6 +401,27 @@ def load_fbref_intl_form() -> pd.DataFrame:
             FROM identity_players
             WHERE key_fbref IS NOT NULL AND key_fbref != ''
         """).df()
+
+        # WC national team per reep_id (from Sofascore lineups + events)
+        bronze = Path(settings.parquet_bronze_dir)
+        lineup_glob = (bronze / "sofascore" / "lineups" / "*.parquet").as_posix()
+        events_glob = (bronze / "sofascore" / "events"  / "*.parquet").as_posix()
+        try:
+            wc_teams_df = conn.execute(f"""
+                SELECT DISTINCT
+                    ip.reep_id,
+                    CASE l.team_side
+                        WHEN 'home' THEN e.home_team_name
+                        WHEN 'away' THEN e.away_team_name
+                    END AS wc_nat_team
+                FROM read_parquet('{lineup_glob}', union_by_name=true) l
+                JOIN read_parquet('{events_glob}', union_by_name=true) e
+                  ON CAST(l.event_id AS BIGINT) = CAST(e.event_id AS BIGINT)
+                JOIN identity_players ip
+                  ON CAST(l.player_id AS VARCHAR) = ip.key_sofascore
+            """).df()
+        except Exception:
+            wc_teams_df = pd.DataFrame(columns=["reep_id", "wc_nat_team"])
     finally:
         conn.close()
 
@@ -389,6 +429,20 @@ def load_fbref_intl_form() -> pd.DataFrame:
     if merged.empty:
         logger.warning("fbref_intl: no FBref IDs matched to reep_ids")
         return pd.DataFrame()
+
+    # Tag each row with the player's WC national team (if known) then strip
+    # CONMEBOL qualifying rows for CONCACAF players.
+    if not wc_teams_df.empty:
+        merged = merged.merge(wc_teams_df, on="reep_id", how="left")
+        is_concacaf = merged["wc_nat_team"].isin(_CONCACAF_TEAMS)
+        is_conmebol_qual = merged["competition"] == _CONMEBOL_QUAL
+        n_stripped = int((is_concacaf & is_conmebol_qual).sum())
+        if n_stripped:
+            logger.info(
+                "fbref_intl: stripped %d CONMEBOL qual rows from CONCACAF players "
+                "(cross-contamination guard)", n_stripped,
+            )
+        merged = merged[~(is_concacaf & is_conmebol_qual)].copy()
 
     # Filter: at least 45 minutes in a competition to count
     merged = merged[merged["minutes"].fillna(0) >= 45].copy()
