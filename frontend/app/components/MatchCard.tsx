@@ -26,7 +26,7 @@ function probBarColor(p: number | null): string {
 
 function formatDate(dateStr: string): string {
   try {
-    return new Date(dateStr).toLocaleDateString("en-US", {
+    return new Date(dateStr + "T12:00:00").toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
     })
@@ -364,8 +364,8 @@ export default function MatchCard({ match }: { match: Matchup }) {
               }`}
             >
               {modelEdgeDelta! > 0
-                ? `Value pick: ${home.name.split(" ").at(-1)} +${Math.round(modelEdgeDelta! * 100)}% vs bookies`
-                : `Value pick: ${away.name.split(" ").at(-1)} +${Math.round(Math.abs(modelEdgeDelta!) * 100)}% vs bookies`}
+                ? `Value pick: ${home.name} +${Math.round(modelEdgeDelta! * 100)}% vs bookies`
+                : `Value pick: ${away.name} +${Math.round(Math.abs(modelEdgeDelta!) * 100)}% vs bookies`}
             </p>
           )}
         </div>

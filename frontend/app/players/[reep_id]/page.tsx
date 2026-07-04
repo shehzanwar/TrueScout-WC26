@@ -171,7 +171,7 @@ export default async function PlayerProfilePage({
             {[
               player.nationality,
               player.position_detail ?? player.position_macro,
-              archetypeLabel,
+              archetypeLabel !== (player.position_detail ?? player.position_macro) ? archetypeLabel : null,
             ]
               .filter(Boolean)
               .join(" · ")}
