@@ -3,8 +3,18 @@ import { getBrier } from "@/lib/server-data"
 import SummaryCards from "./SummaryCards"
 import MatchLogTable from "./MatchLogTable"
 import CalibrationScatter from "./CalibrationScatter"
+import ValuePickScoreboard from "./ValuePickScoreboard"
 
-export const metadata: Metadata = { title: "Track Record" }
+export const metadata: Metadata = {
+  title: "Track Record",
+  description: "Every WC 2026 knockout match graded — TrueScout model vs bookmaker odds vs actual result.",
+  openGraph: {
+    title: "Track Record · TrueScout WC 2026",
+    description: "Every knockout match graded — model predictions vs bookmaker odds vs actual result.",
+    type: "website",
+  },
+  twitter: { card: "summary_large_image" },
+}
 
 export default async function BrierPage() {
   const data = await getBrier().catch(() => null)
@@ -59,6 +69,9 @@ export default async function BrierPage() {
               <MatchLogTable entries={data.entries} />
             </div>
           </div>
+
+          {/* Value pick track record */}
+          <ValuePickScoreboard entries={data.entries} />
         </>
       )}
 

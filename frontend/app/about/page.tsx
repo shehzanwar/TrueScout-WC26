@@ -1,7 +1,16 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 
-export const metadata: Metadata = { title: "About" }
+export const metadata: Metadata = {
+  title: "About",
+  description: "How TrueScout's Bayesian model works — data sources, methodology, and limitations.",
+  openGraph: {
+    title: "About · TrueScout WC 2026",
+    description: "How TrueScout's Bayesian model works — data sources, methodology, and limitations.",
+    type: "website",
+  },
+  twitter: { card: "summary_large_image" },
+}
 
 // ---------------------------------------------------------------------------
 // Shared primitives

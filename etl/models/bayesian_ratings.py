@@ -219,9 +219,10 @@ _MICRO_MAP: dict[str, str] = {
     "right-back":           "Full Back",
     "left back":            "Full Back",
     "right back":           "Full Back",
-    "wing-back":            "Full Back",
-    "wing back":            "Full Back",
     "wing half":            "Winger",
+    # Wing-backs bucket into MID (see build_features.py); micro = Winger
+    "wing-back":            "Winger",
+    "wing back":            "Winger",
     # Midfielders
     "midfielder":           "Central Midfielder",
     "central midfielder":   "Central Midfielder",

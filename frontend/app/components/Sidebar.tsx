@@ -67,7 +67,13 @@ const NAV = [
   },
 ]
 
-export default function Sidebar() {
+function formatDate(iso: string): string {
+  const [year, month, day] = iso.split("-").map(Number)
+  const d = new Date(year, month - 1, day)
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+}
+
+export default function Sidebar({ lastUpdated }: { lastUpdated?: string }) {
   const pathname = usePathname()
 
   return (
@@ -122,7 +128,14 @@ export default function Sidebar() {
         >
           About · How it works
         </Link>
-        <p className="text-xs text-slate-700">WC 2026 Intelligence</p>
+        <p className="text-[10px] text-slate-600 leading-relaxed">
+          Probabilities are statistical model estimates — not predictions, guarantees, or betting advice.
+        </p>
+        {lastUpdated && (
+          <p className="text-[10px] text-slate-700">
+            Updated {formatDate(lastUpdated)}
+          </p>
+        )}
       </div>
     </aside>
   )

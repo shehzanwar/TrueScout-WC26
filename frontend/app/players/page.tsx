@@ -1,7 +1,16 @@
 import type { Metadata } from "next"
 import PlayerSearchClient from "./PlayerSearchClient"
 
-export const metadata: Metadata = { title: "Player Search" }
+export const metadata: Metadata = {
+  title: "Player Search",
+  description: "Search and compare Bayesian ratings for all 3,274 players at WC 2026.",
+  openGraph: {
+    title: "Player Search · TrueScout WC 2026",
+    description: "Search and compare Bayesian ratings for all 3,274 players at WC 2026.",
+    type: "website",
+  },
+  twitter: { card: "summary_large_image" },
+}
 
 export default async function PlayersPage({
   searchParams,

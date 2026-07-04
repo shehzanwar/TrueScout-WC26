@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google"
 import "./globals.css"
 import Sidebar from "./components/Sidebar"
 import SidebarClient from "./components/SidebarClient"
+import { getSimulations } from "@/lib/server-data"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -35,11 +36,12 @@ export const metadata: Metadata = {
   },
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const lastUpdated = await getSimulations().then(s => s.run_date).catch(() => undefined)
   return (
     <html
       lang="en"
@@ -47,7 +49,7 @@ export default function RootLayout({
     >
       <body className="flex min-h-screen bg-slate-950">
         {/* Desktop sidebar — hidden on mobile */}
-        <Sidebar />
+        <Sidebar lastUpdated={lastUpdated} />
         {/* Mobile: sticky top bar + slide-in drawer */}
         <div className="flex-1 min-w-0 flex flex-col">
           <SidebarClient />

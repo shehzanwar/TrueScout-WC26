@@ -3,7 +3,16 @@ import { getSimulations, getMatchups } from "@/lib/server-data"
 import { buildBracket } from "@/lib/bracket"
 import BracketGrid from "./BracketGrid"
 
-export const metadata: Metadata = { title: "Bracket" }
+export const metadata: Metadata = {
+  title: "Bracket",
+  description: "Monte Carlo knockout bracket for WC 2026 — R16 to Final win probabilities from 100k simulations.",
+  openGraph: {
+    title: "Knockout Tree · TrueScout WC 2026",
+    description: "Monte Carlo knockout bracket — R16 to Final win probabilities from 100k simulations.",
+    type: "website",
+  },
+  twitter: { card: "summary_large_image" },
+}
 
 export default async function BracketPage() {
   const [simData, r32Data, r16Data] = await Promise.all([

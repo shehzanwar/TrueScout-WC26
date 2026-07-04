@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { motion } from "framer-motion"
-import type { SimTeam, BrierSummary, BrierEntry, Matchup, PlayerResponse, InsightsOvernight } from "@/lib/api"
+import { playerSlug, type SimTeam, type BrierSummary, type BrierEntry, type Matchup, type PlayerResponse, type InsightsOvernight } from "@/lib/api"
 import { FlagIcon } from "@/app/components/FlagIcon"
 
 // ---------------------------------------------------------------------------
@@ -343,7 +343,7 @@ function TopPerformersCard({ players }: { players: PlayerResponse[] }) {
           {players.map((p, i) => (
             <motion.li key={p.reep_id} variants={row}>
               <Link
-                href={`/players/${p.reep_id}`}
+                href={`/players/${playerSlug(p)}`}
                 className="flex items-center gap-3 py-1 rounded-lg hover:bg-slate-800 px-1 transition-colors group"
               >
                 <span className="w-5 text-center text-xs font-bold text-slate-600 tabular-nums shrink-0">
