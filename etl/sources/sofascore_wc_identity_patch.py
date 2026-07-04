@@ -331,13 +331,17 @@ def run_patch(dry_run: bool = False) -> dict:
                     reep_id = _make_reep_id(sofascore_id)
                     logger.info("  No match found — inserting new identity %s for %s.", reep_id, ss_name)
                     if not dry_run:
-                        conn.execute("""
-                            INSERT OR IGNORE INTO identity_players (
-                                reep_id, name, full_name, date_of_birth,
-                                nationality, position, position_detail,
-                                height_cm, key_sofascore
-                            ) VALUES (?, ?, ?, TRY_CAST(? AS DATE), ?, ?, ?, ?, ?)
-                        """, [
+                        already = conn.execute(
+                            "SELECT 1 FROM identity_players WHERE reep_id = ?", [reep_id]
+                        ).fetchone()
+                        if not already:
+                            conn.execute("""
+                                INSERT INTO identity_players (
+                                    reep_id, name, full_name, date_of_birth,
+                                    nationality, position, position_detail,
+                                    height_cm, key_sofascore
+                                ) VALUES (?, ?, ?, TRY_CAST(? AS DATE), ?, ?, ?, ?, ?)
+                            """, [
                             reep_id, ss_name, ss_name, dob_str,
                             country, position, position_detail,
                             float(height_cm) if height_cm else None,
