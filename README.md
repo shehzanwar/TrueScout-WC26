@@ -1,8 +1,4 @@
-This `README.md` is already exceptionally well-written and structured for GitHub. The use of centering, shields.io badges, clear hierarchical headers, and tables makes it highly scannable and professional.
 
-Here is the clean Markdown code ready to be copied directly into your repository's `README.md` file:
-
-```markdown
 <div align="center">
 
 # ⚽ TrueScout — WC 2026 Intelligence
