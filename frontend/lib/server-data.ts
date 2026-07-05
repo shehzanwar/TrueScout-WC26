@@ -81,14 +81,51 @@ export async function getSimulations(): Promise<SimulationsResponse> {
 
 export async function getMatchups(round = "R32"): Promise<MatchupsResponse> {
   const all = readData<Record<string, MatchupsResponse>>("matchups.json")
-  return (
-    all[round] ?? {
-      round_code: round,
-      round_name: round,
-      n_matches: 0,
-      matches: [],
+  let data = all[round] ?? {
+    round_code: round,
+    round_name: round,
+    n_matches: 0,
+    matches: [],
+  }
+
+  // For completed R16 matches, the ETL currently writes model_advance_prob from
+  // the post-completion simulation (P(team reaches QF) = 1.0 for winners).
+  // Restore the pre-match BT probability from brier.json so the matchups page
+  // shows what the model actually predicted before kick-off.
+  if (round === "R16" && data.matches.some(m => m.is_completed)) {
+    const brier = readDataOrNull<BrierResponse>("brier.json")
+    if (brier?.entries?.length) {
+      const byEvent = new Map(brier.entries.map(e => [e.event_id, e]))
+      data = {
+        ...data,
+        matches: data.matches.map(m => {
+          if (!m.is_completed) return m
+          const b = byEvent.get(m.event_id)
+          if (!b || b.model_prob == null) return m
+          // model_prob = P(home wins) pre-match; market_prob same convention
+          return {
+            ...m,
+            home: {
+              ...m.home,
+              model_advance_prob: round4(b.model_prob),
+              market_advance_prob: b.market_prob != null ? round4(b.market_prob) : null,
+            },
+            away: {
+              ...m.away,
+              model_advance_prob: round4(1 - b.model_prob),
+              market_advance_prob: b.market_prob != null ? round4(1 - b.market_prob) : null,
+            },
+          }
+        }),
+      }
     }
-  )
+  }
+
+  return data
+}
+
+function round4(v: number): number {
+  return Math.round(v * 10000) / 10000
 }
 
 export async function getBrier(): Promise<BrierResponse> {
