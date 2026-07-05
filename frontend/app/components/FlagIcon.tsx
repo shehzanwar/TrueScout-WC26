@@ -22,5 +22,13 @@ export function FlagIcon({
     )
   }
   const emoji = getFlag(name)
-  return <span style={{ fontSize: size * 0.9 }}>{emoji}</span>
+  return (
+    <span
+      role="img"
+      aria-label={name ?? "flag"}
+      style={{ fontSize: size * 0.9 }}
+    >
+      {emoji}
+    </span>
+  )
 }

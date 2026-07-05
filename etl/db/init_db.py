@@ -381,6 +381,18 @@ _TABLES: list[str] = [
         PRIMARY KEY (run_date, team_left, team_right)
     )
     """,
+
+    # ── Calibration model parameters (append-only audit trail) ───────────────
+    # Persisted by etl/models/calibration.py fit_scale() each nightly run.
+    # Allows tracking logistic_scale drift over the tournament.
+    """
+    CREATE TABLE IF NOT EXISTS model_params (
+        run_date  DATE    NOT NULL,
+        param     VARCHAR NOT NULL,
+        value     DOUBLE  NOT NULL,
+        PRIMARY KEY (run_date, param)
+    )
+    """,
 ]
 
 

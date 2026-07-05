@@ -2,8 +2,9 @@
 
 import Link from "next/link"
 import { motion } from "framer-motion"
-import { playerSlug, type SimTeam, type BrierSummary, type BrierEntry, type Matchup, type PlayerResponse, type InsightsOvernight } from "@/lib/api"
+import { playerSlug, type SimTeam, type BrierSummary, type BrierEntry, type Matchup, type PlayerResponse, type InsightsOvernight, type BracketSlotEntry } from "@/lib/api"
 import { FlagIcon } from "@/app/components/FlagIcon"
+import Tooltip, { LabelWithInfo } from "@/app/components/Tooltip"
 
 // ---------------------------------------------------------------------------
 // Animation variants — minimal: one subtle lift per card only
@@ -19,13 +20,15 @@ const card = {
 // ---------------------------------------------------------------------------
 
 
-function StatPill({ value, label, accent = false }: { value: string; label: string; accent?: boolean }) {
+function StatPill({ value, label, accent = false, tip }: { value: string; label: string; accent?: boolean; tip?: string }) {
   return (
     <div className="flex flex-col items-center gap-0.5">
       <span className={`text-lg font-bold tabular-nums ${accent ? "text-emerald-400" : "text-slate-100"}`}>
         {value}
       </span>
-      <span className="text-xs text-slate-500 uppercase tracking-wide">{label}</span>
+      <span className="text-xs text-slate-500 uppercase tracking-wide">
+        {tip ? <LabelWithInfo label={label} tip={tip} /> : label}
+      </span>
     </div>
   )
 }
@@ -137,16 +140,27 @@ function CalibrationCard({ summary, entries }: { summary: BrierSummary; entries:
   const skillPos  = summary.brier_skill_vs_coin != null && summary.brier_skill_vs_coin > 0
 
   return (
-    <SectionCard title="Prediction Accuracy" subtitle="How well our model calls knockout results" variant="inset">
+    <SectionCard title="Prediction Accuracy" subtitle="Did our model pick the winners?" variant="inset">
       {summary.n_matches === 0 ? (
-        <p className="text-sm text-slate-500 italic">No completed knockout matches graded yet.</p>
+        <p className="text-sm text-slate-500 italic">No completed knockout matches graded yet. Check back after the first round.</p>
       ) : (
         <>
           <div className="grid grid-cols-3 gap-3 py-1">
             <StatPill value={String(summary.n_matches)} label="Graded" />
-            <StatPill value={brierModel} label="Brier Score" accent />
-            <StatPill value={skillPct} label="Edge" accent={skillPos} />
+            <StatPill
+              value={brierModel}
+              label="Brier Score"
+              accent
+              tip="Measures how accurate our probability predictions were. 0.0 = perfect, 0.25 = random guessing, 1.0 = always wrong. Lower is better."
+            />
+            <StatPill
+              value={skillPct}
+              label="Skill Edge"
+              accent={skillPos}
+              tip="How much better (or worse) our model is versus a 50/50 coin flip. Positive means the model is outperforming random chance."
+            />
           </div>
+          <p className="text-[11px] text-slate-600 text-center pb-1">lower score = more accurate · 0.25 = coin flip</p>
           {summary.brier_skill_vs_coin != null && (
             <div>
               <div className="flex justify-between text-xs text-slate-500 mb-1">
@@ -301,20 +315,14 @@ function InsightCard({ match }: { match: Matchup | null }) {
             model {Math.round(modelProb * 100)}% · bookies {Math.round(bookiesProb * 100)}%
           </span>
           {isHighVariance && (
-            <div className="relative group/tooltip">
+            <Tooltip content="This is a large disagreement between our model and the bookies. These calls have higher variance — the model sees something the market doesn't, but it could go either way.">
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/15 text-amber-400 border border-amber-500/25 cursor-default select-none">
                 <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 shrink-0">
                   <path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575Zm1.763.707a.25.25 0 0 0-.44 0L1.698 13.132a.25.25 0 0 0 .22.368h12.164a.25.25 0 0 0 .22-.368Zm.53 3.996v2.5a.75.75 0 0 1-1.5 0v-2.5a.75.75 0 0 1 1.5 0ZM9 11a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z" />
                 </svg>
                 high-variance call
               </span>
-              <div
-                role="tooltip"
-                className="pointer-events-none absolute bottom-full left-0 mb-2 z-20 hidden group-hover/tooltip:block w-64 rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-xs text-slate-300 leading-relaxed shadow-xl"
-              >
-                This is a large disagreement between our model and the bookies. These calls have higher variance — the model sees something the market doesn&apos;t, but it could go either way.
-              </div>
-            </div>
+            </Tooltip>
           )}
         </div>
 
@@ -357,6 +365,7 @@ function TopPerformersCard({ players }: { players: PlayerResponse[] }) {
                   </p>
                   <p className="text-xs text-slate-500 truncate">
                     {p.national_team ?? p.nationality} · {p.position_micro ?? p.position_macro}
+                    {p.age_at_wc != null ? ` · ${p.age_at_wc}y` : ""}
                   </p>
                 </div>
                 <span className="text-sm font-semibold text-slate-300 tabular-nums shrink-0">
@@ -434,6 +443,71 @@ function OvernightDeltasCard({ overnight }: { overnight: InsightsOvernight[] }) 
 }
 
 // ---------------------------------------------------------------------------
+// Bracket Outlook (3rd column at 2xl+)
+// ---------------------------------------------------------------------------
+
+const BRACKET_ROUND_ORDER = ["R32", "R16", "QF", "SF", "F"] as const
+const BRACKET_ROUND_LABELS: Record<string, string> = {
+  R32: "Round of 32",
+  R16: "Round of 16",
+  QF:  "Quarterfinals",
+  SF:  "Semifinals",
+  F:   "Final",
+}
+
+function BracketPreviewCard({ slots }: { slots: BracketSlotEntry[] }) {
+  const currentRound = BRACKET_ROUND_ORDER.find((r) =>
+    slots.some((s) => s.round === r && s.top.prob < 1.0)
+  ) ?? null
+
+  if (!currentRound) return null
+
+  const currentSlots = slots
+    .filter((s) => s.round === currentRound)
+    .sort((a, b) => a.slot_idx - b.slot_idx)
+
+  return (
+    <SectionCard
+      title="Bracket Outlook"
+      subtitle={`${BRACKET_ROUND_LABELS[currentRound] ?? currentRound} · top pick per slot`}
+    >
+      <ol className="space-y-1.5">
+        {currentSlots.map((slot) => {
+          const confirmed = slot.top.prob >= 1.0
+          return (
+            <li key={slot.slot_idx} className="flex items-center gap-2">
+              <span className="w-4 text-right text-[10px] font-mono text-slate-600 tabular-nums shrink-0">
+                {slot.slot_idx + 1}
+              </span>
+              <span className="shrink-0">
+                <FlagIcon name={slot.top.team} size={14} />
+              </span>
+              <span
+                className={`flex-1 min-w-0 text-xs truncate ${
+                  confirmed ? "text-slate-500" : "text-slate-200"
+                }`}
+              >
+                {slot.top.team}
+              </span>
+              {confirmed ? (
+                <span className="text-[10px] text-emerald-600 shrink-0">✓</span>
+              ) : (
+                <span className="text-[10px] font-mono text-emerald-400 tabular-nums shrink-0">
+                  {Math.round(slot.top.prob * 100)}%
+                </span>
+              )}
+            </li>
+          )
+        })}
+      </ol>
+      <Link href="/bracket" className="text-xs text-emerald-500 hover:text-emerald-400 transition-colors">
+        Full bracket →
+      </Link>
+    </SectionCard>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Main export
 // ---------------------------------------------------------------------------
 
@@ -445,6 +519,7 @@ export default function HomeCards({
   insightMatch,
   topPlayers,
   overnight,
+  bracketSlots = [],
 }: {
   champions: SimTeam[]
   brierSummary: BrierSummary
@@ -453,15 +528,25 @@ export default function HomeCards({
   insightMatch: Matchup | null
   topPlayers: PlayerResponse[]
   overnight: InsightsOvernight[] | null
+  bracketSlots?: BracketSlotEntry[]
 }) {
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-      <FavoritesCard champions={champions} overnight={overnight} />
-      <CalibrationCard summary={brierSummary} entries={brierEntries} />
-      {matchOfTheDay && <MatchOfTheDayCard match={matchOfTheDay} />}
-      <InsightCard match={insightMatch} />
-      {overnight && overnight.length > 0 && <OvernightDeltasCard overnight={overnight} />}
-      <TopPerformersCard players={topPlayers} />
+    <div className="2xl:flex 2xl:gap-5 2xl:items-start">
+      {/* Main 2-col grid */}
+      <div className="flex-1 min-w-0 grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <FavoritesCard champions={champions} overnight={overnight} />
+        <CalibrationCard summary={brierSummary} entries={brierEntries} />
+        {matchOfTheDay && <MatchOfTheDayCard match={matchOfTheDay} />}
+        <InsightCard match={insightMatch} />
+        {overnight && overnight.length > 0 && <OvernightDeltasCard overnight={overnight} />}
+        <TopPerformersCard players={topPlayers} />
+      </div>
+      {/* 3rd column: bracket preview at 2xl+ */}
+      {bracketSlots.length > 0 && (
+        <div className="hidden 2xl:block 2xl:w-64 2xl:shrink-0">
+          <BracketPreviewCard slots={bracketSlots} />
+        </div>
+      )}
     </div>
   )
 }

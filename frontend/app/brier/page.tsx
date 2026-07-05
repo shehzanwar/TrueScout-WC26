@@ -22,13 +22,16 @@ export default async function BrierPage() {
   const isEmpty = !data || data.summary.n_matches === 0
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-6xl 2xl:max-w-7xl mx-auto space-y-6">
 
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-slate-100">Track Record</h1>
         <p className="mt-1 text-sm text-slate-500">
           Every completed knockout match graded — model predictions vs bookmaker odds vs actual result.
+        </p>
+        <p className="mt-1 text-xs text-slate-600">
+          Probabilities use a logistic scale fitted nightly to minimise log-loss on graded matches; the scale is recalibrated automatically as new results arrive.
         </p>
       </div>
 
