@@ -21,7 +21,7 @@ export default async function PlayersPage({
   const initialQ = typeof sp.q === "string" ? sp.q : ""
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="max-w-3xl lg:max-w-5xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-100">Player Search</h1>
         <p className="mt-1 text-sm text-slate-500">
