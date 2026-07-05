@@ -30,6 +30,9 @@ export default async function BrierPage() {
         <p className="mt-1 text-sm text-slate-500">
           Every completed knockout match graded — model predictions vs bookmaker odds vs actual result.
         </p>
+        <p className="mt-1 text-xs text-slate-600">
+          Probabilities use a logistic scale fitted nightly to minimise log-loss on graded matches; the scale is recalibrated automatically as new results arrive.
+        </p>
       </div>
 
       {/* Empty state */}
