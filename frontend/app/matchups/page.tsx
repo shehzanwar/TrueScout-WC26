@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { getMatchups } from "@/lib/server-data"
+import { getMatchups, getProjectedQFMatchups } from "@/lib/server-data"
 import RoundSelector from "./RoundSelector"
 import MatchCardGrid from "./MatchCardGrid"
 
@@ -16,7 +16,17 @@ export default async function MatchupsPage({
   const raw = typeof sp.round === "string" ? sp.round.toUpperCase() : "R32"
   const round = VALID_ROUNDS.has(raw) ? raw : "R32"
 
-  const data = await getMatchups(round).catch(() => null)
+  let data = await getMatchups(round).catch(() => null)
+  let isProjected = false
+
+  // When QF has no ESPN fixtures yet, derive projected matchups from the simulation
+  if (round === "QF" && (!data || data.n_matches === 0)) {
+    const projected = await getProjectedQFMatchups().catch(() => null)
+    if (projected && projected.n_matches > 0) {
+      data = projected
+      isProjected = true
+    }
+  }
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -32,6 +42,20 @@ export default async function MatchupsPage({
 
       {/* Round tabs */}
       <RoundSelector activeRound={round} />
+
+      {/* Projected banner */}
+      {isProjected && (
+        <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-lg bg-amber-500/8 border border-amber-500/20 text-xs text-amber-400">
+          <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 shrink-0">
+            <path fillRule="evenodd" d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-3.25a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5A.75.75 0 0 1 8 4.75Zm0 7.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clipRule="evenodd" />
+          </svg>
+          <span>
+            <span className="font-semibold">Projected</span>
+            {" — "}QF fixtures not yet confirmed by ESPN. Teams and odds are derived from the simulation.
+            Morocco vs France is confirmed; remaining matchups reflect the most likely bracket path.
+          </span>
+        </div>
+      )}
 
       {/* Content */}
       {data && data.n_matches > 0 ? (

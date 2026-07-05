@@ -140,7 +140,7 @@ function HeaderRow({ rounds }: { rounds: BracketData["rounds"] }) {
             <div className="flex flex-col items-center gap-0.5">
               <div
                 className="flex items-center gap-1 cursor-help"
-                title="Chaos score: how unpredictable is this round? 100% = every match is a coin flip. High chaos means more upsets expected; low chaos means clear favourites dominate."
+                title="Chaos score: match competitiveness. 100% = every match is a perfect coin flip. 60% = typical 70/30 favourite. Low scores mean the round is dominated by clear favourites."
               >
                 <span className="text-[8px] uppercase tracking-widest text-slate-600">chaos</span>
                 <span className="text-[8px] text-slate-700 border border-slate-700 rounded-full w-3 h-3 flex items-center justify-center leading-none">?</span>
