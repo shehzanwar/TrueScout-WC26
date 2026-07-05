@@ -3,7 +3,10 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { normalizeString, playerSlug, trueScoutRating, type PlayerResponse } from "@/lib/api"
+import {
+  RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer,
+} from "recharts"
+import { normalizeString, playerSlug, trueScoutRating, type PlayerResponse, type RadarMetrics } from "@/lib/api"
 import { FlagIcon } from "@/app/components/FlagIcon"
 
 function confBadge(score: number) {
@@ -158,6 +161,80 @@ function MetricBar({
 }
 
 // ---------------------------------------------------------------------------
+// CompareRadar — two-series radar overlay
+// ---------------------------------------------------------------------------
+
+const RADAR_AXIS_KEYS = ["shooting", "creativity", "defending", "wc_form", "posterior_pct"] as const
+const RADAR_AXIS_LABELS = ["Shooting", "Creativity", "Defending", "WC Form", "Overall"] as const
+
+function radarVal(r: RadarMetrics, key: typeof RADAR_AXIS_KEYS[number]): number {
+  const raw = key === "posterior_pct" ? (r.overall ?? r.posterior_pct) : r[key]
+  return raw != null ? Math.round((raw as number) * 100) : 0
+}
+
+function CompareRadar({ playerA, playerB }: { playerA: PlayerResponse; playerB: PlayerResponse }) {
+  const labelsA = playerA.radar?.radar_axes
+  const data = RADAR_AXIS_KEYS.map((key, i) => ({
+    axis:  labelsA?.[i] ?? RADAR_AXIS_LABELS[i],
+    a: radarVal(playerA.radar, key),
+    b: radarVal(playerB.radar, key),
+  }))
+
+  const nameA = playerA.name ?? playerA.reep_id
+  const nameB = playerB.name ?? playerB.reep_id
+
+  return (
+    <div className="space-y-2">
+      {/* Legend */}
+      <div className="flex justify-center gap-5">
+        <div className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
+          <span className="text-xs text-slate-400 truncate max-w-[120px]">{nameA}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-sky-400 shrink-0" />
+          <span className="text-xs text-slate-400 truncate max-w-[120px]">{nameB}</span>
+        </div>
+      </div>
+
+      {/* Radar chart */}
+      <div className="h-[240px]" role="img" aria-label="Radar chart comparing two players across five attribute axes">
+        <ResponsiveContainer width="100%" height="100%">
+          <RadarChart data={data} cx="50%" cy="50%" outerRadius="68%">
+            <PolarGrid stroke="#334155" strokeOpacity={0.7} />
+            <PolarAngleAxis
+              dataKey="axis"
+              tick={{ fill: "#94a3b8", fontSize: 11, fontFamily: "inherit" }}
+            />
+            <PolarRadiusAxis angle={90} domain={[0, 100]} tick={false} axisLine={false} />
+            <Radar
+              name={nameA}
+              dataKey="a"
+              stroke="#10b981"
+              fill="#10b981"
+              fillOpacity={0.15}
+              strokeWidth={2}
+              dot={{ fill: "#10b981", r: 3, strokeWidth: 0 }}
+              isAnimationActive={false}
+            />
+            <Radar
+              name={nameB}
+              dataKey="b"
+              stroke="#38bdf8"
+              fill="#38bdf8"
+              fillOpacity={0.15}
+              strokeWidth={2}
+              dot={{ fill: "#38bdf8", r: 3, strokeWidth: 0 }}
+              isAnimationActive={false}
+            />
+          </RadarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // PlayerCard — compact side-by-side profile
 // ---------------------------------------------------------------------------
 
@@ -247,6 +324,12 @@ export default function CompareClient({ allPlayers }: { allPlayers: PlayerRespon
             <PlayerCard player={playerA} side="left" />
             <PlayerCard player={playerB} side="right" />
           </div>
+
+          {/* Divider */}
+          <div className="border-t border-slate-800" />
+
+          {/* Radar overlay */}
+          <CompareRadar playerA={playerA} playerB={playerB} />
 
           {/* Divider */}
           <div className="border-t border-slate-800" />

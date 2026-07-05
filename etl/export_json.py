@@ -61,6 +61,13 @@ def _safe_float(v):
         return None
 
 
+def _clamp_rating(v: float | None, lo: float = 4.0, hi: float = 9.5) -> float | None:
+    """Clamp posterior_mean/hdi values to [lo, hi] for export. DB stays raw."""
+    if v is None:
+        return None
+    return round(max(lo, min(hi, v)), 6)
+
+
 def _safe_str(v):
     """Return None for None/NaN, else str(v)."""
     if v is None:
@@ -623,6 +630,68 @@ def export_matchups(conn) -> dict:
             "matches":    matches,
         }
 
+    # ── Group stage (GS) — completed results for every nation's timeline ──
+    try:
+        gs_fixture_rows = conn.execute(f"""
+            SELECT
+                m.event_id, m.match_date, m.round_name,
+                m.home_team_name, m.home_team_abbrev,
+                m.away_team_name, m.away_team_abbrev,
+                m.home_score, m.away_score, m.is_completed,
+                m.venue_name, m.venue_city
+            FROM read_parquet('{matches_glob}', union_by_name=true) m
+            WHERE m.round_name ILIKE 'Group %'
+              AND m.is_completed = TRUE
+            ORDER BY m.match_date, CAST(m.event_id AS BIGINT)
+        """).fetchall()
+    except Exception:
+        gs_fixture_rows = []
+
+    gs_matches = []
+    for row in gs_fixture_rows:
+        (event_id, match_date, gs_round_name,
+         h_name, h_abbrev, a_name, a_abbrev,
+         h_score, a_score, is_completed,
+         venue_name, venue_city) = row
+
+        h_norm = NAME_ALIASES.get(h_name, h_name) if h_name else h_name
+        a_norm = NAME_ALIASES.get(a_name, a_name) if a_name else a_name
+        venue  = str(venue_city or venue_name) if (venue_city or venue_name) else None
+
+        gs_matches.append({
+            "event_id":    str(event_id),
+            "match_date":  str(match_date),
+            "round":       gs_round_name,   # "Group A", "Group B", etc.
+            "is_completed": bool(is_completed),
+            "venue":       venue,
+            "winner":      None,            # group stage has no knockout winner
+            "home": {
+                "name":               h_norm,
+                "abbrev":             h_abbrev,
+                "score":              int(h_score) if h_score is not None else None,
+                "model_advance_prob": None,
+                "market_advance_prob": None,
+                "rest_days":          None,
+                "travel_km":          None,
+            },
+            "away": {
+                "name":               a_norm,
+                "abbrev":             a_abbrev,
+                "score":              int(a_score) if a_score is not None else None,
+                "model_advance_prob": None,
+                "market_advance_prob": None,
+                "rest_days":          None,
+                "travel_km":          None,
+            },
+        })
+
+    result["GS"] = {
+        "round_code": "GS",
+        "round_name": "Group Stage",
+        "n_matches":  len(gs_matches),
+        "matches":    gs_matches,
+    }
+
     return result
 
 
@@ -692,6 +761,17 @@ def export_brier(conn) -> dict:
             return None
         return round(1.0 - model / baseline, 4)
 
+    # Read fitted scale from model_params (if available)
+    try:
+        scale_row = conn.execute("""
+            SELECT value FROM model_params
+            WHERE param = 'logistic_scale'
+            ORDER BY run_date DESC LIMIT 1
+        """).fetchone()
+        logistic_scale = float(scale_row[0]) if scale_row else None
+    except Exception:
+        logistic_scale = None
+
     summary = {
         "n_matches":            len(entries),
         "n_with_market":        sum(1 for e in entries if e["market_prob"] is not None),
@@ -704,6 +784,7 @@ def export_brier(conn) -> dict:
         "coin_flip_log_loss":   round(COIN_LOGLOSS, 4),
         "brier_skill_vs_coin":  _skill(avg_brier_model, COIN_BRIER),
         "brier_skill_vs_market": _skill(avg_brier_model, avg_brier_market) if avg_brier_market else None,
+        "logistic_scale":       logistic_scale,
     }
     return {"summary": summary, "entries": entries}
 
@@ -1370,10 +1451,10 @@ def export_players(conn) -> list:
             "cluster_label":    _safe_str(cluster_label),
             "position_bucket":  position_bucket,
             "prior_mean":       _safe_float(prior_mean),
-            "posterior_mean":   _safe_float(posterior_mean),
+            "posterior_mean":   _clamp_rating(_safe_float(posterior_mean)),
             "posterior_std":    _safe_float(posterior_std),
-            "hdi_low":          _safe_float(hdi_low),
-            "hdi_high":         _safe_float(hdi_high),
+            "hdi_low":          _clamp_rating(_safe_float(hdi_low)),
+            "hdi_high":         _clamp_rating(_safe_float(hdi_high)),
             "shrinkage_weight": sw,
             "wc_minutes":       wm,
             "confidence_score": _safe_float(confidence_score),
@@ -1630,6 +1711,17 @@ def main():
         json.dumps(players, separators=(",", ":")), encoding="utf-8"
     )
     print(f"  ✓  {len(players)} players")
+
+    _LITE_KEYS = {
+        "reep_id", "name", "nationality", "national_team",
+        "position_micro", "position_macro",
+        "posterior_mean", "confidence_score", "percentile_rank", "wc_minutes",
+    }
+    players_lite = [{k: v for k, v in p.items() if k in _LITE_KEYS} for p in players]
+    (OUTPUT_DIR / "players_lite.json").write_text(
+        json.dumps(players_lite, separators=(",", ":")), encoding="utf-8"
+    )
+    print(f"  ✓  players_lite.json ({len(players_lite)} players, slim)")
 
     print("Exporting insights.json …")
     insights = export_insights(sims, matchups, players, prev_sims=prev_sims)

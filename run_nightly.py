@@ -114,6 +114,7 @@ def run_pipeline() -> dict[str, bool]:
     from etl.load.load_identity          import main as identity_main
     from etl.silver.build_features       import main as features_main
     from etl.models.bayesian_ratings     import main as ratings_main
+    from etl.models.calibration          import fit_scale as _fit_scale
     from etl.models.monte_carlo_sim      import main as sim_main
     from etl.models.brier_tracker        import main as brier_main
     from etl.export_json                 import main as export_main
@@ -193,6 +194,22 @@ def run_pipeline() -> dict[str, bool]:
         ratings_main,
     )
 
+    # Step 6.5 — Fit calibration scale (Davidson BT, grid search over brier_log)
+    # Runs after ratings so strengths are current; result persisted to model_params.
+    # Soft-fail: < 12 graded matches → falls back to DEFAULT_SCALE=1.0.
+    def _run_fit_scale() -> None:
+        import duckdb as _duckdb
+        _conn = _duckdb.connect(str(__import__("config").settings.duckdb_path))
+        try:
+            _fit_scale(_conn)
+        finally:
+            _conn.close()
+
+    results["6_fit_calibration"] = _step(
+        "Fit calibration scale",
+        _run_fit_scale,
+    )
+
     # Step 7 — Re-simulate remaining bracket
     results["7_monte_carlo_sim"] = _step(
         "Monte Carlo bracket simulation",
@@ -262,7 +279,8 @@ def main() -> None:
     # on GitHub Actions datacenter IPs.  Only math/export failures are fatal.
     _INGESTION = {"1_espn_pull", "2_sofascore_pull", "2_sofascore_knockout",
                   "3_load_matches", "4_load_identity",
-                  "4_market_values",  # botasaurus unavailable on CI; skipped by design
+                  "4_market_values",    # botasaurus unavailable on CI; skipped by design
+                  "6_fit_calibration",  # soft-fail: < 12 graded matches → DEFAULT_SCALE used
                   "9_narratives"}   # narrative pre-gen: soft-fail (quota exhaustion expected)
     _CRITICAL  = {"5_build_features", "6_bayesian_ratings", "7_monte_carlo_sim",
                   "8_brier_tracker", "9_export_json", "9_verify_outputs"}

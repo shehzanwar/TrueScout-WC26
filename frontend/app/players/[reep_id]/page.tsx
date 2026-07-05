@@ -101,7 +101,7 @@ export async function generateMetadata({
 
   const name     = player?.name ?? reep_id
   const position = player?.position_detail ?? player?.position_micro ?? player?.position_macro ?? ""
-  const nat      = player?.nationality ?? ""
+  const nat      = player?.national_team ?? player?.nationality ?? ""
   const rating   = player?.posterior_mean != null ? `${player.posterior_mean.toFixed(2)}/10` : null
 
   const description = [nat, position, rating ? `TrueScout rating: ${rating}` : null]
@@ -148,7 +148,7 @@ export default async function PlayerProfilePage({
   const hdiHigh     = player.hdi_high.toFixed(2)
   const clubPct     = `${Math.round(player.shrinkage_weight * 100)}%`
   const wcPct       = `${Math.round((1 - player.shrinkage_weight) * 100)}%`
-  const pctRank     = Math.round(player.percentile_rank * 100)
+  const pctRank     = Math.min(99, Math.round(player.percentile_rank * 100))
   const pctLabel    = pctRank >= 90
     ? "Top 10%"
     : pctRank >= 75
@@ -174,14 +174,11 @@ export default async function PlayerProfilePage({
   })()
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl lg:max-w-6xl mx-auto space-y-6">
 
       {/* ── Breadcrumb ─────────────────────────────────────────────── */}
       <nav className="flex items-center gap-1.5 text-xs">
-        <Link
-          href="/players"
-          className="text-slate-500 hover:text-slate-300 transition-colors"
-        >
+        <Link href="/players" className="text-slate-500 hover:text-slate-300 transition-colors">
           Players
         </Link>
         {nationTeam && (
@@ -196,102 +193,66 @@ export default async function PlayerProfilePage({
           </>
         )}
         <Chevron />
-        <span className="text-slate-300 truncate max-w-[16rem]">
-          {player.name ?? reep_id}
-        </span>
+        <span className="text-slate-300 truncate max-w-[16rem]">{player.name ?? reep_id}</span>
       </nav>
 
       {/* ── Header ─────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-bold text-slate-100">
-              {player.name ?? reep_id}
-            </h1>
+            <h1 className="text-2xl font-bold text-slate-100">{player.name ?? reep_id}</h1>
             <FifaBadge fifa={player.fifa} size="lg" />
           </div>
           <p className="mt-1 text-sm text-slate-500">
             {[
-              player.nationality,
+              player.national_team ?? player.nationality,
               player.position_detail ?? player.position_macro,
               archetypeLabel !== (player.position_detail ?? player.position_macro) ? archetypeLabel : null,
             ]
               .filter(Boolean)
               .join(" · ")}
-            <span className="ml-2 text-slate-600">
-              {tsRating.toFixed(2)}/10
-            </span>
+            <span className="ml-2 text-slate-600">{tsRating.toFixed(2)}/10</span>
           </p>
         </div>
         <ConfidenceBadge score={player.confidence_score} />
       </div>
 
-      {/* ── Two-column grid ────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      {/* ── Desktop: sticky sidebar + main column / Mobile: stack ──── */}
+      <div className="flex flex-col lg:flex-row lg:items-start gap-5">
 
-        {/* Rating breakdown card */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-1">
+        {/* ── LEFT: sticky rating breakdown (desktop) ──────────────── */}
+        <div className="lg:w-72 lg:shrink-0 lg:sticky lg:top-8 lg:self-start bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-1">
           <h2 className="text-sm font-semibold text-slate-100 uppercase tracking-wider mb-3">
             Rating Breakdown
           </h2>
 
           <StatRow
-            label={
-              <LabelWithInfo
-                label="TrueScout Rating"
-                tip="Confidence-weighted composite: high-evidence players keep their full Bayesian rating; sparse-data players are pulled toward the WC average (7.0). Formula: confidence × posterior + (1 − confidence) × 7.0."
-              />
-            }
+            label={<LabelWithInfo label="TrueScout Rating" tip="Confidence-weighted composite: high-evidence players keep their full Bayesian rating; sparse-data players are pulled toward the WC average (7.0). Formula: confidence × posterior + (1 − confidence) × 7.0." />}
             value={tsRating.toFixed(2)}
             sub={pctLabel}
           />
           <StatRow
-            label={
-              <LabelWithInfo
-                label="Bayesian Posterior"
-                tip="Raw Bayesian rating: a weighted blend of club form (last 2 seasons) and World Cup performance before the confidence penalty is applied."
-              />
-            }
+            label={<LabelWithInfo label="Bayesian Posterior" tip="Raw Bayesian rating: a weighted blend of club form (last 2 seasons) and World Cup performance before the confidence penalty is applied." />}
             value={player.posterior_mean.toFixed(2)}
             sub={`HDI ${hdiLow} – ${hdiHigh}`}
           />
           <StatRow
-            label={
-              <LabelWithInfo
-                label="From club (last 2 seasons)"
-                tip="Performance at club level before this World Cup — the baseline before in-tournament form is factored in."
-              />
-            }
+            label={<LabelWithInfo label="From club (last 2 seasons)" tip="Performance at club level before this World Cup — the baseline before in-tournament form is factored in." />}
             value={player.prior_mean.toFixed(2)}
             sub={`${clubPct} of rating`}
           />
           <StatRow
-            label={
-              <LabelWithInfo
-                label="From World Cup form"
-                tip="How much weight this World Cup's matches carry in the final rating — more minutes played means more weight."
-              />
-            }
+            label={<LabelWithInfo label="From World Cup form" tip="How much weight this World Cup's matches carry in the final rating — more minutes played means more weight." />}
             value={wcPct}
             sub={`${Math.round(player.wc_minutes)} min played`}
           />
           <StatRow
-            label={
-              <LabelWithInfo
-                label={`Rank among ${positionGroupLabel}`}
-                tip={`Where this rating places among all ${positionGroupLabel} at this World Cup.`}
-              />
-            }
+            label={<LabelWithInfo label={`Rank among ${positionGroupLabel}`} tip={`Where this rating places among all ${positionGroupLabel} at this World Cup.`} />}
             value={getOrdinalSuffix(pctRank)}
-            sub={`percentile`}
+            sub="percentile"
           />
           <StatRow
-            label={
-              <LabelWithInfo
-                label="Player Style"
-                tip="The closest statistical playing-style archetype, based on a clustering of similar players' attributes."
-              />
-            }
+            label={<LabelWithInfo label="Player Style" tip="The closest statistical playing-style archetype, based on a clustering of similar players' attributes." />}
             value={archetypeLabel ?? player.position_macro}
             sub={player.position_bucket}
           />
@@ -303,14 +264,8 @@ export default async function PlayerProfilePage({
               <span>World Cup form</span>
             </div>
             <div className="h-2 bg-slate-800 rounded-full overflow-hidden flex">
-              <div
-                className="h-full bg-slate-600 rounded-l-full"
-                style={{ width: `${Math.round(player.shrinkage_weight * 100)}%` }}
-              />
-              <div
-                className="h-full bg-emerald-500"
-                style={{ width: `${Math.round((1 - player.shrinkage_weight) * 100)}%` }}
-              />
+              <div className="h-full bg-slate-600 rounded-l-full" style={{ width: `${Math.round(player.shrinkage_weight * 100)}%` }} />
+              <div className="h-full bg-emerald-500" style={{ width: `${Math.round((1 - player.shrinkage_weight) * 100)}%` }} />
             </div>
             <div className="flex justify-between text-[11px]">
               <span className="text-slate-600">{clubPct} club</span>
@@ -319,21 +274,16 @@ export default async function PlayerProfilePage({
           </div>
         </div>
 
-        {/* Radar chart */}
-        <PlayerRadar radar={player.radar} fifa={player.fifa} />
+        {/* ── RIGHT: radar + all detail sections ───────────────────── */}
+        <div className="flex-1 min-w-0 space-y-5">
+          <PlayerRadar radar={player.radar} fifa={player.fifa} />
+          <RawStats player={player} />
+          <MatchTimeline player={player} />
+          <SimilarPlayers current={player} players={similar} />
+          <TacticalAnalysis reepId={player.reep_id} />
+        </div>
+
       </div>
-
-      {/* ── Raw Stats ──────────────────────────────────────────────── */}
-      <RawStats player={player} />
-
-      {/* ── Match Timeline ─────────────────────────────────────────── */}
-      <MatchTimeline player={player} />
-
-      {/* ── Similar Players ────────────────────────────────────────── */}
-      <SimilarPlayers current={player} players={similar} />
-
-      {/* ── Tactical Analysis ──────────────────────────────────────── */}
-      <TacticalAnalysis reepId={reep_id} />
 
     </div>
   )

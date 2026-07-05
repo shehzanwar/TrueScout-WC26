@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import Link from "next/link"
+import { getBrier } from "@/lib/server-data"
 
 export const metadata: Metadata = {
   title: "About",
@@ -94,7 +95,11 @@ function LimitationItem({ title, children }: { title: string; children: React.Re
 // Page
 // ---------------------------------------------------------------------------
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  const brier = await getBrier().catch(() => null)
+  const nMatches = brier?.summary.n_matches ?? 0
+  const nCorrect = brier?.summary.n_correct ?? 0
+
   return (
     <div className="max-w-2xl mx-auto space-y-8">
 
@@ -213,9 +218,9 @@ export default function AboutPage() {
           </div>
           <Callout>
             Example: Erling Haaland entered the tournament rated highly on club form. After
-            two strong World Cup appearances, the World Cup data now carries <Em>31%</Em> of
-            his rating — enough to reflect his actual tournament performances without throwing
-            away two seasons of evidence about who he is.
+            three World Cup appearances (270 minutes), tournament data now carries <Em>~27%</Em> of
+            his rating — enough to reflect genuine in-tournament evidence without discarding
+            two seasons of club-level data.
           </Callout>
         </Card>
 
@@ -223,7 +228,7 @@ export default function AboutPage() {
         <Card>
           <SectionHeader n={4} title="Rating range and confidence" />
           <Prose>
-            Every rating comes with a <Em>range</Em> — for example, 7.59–8.51 for Mbappé.
+            Every rating comes with a <Em>range</Em> — for example, 7.87–8.60 for Mbappé.
             This reflects genuine statistical uncertainty: with only three World Cup
             appearances, the model cannot pin down his true level to two decimal places. The
             range says &ldquo;we are confident he is somewhere in here.&rdquo; A player with ten
@@ -331,11 +336,14 @@ export default function AboutPage() {
           </Prose>
           <Callout>
             We also track <Em>directional accuracy</Em> — how often our predicted favourite
-            actually wins. This is the number most people find intuitive: of 7 graded
-            matches, the model correctly identified the winner 3 times. We show both because
-            Brier score rewards getting the probability right, while directional accuracy
-            rewards picking the right team. A model can be well-calibrated and still pick
-            the wrong team in a 55/45 match.
+            actually wins. This is the number most people find intuitive:{" "}
+            {nMatches > 0
+              ? <>of <Em>{nMatches}</Em> graded matches, the model correctly identified the winner <Em>{nCorrect}</Em> times.</>
+              : <>once knockout matches are graded, we track how often the predicted favourite wins.</>
+            }{" "}
+            We show both because Brier score rewards getting the probability right, while
+            directional accuracy rewards picking the right team. A model can be well-calibrated
+            and still pick the wrong team in a 55/45 match.
           </Callout>
         </Card>
 
@@ -363,10 +371,12 @@ export default function AboutPage() {
               withdrawing the morning of a match will not affect the simulation until the
               next nightly update.
             </LimitationItem>
-            <LimitationItem title="Penalty shootouts are 50/50">
-              For matches that go to penalties, each team is currently given equal odds.
-              Penalty conversion records exist in the data but a shootout model has not
-              been built yet.
+            <LimitationItem title="Penalty shootouts use a conservative prior">
+              When a knockout match reaches extra time, the model gives the stronger
+              team a 55 % advance probability (45 % to the weaker side) rather than
+              pure 50/50. This reflects the modest historical edge the higher-rated side
+              holds in shootouts. A shootout-specific model using actual penalty
+              conversion records has not been built yet.
             </LimitationItem>
             <LimitationItem title="No tactical or manager signal">
               The model knows nothing about formations, pressing intensity, set-piece
