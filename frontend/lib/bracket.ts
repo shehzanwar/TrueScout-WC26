@@ -104,14 +104,15 @@ export function buildBracket(
   const actualR32Winners = new Map<number, string>()
   const confirmedWinners = new Set<string>()
 
-  // Binary entropy: measures uncertainty of a single match (0 = certain, 1 = 50/50)
-  function binEntropy(p: number): number {
+  // Linear competitiveness: 1.0 = pure coin flip (50/50), 0.0 = certain outcome (100/0).
+  // Better than binary entropy because 70/30 reads as 0.60 ("moderate favourite"), not 0.88
+  // ("almost maximum chaos"). Matches how fans intuitively perceive match competitiveness.
+  function competitiveness(p: number): number {
     if (p <= 0 || p >= 1) return 0
-    const q = 1 - p
-    return -(p * Math.log2(p) + q * Math.log2(q))
+    return 1 - Math.abs(2 * p - 1)
   }
 
-  // chaosScore: average binary entropy across all match slots in the round.
+  // chaosScore: average match competitiveness across all slots in the round.
   // For pending slots: uses current slotProb (simulation probability).
   // For completed slots: uses preMatchProb (probability locked in before kickoff),
   //   so the score reflects how unpredictable the round WAS, not how many matches remain.
@@ -122,7 +123,7 @@ export function buildBracket(
       return s.top.slotProb ?? null                        // use simulation prob for pending
     }).filter((p): p is number => p !== null)
     if (!probs.length) return 0
-    return probs.reduce((acc, p) => acc + binEntropy(p), 0) / probs.length
+    return probs.reduce((acc, p) => acc + competitiveness(p), 0) / probs.length
   }
 
   // teamData: build a BracketTeam for `name` as it appears in `displayRound`
