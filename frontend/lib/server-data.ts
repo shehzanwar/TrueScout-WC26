@@ -48,7 +48,7 @@ export type NationDetail = NationSummary & {
   squad: PlayerResponse[]
 }
 
-const KNOCKOUT_ROUNDS = ["R32", "R16", "QF", "SF", "F"] as const
+const KNOCKOUT_ROUNDS = ["GS", "R32", "R16", "QF", "SF", "F"] as const
 
 function nationSlugs(name: string): string {
   return name
