@@ -117,7 +117,7 @@ export default function PlayerRadar({
         </p>
       </div>
 
-      <div className="h-[280px]">
+      <div className="h-[280px]" role="img" aria-label="Attribute radar chart showing percentile scores across five axes">
         <ResponsiveContainer width="100%" height="100%">
           <RadarChart data={data} cx="50%" cy="50%" outerRadius="68%">
             <PolarGrid stroke="#334155" strokeOpacity={0.7} />
@@ -139,6 +139,7 @@ export default function PlayerRadar({
               fillOpacity={0.18}
               strokeWidth={2}
               dot={{ fill: bandColor, r: 3, strokeWidth: 0 }}
+              isAnimationActive={false}
             />
             <Tooltip content={<CustomTooltip />} />
           </RadarChart>

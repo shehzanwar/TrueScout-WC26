@@ -53,7 +53,7 @@ from etl.db.connection import get_read_conn, write_conn
 logger = logging.getLogger(__name__)
 
 FEATURES_PATH = Path(settings.parquet_silver_dir) / "player_stats" / "features.parquet"
-MV_PARQUET    = Path("data/bronze/market_values.parquet")
+MV_PARQUET    = Path(settings.parquet_bronze_dir) / "market_values.parquet"
 
 # ---------------------------------------------------------------------------
 # Calibration constants
@@ -487,10 +487,18 @@ def _bayesian_update(df: pd.DataFrame, stats: pd.DataFrame) -> pd.DataFrame:
         )
 
     cluster_wc_std = np.sqrt(df["cluster_wc_var"])
+
+    # Clamp MV adjustment to ±0.4 rating points — prevents extreme market
+    # valuations (star players or data outliers) from dominating the prior.
+    # Missing-data players already have mv_z=0 (enforced by has_mv_prior gate);
+    # this clamp additionally caps the upside/downside for players who DO have data.
+    MV_ADJ_CAP = 0.4
+    mv_adj = (mv_z * cluster_wc_std * MV_PRIOR_PULL).clip(lower=-MV_ADJ_CAP, upper=MV_ADJ_CAP)
+
     df["prior_mean"] = (
         df["cluster_wc_mean"]
         + comp_z * cluster_wc_std * PRIOR_PULL
-        + mv_z   * cluster_wc_std * MV_PRIOR_PULL
+        + mv_adj
     )
 
     # GK: reset to pure archetype mean (club composite carries no signal)

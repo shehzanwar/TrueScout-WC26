@@ -47,6 +47,9 @@ jobs:
           print('Schema initialised.')
           "
 
+      - name: Run tests
+        run: python -m pytest tests/ -v --tb=short
+
       - name: Run nightly pipeline
         run: python run_nightly.py
 

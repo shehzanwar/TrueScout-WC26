@@ -194,7 +194,7 @@ export default function MatchCard({ match }: { match: Matchup }) {
     if (lineupsLoaded) return
     setLineupsLoading(true)
     try {
-      const res = await fetch("/data/players.json", { cache: "force-cache" })
+      const res = await fetch("/data/players_lite.json", { cache: "force-cache" })
       if (!res.ok) return
       const all = (await res.json()) as PlayerResponse[]
 

@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 _MIN_PLAYERS = 50
 
 # Title probabilities must sum to this ± tolerance
-_TITLE_PROB_SUM_TOLERANCE = 0.05
+_TITLE_PROB_SUM_TOLERANCE = 0.005
 
 # All valid position_macro values — UNK is intentional for players
 # whose position cannot be resolved from any of the three sources
@@ -139,6 +139,16 @@ def verify_players(players: list) -> None:
         raise VerificationError(
             f"{len(nan_posterior)} players with null/NaN posterior_mean "
             f"(sample: {nan_posterior[:5]})"
+        )
+
+    out_of_range_rating = [
+        (p.get("reep_id"), p.get("posterior_mean")) for p in players
+        if p.get("posterior_mean") is not None and not (4.0 <= p["posterior_mean"] <= 9.5)
+    ]
+    if out_of_range_rating:
+        raise VerificationError(
+            f"{len(out_of_range_rating)} players with posterior_mean outside [4.0, 9.5] "
+            f"(sample: {out_of_range_rating[:3]}) — clamp missing in export_json.py"
         )
 
     if out_of_range_confidence:

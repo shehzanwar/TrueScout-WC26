@@ -32,6 +32,7 @@ import argparse
 import json
 import logging
 import random
+import sys
 import time
 from datetime import datetime
 from pathlib import Path
@@ -40,12 +41,15 @@ import duckdb
 import pandas as pd
 from botasaurus.browser import browser, Driver
 
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from config import settings
+
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 log = logging.getLogger(__name__)
 
-DB_PATH   = Path("data/truescout.duckdb")
-API_BASE  = "https://www.sofascore.com/api/v1/player"
-MV_PARQUET = Path("data/bronze/market_values.parquet")
+DB_PATH    = Path(settings.duckdb_path)
+API_BASE   = "https://www.sofascore.com/api/v1/player"
+MV_PARQUET = Path(settings.parquet_bronze_dir) / "market_values.parquet"
 
 EDGE_PATH = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
 _CHROME_EXE = EDGE_PATH if Path(EDGE_PATH).exists() else None

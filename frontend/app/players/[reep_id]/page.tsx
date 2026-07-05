@@ -148,7 +148,7 @@ export default async function PlayerProfilePage({
   const hdiHigh     = player.hdi_high.toFixed(2)
   const clubPct     = `${Math.round(player.shrinkage_weight * 100)}%`
   const wcPct       = `${Math.round((1 - player.shrinkage_weight) * 100)}%`
-  const pctRank     = Math.round(player.percentile_rank * 100)
+  const pctRank     = Math.min(99, Math.round(player.percentile_rank * 100))
   const pctLabel    = pctRank >= 90
     ? "Top 10%"
     : pctRank >= 75
