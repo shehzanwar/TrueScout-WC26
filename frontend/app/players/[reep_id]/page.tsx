@@ -101,7 +101,7 @@ export async function generateMetadata({
 
   const name     = player?.name ?? reep_id
   const position = player?.position_detail ?? player?.position_micro ?? player?.position_macro ?? ""
-  const nat      = player?.nationality ?? ""
+  const nat      = player?.national_team ?? player?.nationality ?? ""
   const rating   = player?.posterior_mean != null ? `${player.posterior_mean.toFixed(2)}/10` : null
 
   const description = [nat, position, rating ? `TrueScout rating: ${rating}` : null]
@@ -212,7 +212,7 @@ export default async function PlayerProfilePage({
           </div>
           <p className="mt-1 text-sm text-slate-500">
             {[
-              player.nationality,
+              player.national_team ?? player.nationality,
               player.position_detail ?? player.position_macro,
               archetypeLabel !== (player.position_detail ?? player.position_macro) ? archetypeLabel : null,
             ]

@@ -38,7 +38,7 @@ function SearchResultRow({ player }: { player: PlayerSearchResult }) {
           {player.name ?? player.reep_id}
         </p>
         <p className="text-xs text-slate-500 truncate">
-          {player.nationality} · {player.position_micro ?? player.position_macro}
+          {player.national_team ?? player.nationality} · {player.position_micro ?? player.position_macro}
         </p>
       </div>
 
