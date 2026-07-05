@@ -280,7 +280,7 @@ export default async function PlayerProfilePage({
           <RawStats player={player} />
           <MatchTimeline player={player} />
           <SimilarPlayers current={player} players={similar} />
-          <TacticalAnalysis reepId={reep_id} />
+          <TacticalAnalysis reepId={player.reep_id} />
         </div>
 
       </div>
