@@ -146,6 +146,29 @@ def export_simulations(conn) -> dict:
         bracket_slots = bracket_slots_raw.get("slots")
         pairings = bracket_slots_raw.get("pairings")
 
+    # Enrich completed R32 slots with pre-match BT probability from match_probs table.
+    # The simulation sets prob=1.0 for confirmed winners; we restore the original
+    # pre-kick probability so the frontend can compute a stable round-chaos score
+    # that doesn't collapse to 0 once all R32 matches are decided.
+    if bracket_slots:
+        pm_rows = conn.execute("""
+            SELECT team_left, team_right, prob_left, prob_right
+            FROM match_probs
+            WHERE run_date = (SELECT MAX(run_date) FROM match_probs)
+        """).fetchall()
+        # Build lookup: {frozenset({teamA, teamB}): {teamA: prob, teamB: prob}}
+        pm_lookup: dict[frozenset, dict[str, float]] = {}
+        for tl, tr, pl, pr in pm_rows:
+            pm_lookup[frozenset({tl, tr})] = {tl: float(pl), tr: float(pr)}
+        for slot in bracket_slots:
+            if slot.get("round") == "R32" and slot.get("top", {}).get("prob", 0) == 1.0:
+                winner = slot["top"]["team"]
+                # Find the pre-match prob entry for this match
+                for key, probs in pm_lookup.items():
+                    if winner in key:
+                        slot["top"]["pre_match_prob"] = round(probs[winner], 4)
+                        break
+
     out: dict = {"run_date": run_date, "n_iterations": n_iterations, "rounds": rounds}
     if bracket_slots is not None:
         out["bracket_slots"] = bracket_slots
@@ -1268,6 +1291,17 @@ def export_players(conn) -> list:
         rs  = raw_stats.get(reep_id, {})
         log = match_logs.get(reep_id)
         nt  = national_teams.get(reep_id)
+
+        # Correct archetype bucket lag: archetypes table may have stale DEF bucket
+        # for players whose position_macro was updated to MID/FWD (e.g., wingers
+        # reclassified from wing-half). Use position_macro as the authoritative source.
+        if position_macro and position_bucket and position_bucket != position_macro:
+            if position_bucket == "DEF" and position_macro in ("MID", "FWD"):
+                position_bucket = position_macro
+            elif position_bucket == "MID" and position_macro == "FWD":
+                position_bucket = "FWD"
+        if position_bucket is None and position_macro:
+            position_bucket = position_macro
 
         # Age at tournament start
         age_at_wc: int | None = None
