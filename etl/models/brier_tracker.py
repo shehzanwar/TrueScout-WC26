@@ -51,12 +51,16 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from config import settings
 from etl.utils.team_aliases import normalize as _normalize
+from etl.models.calibration import (
+    advance_prob,
+    load_fitted_scale,
+    ET_BIAS_STRONGER,
+    ET_BIAS_WEAKER,
+)
 
 logger = logging.getLogger(__name__)
 
-LOGISTIC_SCALE = 1.5
-ET_BIAS_STRONGER = 0.55   # P(stronger team wins ET/pens)
-ET_BIAS_WEAKER   = 0.45
+# LOGISTIC_SCALE, ET_BIAS_STRONGER, ET_BIAS_WEAKER live in etl/models/calibration.py
 CLIP_LO, CLIP_HI = 0.01, 0.99
 
 # FT-pens results known before Sofascore Bronze refreshes ET data.
@@ -331,8 +335,8 @@ def _grade_matches(
             logger.warning("No strength for %s — using median %.4f", away, fallback_str)
             s_away = fallback_str
 
-        # ── Model 2-way advance probability ─────────────────────────────
-        model_prob = _logistic_advance(s_home, s_away, scale)
+        # ── Model 2-way advance probability (Davidson, from calibration) ──
+        model_prob = advance_prob(s_home, s_away, scale)
 
         # ── Market odds ──────────────────────────────────────────────────
         home_raw = m.get("home_implied_raw")
@@ -542,13 +546,16 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Brier-score tracker (knockout, 2-way).")
     parser.add_argument("--validate", action="store_true",
                         help="Dry-run: print report, skip DB write.")
-    parser.add_argument("--scale", type=float, default=LOGISTIC_SCALE,
-                        help=f"Logistic scale (default {LOGISTIC_SCALE}).")
+    parser.add_argument("--scale", type=float, default=None,
+                        help="Logistic scale override (default: load from model_params or 1.0).")
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)-8s %(message)s")
 
     conn = duckdb.connect(str(settings.duckdb_path), read_only=args.validate)
+
+    if args.scale is None:
+        args.scale = load_fitted_scale(conn)
 
     try:
         # Load data

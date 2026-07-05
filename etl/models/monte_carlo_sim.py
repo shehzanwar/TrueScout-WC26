@@ -52,6 +52,13 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from config import settings
 from etl.utils.team_aliases import TEAM_ALIASES, normalize as _alias_normalize
+from etl.models.calibration import (
+    advance_prob,
+    advance_prob_vec,
+    load_fitted_scale,
+    fallback_strength,
+    FALLBACK_STRENGTH,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -60,13 +67,10 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-N_SIM             = 100_000
-TOP_N_PLAYERS     = 15
-LOGISTIC_SCALE    = 1.0   # delta=0.35 → 69% per match; 0.5 → 76%.  Was 0.5 but that
-                          # compounded across 5 rounds to give ~44% title prob for France
-                          # (single R32 calibration doesn't survive multi-round compounding).
-SEED              = 42
-FALLBACK_STRENGTH = 7.0   # used when a team has no valid posterior ratings
+N_SIM         = 100_000
+TOP_N_PLAYERS = 15
+SEED          = 42
+# LOGISTIC_SCALE and FALLBACK_STRENGTH live in etl/models/calibration.py
 
 ROUNDS = ["R32", "R16", "QF", "SF", "F", "W"]
 
@@ -798,7 +802,7 @@ def _write_match_probs(
     for j in range(n_matches):
         s_l = float(strengths[2 * j])
         s_r = float(strengths[2 * j + 1])
-        p_l = 1.0 / (1.0 + 10.0 ** (-(s_l - s_r) / scale))
+        p_l = advance_prob(s_l, s_r, scale)
         rows.append((str(run_date), bracket_order[2 * j], bracket_order[2 * j + 1], p_l, 1.0 - p_l))
 
     conn.executemany(
@@ -862,7 +866,7 @@ def _write_r16_match_probs(
 
         s_l = float(strengths[pos_l])
         s_r = float(strengths[pos_r])
-        p_l = 1.0 / (1.0 + 10.0 ** (-(s_l - s_r) / scale))
+        p_l = advance_prob(s_l, s_r, scale)
         rows.append((str(run_date), bracket_order[pos_l], bracket_order[pos_r], p_l, 1.0 - p_l))
 
     conn.executemany(
@@ -924,7 +928,7 @@ def _run_sim(
         s_left  = strengths[left]   # NumPy fancy indexing → same shape
         s_right = strengths[right]
 
-        p_left = 1.0 / (1.0 + np.power(10.0, -(s_left - s_right) / scale))
+        p_left = advance_prob_vec(s_left, s_right, scale)
         rand   = rng.random((n_sim, n_matches))
 
         winners = np.where(rand < p_left, left, right)
@@ -1111,7 +1115,7 @@ def _validate(
 
     total = title_rows["title_prob"].sum()
     logger.info("Title prob sum = %.6f (expect 1.0)", total)
-    if abs(total - 1.0) > 0.02:
+    if abs(total - 1.0) > 0.005:
         raise RuntimeError(f"Title probs sum to {total:.4f} — check simulation logic.")
 
 
@@ -1126,7 +1130,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Monte Carlo WC bracket sim.")
     parser.add_argument("--validate", action="store_true",
                         help="Dry-run: print results but skip DB write.")
-    parser.add_argument("--scale",  type=float, default=LOGISTIC_SCALE)
+    parser.add_argument("--scale",  type=float, default=None,
+                        help="Logistic scale override (default: load from model_params or 1.0).")
     parser.add_argument("--n-sim",  type=int,   default=N_SIM)
     parser.add_argument("--seed",   type=int,   default=SEED)
     args = parser.parse_args()
@@ -1134,6 +1139,9 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)-8s %(message)s")
 
     conn = duckdb.connect(str(settings.duckdb_path), read_only=args.validate)
+
+    if args.scale is None:
+        args.scale = load_fitted_scale(conn)
 
     try:
         t0 = time.perf_counter()
@@ -1146,21 +1154,20 @@ def main() -> None:
 
         # 3. Coverage check — replace any NaN entries (AVG returned NULL when
         #    posterior_mean was all-NaN), then fill teams absent from the map.
+        _fb = fallback_strength(conn)
         strengths_map = {
-            t: (v if np.isfinite(v) else FALLBACK_STRENGTH)
+            t: (v if np.isfinite(v) else _fb)
             for t, v in strengths_map.items()
         }
 
         missing = [t for t in bracket_order if t not in strengths_map]
         if missing:
-            valid = [v for v in strengths_map.values() if np.isfinite(v)]
-            fallback = float(np.median(valid)) if valid else FALLBACK_STRENGTH
             logger.warning(
-                "%d bracket team(s) not in player_ratings — using %.4f: %s",
-                len(missing), fallback, missing,
+                "%d bracket team(s) not in player_ratings — using fallback=%.4f: %s",
+                len(missing), _fb, missing,
             )
             for t in missing:
-                strengths_map[t] = fallback
+                strengths_map[t] = _fb
 
         # 3c. Rest/travel penalty  (PR5b.1)
         rest_adj = _compute_rest_adjustments(conn, bracket_order)

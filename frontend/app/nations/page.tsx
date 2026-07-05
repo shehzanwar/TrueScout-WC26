@@ -70,25 +70,40 @@ export default async function NationsPage() {
       <div className="my-8 border-t border-slate-800" />
 
       {/* ── Eliminated ──────────────────────────────────────────────── */}
-      <section>
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-600 mb-4">
-          Eliminated in R32 — {eliminated.length} teams
-        </h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-slate-800/40 rounded-xl overflow-hidden">
-          {eliminated.map((n) => (
-            <Link
-              key={n.slug}
-              href={`/nations/${n.slug}`}
-              className="flex items-center gap-2.5 px-4 py-3 bg-slate-950 hover:bg-slate-800/50 transition-colors group"
-            >
-              <FlagIcon name={n.name} size={18} />
-              <span className="text-sm text-slate-400 group-hover:text-slate-200 transition-colors truncate">
-                {n.name}
-              </span>
-            </Link>
-          ))}
-        </div>
-      </section>
+      {(() => {
+        const ELIM_ORDER = ["SF", "QF", "R16", "R32"] as const
+        const buckets = ELIM_ORDER.map((round) => ({
+          round,
+          label: ROUND_LABELS[round] ?? round,
+          teams: eliminated.filter((n) => n.current_round === round),
+        })).filter((b) => b.teams.length > 0)
+
+        return (
+          <section className="space-y-6">
+            {buckets.map((b) => (
+              <div key={b.round}>
+                <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-600 mb-3">
+                  Eliminated in {b.label} — {b.teams.length} {b.teams.length === 1 ? "team" : "teams"}
+                </h2>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-slate-800/40 rounded-xl overflow-hidden">
+                  {b.teams.map((n) => (
+                    <Link
+                      key={n.slug}
+                      href={`/nations/${n.slug}`}
+                      className="flex items-center gap-2.5 px-4 py-3 bg-slate-950 hover:bg-slate-800/50 transition-colors group"
+                    >
+                      <FlagIcon name={n.name} size={18} />
+                      <span className="text-sm text-slate-400 group-hover:text-slate-200 transition-colors truncate">
+                        {n.name}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </section>
+        )
+      })()}
 
     </div>
   )
