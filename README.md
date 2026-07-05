@@ -86,7 +86,7 @@ GitHub Actions (nightly.yml)
    7. Monte Carlo bracket sim            → rest/travel strength penalty
    8. Brier-score tracker
    9. export_json.py                     → frontend/public/data/*.json
-  9.5 verify_outputs.py                  → hard-assertion quality gate
+   10. verify_outputs.py                 → hard-assertion quality gate
    │
    └─ git push [skip ci]  →  Vercel auto-deploys (~30s)
 ```
