@@ -104,14 +104,15 @@ export function buildBracket(
   const actualR32Winners = new Map<number, string>()
   const confirmedWinners = new Set<string>()
 
-  // Binary entropy: measures uncertainty of a single match (0 = certain, 1 = 50/50)
-  function binEntropy(p: number): number {
+  // Linear competitiveness: 1.0 = pure coin flip (50/50), 0.0 = certain outcome (100/0).
+  // Better than binary entropy because 70/30 reads as 0.60 ("moderate favourite"), not 0.88
+  // ("almost maximum chaos"). Matches how fans intuitively perceive match competitiveness.
+  function competitiveness(p: number): number {
     if (p <= 0 || p >= 1) return 0
-    const q = 1 - p
-    return -(p * Math.log2(p) + q * Math.log2(q))
+    return 1 - Math.abs(2 * p - 1)
   }
 
-  // chaosScore: average binary entropy across all match slots in the round.
+  // chaosScore: average match competitiveness across all slots in the round.
   // For pending slots: uses current slotProb (simulation probability).
   // For completed slots: uses preMatchProb (probability locked in before kickoff),
   //   so the score reflects how unpredictable the round WAS, not how many matches remain.
@@ -122,7 +123,7 @@ export function buildBracket(
       return s.top.slotProb ?? null                        // use simulation prob for pending
     }).filter((p): p is number => p !== null)
     if (!probs.length) return 0
-    return probs.reduce((acc, p) => acc + binEntropy(p), 0) / probs.length
+    return probs.reduce((acc, p) => acc + competitiveness(p), 0) / probs.length
   }
 
   // teamData: build a BracketTeam for `name` as it appears in `displayRound`
@@ -293,19 +294,45 @@ export function buildBracket(
         if (resolvedB) teamB = resolvedB
       }
 
+      // R16 completion: if the ESPN fixture is done, lock in the actual result.
+      // Mirrors the R32 logic — prevents completed R16 slots from showing 100%/grayed.
+      let r16Done  = false
+      let r16Score: string | undefined
+
+      if (code === "R16" && r16?.matches[newSlotIdx]?.is_completed) {
+        const fix = r16.matches[newSlotIdx]
+        if (fix.home.score != null && fix.away.score != null) {
+          let actualWinner: string | null = null
+          if      (fix.home.score > fix.away.score) actualWinner = teamA
+          else if (fix.away.score > fix.home.score) actualWinner = teamB
+          else if (fix.winner)                       actualWinner = fix.winner
+          if (actualWinner) {
+            confirmedWinners.add(actualWinner)
+            r16Done = true
+            const ws = actualWinner === teamA ? fix.home.score : fix.away.score
+            const ls = actualWinner === teamA ? fix.away.score : fix.home.score
+            r16Score = `${ws}–${ls}`
+            // Swap so winner is always teamA for the slot builder below
+            if (actualWinner === teamB) { const tmp = teamA; teamA = teamB; teamB = tmp }
+          }
+        }
+      }
+
       // Who wins the code:newSlotIdx match?
       const slotEntry     = slotMap.get(`${code}:${newSlotIdx}`)
-      const matchWinner   = resolveSlotWinner(code, newSlotIdx, teamA, teamB, NEXT[code] ?? "W")
+      const matchWinner   = r16Done ? teamA : resolveSlotWinner(code, newSlotIdx, teamA, teamB, NEXT[code] ?? "W")
       const matchLoser    = matchWinner === teamA ? teamB : teamA
       const altsFromEntry = slotEntry?.alt.filter(a => a.team !== teamA && a.team !== teamB) ?? []
 
-      // A team confirmed via a completed R32 result is not "projected" even in R16
+      // A team confirmed via a completed R32/R16 result is not "projected"
       const winnerConfirmed = confirmedWinners.has(matchWinner)
       const loserConfirmed  = confirmedWinners.has(matchLoser)
       nextSlots.push({
-        top:    teamData(matchWinner, code, !winnerConfirmed, slotProbFor(code, newSlotIdx, matchWinner)),
-        bottom: teamData(matchLoser,  code, !loserConfirmed,  slotProbFor(code, newSlotIdx, matchLoser)),
-        alts:   altsFromEntry,
+        top:    teamData(matchWinner, code, !winnerConfirmed, r16Done ? 1.0 : slotProbFor(code, newSlotIdx, matchWinner)),
+        bottom: teamData(matchLoser,  code, !loserConfirmed,  r16Done ? 0.0 : slotProbFor(code, newSlotIdx, matchLoser)),
+        alts:   r16Done ? [] : altsFromEntry,
+        isCompleted: r16Done || undefined,
+        score:       r16Score,
       })
     }
 

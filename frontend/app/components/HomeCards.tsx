@@ -166,7 +166,7 @@ function CalibrationCard({ summary, entries }: { summary: BrierSummary; entries:
           {entries.length > 0 && (
             <div className="border-t border-slate-800 pt-3 space-y-1.5">
               <p className="text-xs text-slate-500 uppercase tracking-wide">Recent results</p>
-              {entries.slice(0, 3).map((e) => (
+              {[...entries].reverse().slice(0, 3).map((e) => (
                 <div key={e.event_id} className="flex items-center justify-between text-xs">
                   <span className="text-slate-400">
                     {e.home_team} <span className="text-slate-600">vs</span> {e.away_team}
