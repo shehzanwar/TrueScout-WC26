@@ -124,6 +124,80 @@ export async function getAllMatchups(): Promise<Record<string, MatchupsResponse>
   return readData<Record<string, MatchupsResponse>>("matchups.json")
 }
 
+// Derives projected QF matchups from simulations.json when ESPN has not yet
+// published QF fixtures. Uses bracket pairings + R16/QF bracket_slot probs.
+export async function getProjectedQFMatchups(): Promise<MatchupsResponse | null> {
+  const sim = readDataOrNull<SimulationsResponse>("simulations.json")
+  if (!sim?.pairings?.QF?.length || !sim.bracket_slots?.length) return null
+
+  type SlotEntry = { round: string; slot_idx: number; top: { team: string; prob: number } }
+  const slotMap = new Map<string, SlotEntry>()
+  for (const e of sim.bracket_slots as SlotEntry[]) {
+    slotMap.set(`${e.round}:${e.slot_idx}`, e)
+  }
+
+  // Top projected winner for each R16 slot
+  const r16Top = new Map<number, string>()
+  for (const e of sim.bracket_slots as SlotEntry[]) {
+    if (e.round === "R16") r16Top.set(e.slot_idx, e.top.team)
+  }
+
+  // Track which R16 slots are confirmed (prob === 1.0 means the winner is locked in)
+  const r16Confirmed = new Set<number>()
+  for (const e of sim.bracket_slots as SlotEntry[]) {
+    if (e.round === "R16" && e.top.prob === 1.0) r16Confirmed.add(e.slot_idx)
+  }
+
+  const matches = sim.pairings.QF.map(([slotA, slotB], qfIdx) => {
+    const homeTeam = r16Top.get(slotA) ?? `R16[${slotA}] Winner`
+    const awayTeam = r16Top.get(slotB) ?? `R16[${slotB}] Winner`
+    const bothConfirmed = r16Confirmed.has(slotA) && r16Confirmed.has(slotB)
+
+    // Only show QF slot probabilities when both competing teams are confirmed R16 winners.
+    // For projected slots, the slot prob bundles multiple possible opponents and is misleading
+    // as a head-to-head probability.
+    const qfSlot = bothConfirmed ? slotMap.get(`QF:${qfIdx}`) : null
+    let homeProb: number | null = null
+    if (qfSlot) {
+      homeProb = qfSlot.top.team === homeTeam ? qfSlot.top.prob : 1 - qfSlot.top.prob
+    }
+
+    return {
+      event_id: `proj-QF-${qfIdx}`,
+      match_date: "TBD",
+      round: "Quarterfinals",
+      is_completed: false,
+      venue: null,
+      winner: null,
+      home: {
+        name: homeTeam,
+        abbrev: null,
+        score: null,
+        model_advance_prob: homeProb,
+        market_advance_prob: null,
+        rest_days: null,
+        travel_km: null,
+      },
+      away: {
+        name: awayTeam,
+        abbrev: null,
+        score: null,
+        model_advance_prob: homeProb !== null ? 1 - homeProb : null,
+        market_advance_prob: null,
+        rest_days: null,
+        travel_km: null,
+      },
+    }
+  })
+
+  return {
+    round_code: "QF",
+    round_name: "Quarterfinals",
+    n_matches: matches.length,
+    matches,
+  }
+}
+
 export async function getTopPlayers(
   limit = 5,
   minConfidence = 0.5,

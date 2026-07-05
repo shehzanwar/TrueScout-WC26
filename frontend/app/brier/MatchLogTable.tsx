@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
+import Link from "next/link"
 import type { BrierEntry } from "@/lib/api"
 import { FlagIcon } from "@/app/components/FlagIcon"
 
@@ -241,9 +242,14 @@ export default function MatchLogTable({ entries }: { entries: BrierEntry[] }) {
               const delta = fmtBrierDelta(row.brierDelta)
               return (
                 <tr key={e.event_id} className={`text-sm transition-colors ${rowClass(row.rowType)}`}>
-                  {/* Round */}
-                  <td className="px-3 py-3 text-xs font-medium text-slate-400 whitespace-nowrap">
-                    {row.shortRound}
+                  {/* Round — links to the matchups page for that round */}
+                  <td className="px-3 py-3 text-xs font-medium whitespace-nowrap">
+                    <Link
+                      href={`/matchups?round=${row.shortRound}`}
+                      className="text-slate-400 hover:text-slate-100 underline underline-offset-2 decoration-slate-700 hover:decoration-slate-400 transition-colors"
+                    >
+                      {row.shortRound}
+                    </Link>
                   </td>
 
                   {/* Match */}
