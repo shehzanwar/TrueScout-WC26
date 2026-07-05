@@ -363,10 +363,12 @@ export default function AboutPage() {
               withdrawing the morning of a match will not affect the simulation until the
               next nightly update.
             </LimitationItem>
-            <LimitationItem title="Penalty shootouts are 50/50">
-              For matches that go to penalties, each team is currently given equal odds.
-              Penalty conversion records exist in the data but a shootout model has not
-              been built yet.
+            <LimitationItem title="Penalty shootouts use a conservative prior">
+              When a knockout match reaches extra time, the model gives the stronger
+              team a 55 % advance probability (45 % to the weaker side) rather than
+              pure 50/50. This reflects the modest historical edge the higher-rated side
+              holds in shootouts. A shootout-specific model using actual penalty
+              conversion records has not been built yet.
             </LimitationItem>
             <LimitationItem title="No tactical or manager signal">
               The model knows nothing about formations, pressing intensity, set-piece
