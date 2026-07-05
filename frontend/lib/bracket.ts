@@ -293,19 +293,45 @@ export function buildBracket(
         if (resolvedB) teamB = resolvedB
       }
 
+      // R16 completion: if the ESPN fixture is done, lock in the actual result.
+      // Mirrors the R32 logic — prevents completed R16 slots from showing 100%/grayed.
+      let r16Done  = false
+      let r16Score: string | undefined
+
+      if (code === "R16" && r16?.matches[newSlotIdx]?.is_completed) {
+        const fix = r16.matches[newSlotIdx]
+        if (fix.home.score != null && fix.away.score != null) {
+          let actualWinner: string | null = null
+          if      (fix.home.score > fix.away.score) actualWinner = teamA
+          else if (fix.away.score > fix.home.score) actualWinner = teamB
+          else if (fix.winner)                       actualWinner = fix.winner
+          if (actualWinner) {
+            confirmedWinners.add(actualWinner)
+            r16Done = true
+            const ws = actualWinner === teamA ? fix.home.score : fix.away.score
+            const ls = actualWinner === teamA ? fix.away.score : fix.home.score
+            r16Score = `${ws}–${ls}`
+            // Swap so winner is always teamA for the slot builder below
+            if (actualWinner === teamB) { const tmp = teamA; teamA = teamB; teamB = tmp }
+          }
+        }
+      }
+
       // Who wins the code:newSlotIdx match?
       const slotEntry     = slotMap.get(`${code}:${newSlotIdx}`)
-      const matchWinner   = resolveSlotWinner(code, newSlotIdx, teamA, teamB, NEXT[code] ?? "W")
+      const matchWinner   = r16Done ? teamA : resolveSlotWinner(code, newSlotIdx, teamA, teamB, NEXT[code] ?? "W")
       const matchLoser    = matchWinner === teamA ? teamB : teamA
       const altsFromEntry = slotEntry?.alt.filter(a => a.team !== teamA && a.team !== teamB) ?? []
 
-      // A team confirmed via a completed R32 result is not "projected" even in R16
+      // A team confirmed via a completed R32/R16 result is not "projected"
       const winnerConfirmed = confirmedWinners.has(matchWinner)
       const loserConfirmed  = confirmedWinners.has(matchLoser)
       nextSlots.push({
-        top:    teamData(matchWinner, code, !winnerConfirmed, slotProbFor(code, newSlotIdx, matchWinner)),
-        bottom: teamData(matchLoser,  code, !loserConfirmed,  slotProbFor(code, newSlotIdx, matchLoser)),
-        alts:   altsFromEntry,
+        top:    teamData(matchWinner, code, !winnerConfirmed, r16Done ? 1.0 : slotProbFor(code, newSlotIdx, matchWinner)),
+        bottom: teamData(matchLoser,  code, !loserConfirmed,  r16Done ? 0.0 : slotProbFor(code, newSlotIdx, matchLoser)),
+        alts:   r16Done ? [] : altsFromEntry,
+        isCompleted: r16Done || undefined,
+        score:       r16Score,
       })
     }
 
