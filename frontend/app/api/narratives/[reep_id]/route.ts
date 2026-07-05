@@ -35,7 +35,9 @@ function getPlayers(): PlayerResponse[] {
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 
 const PRIMARY_MODEL = process.env.GOOGLE_AI_MODEL ?? "gemini-2.5-flash"
-const MODELS = [PRIMARY_MODEL]
+const MODELS = [PRIMARY_MODEL, "gemini-2.0-flash"].filter(
+  (m, i, arr) => arr.indexOf(m) === i,
+)
 
 const _ANTI_YAPPING =
   "\n\nCRITICAL FORMATTING RULE: Do NOT output your chain of thought, reasoning process, " +
@@ -161,7 +163,7 @@ export async function POST(
         body: JSON.stringify({
           system_instruction: { parts: [{ text: systemPrompt }] },
           contents: [{ role: "user", parts: [{ text: userMessage }] }],
-          generationConfig: { maxOutputTokens: 1200, temperature: 0.7 },
+          generationConfig: { maxOutputTokens: 2048, temperature: 0.7 },
         }),
         signal: AbortSignal.timeout(45_000),
       })
