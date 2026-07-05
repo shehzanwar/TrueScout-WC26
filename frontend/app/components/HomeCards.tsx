@@ -6,22 +6,12 @@ import { playerSlug, type SimTeam, type BrierSummary, type BrierEntry, type Matc
 import { FlagIcon } from "@/app/components/FlagIcon"
 
 // ---------------------------------------------------------------------------
-// Animation variants
+// Animation variants — minimal: one subtle lift per card only
 // ---------------------------------------------------------------------------
 
-const container = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.07 } },
-}
-
 const card = {
-  hidden: { y: 14 },
-  show: { y: 0, transition: { duration: 0.32, ease: "easeOut" as const } },
-}
-
-const row = {
-  hidden: { x: -6 },
-  show: { x: 0, transition: { duration: 0.25, ease: "easeOut" as const } },
+  hidden: { y: 10, opacity: 0 },
+  show: { y: 0, opacity: 1, transition: { duration: 0.28, ease: "easeOut" as const } },
 }
 
 // ---------------------------------------------------------------------------
@@ -41,15 +31,18 @@ function StatPill({ value, label, accent = false }: { value: string; label: stri
 }
 
 function SectionCard({
-  title, subtitle, children,
+  title, subtitle, children, variant = "default",
 }: {
-  title: string; subtitle?: string; children: React.ReactNode
+  title: string; subtitle?: string; children: React.ReactNode; variant?: "default" | "inset" | "ruled"
 }) {
+  const wrapCls =
+    variant === "inset"
+      ? "bg-slate-800/30 border border-slate-800/60 rounded-xl p-5 flex flex-col gap-4"
+      : variant === "ruled"
+      ? "border-t border-slate-800 pt-5 flex flex-col gap-4"
+      : "bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col gap-4"
   return (
-    <motion.div
-      variants={card}
-      className="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col gap-4"
-    >
+    <motion.div variants={card} className={wrapCls}>
       <div>
         <h2 className="text-sm font-semibold text-slate-100 uppercase tracking-wider">{title}</h2>
         {subtitle && <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>}
@@ -75,6 +68,14 @@ function FavoritesCard({
 }) {
   const top5 = champions.slice().sort((a, b) => b.title_prob - a.title_prob).slice(0, 5)
   const maxProb = top5[0]?.title_prob ?? 1
+  // Use 2dp when toFixed(1) would produce duplicate labels among the top 5
+  const allProbs = top5.map(t => t.title_prob)
+  function fmtProb(p: number): string {
+    const pct = p * 100
+    const label1 = pct.toFixed(1)
+    const collision = allProbs.some(q => q !== p && (q * 100).toFixed(1) === label1)
+    return collision ? `${pct.toFixed(2)}%` : `${label1}%`
+  }
   const risingTeams = new Set(
     (overnight ?? []).filter((o) => o.delta > 0.01).map((o) => o.team),
   )
@@ -83,9 +84,9 @@ function FavoritesCard({
       {top5.length === 0 ? (
         <p className="text-sm text-slate-500 italic">No simulation data yet.</p>
       ) : (
-        <motion.ol variants={container} initial="hidden" animate="show" className="space-y-2.5">
+        <ol className="space-y-2.5">
           {top5.map((team, i) => (
-            <motion.li key={team.team_id} variants={row} className="flex items-center gap-3">
+            <li key={team.team_id} className="flex items-center gap-3">
               <span className="w-5 text-center text-xs font-bold text-slate-600 tabular-nums">{i + 1}</span>
               <div className="flex-1 min-w-0">
                 <div className="flex justify-between items-center mb-1">
@@ -108,7 +109,7 @@ function FavoritesCard({
                     )}
                   </div>
                   <span className="text-xs font-mono text-emerald-400 shrink-0 ml-2">
-                    {(team.title_prob * 100).toFixed(1)}%
+                    {fmtProb(team.title_prob)}
                   </span>
                 </div>
                 <div className="h-1 bg-slate-800 rounded-full overflow-hidden">
@@ -118,9 +119,9 @@ function FavoritesCard({
                   />
                 </div>
               </div>
-            </motion.li>
+            </li>
           ))}
-        </motion.ol>
+        </ol>
       )}
     </SectionCard>
   )
@@ -136,7 +137,7 @@ function CalibrationCard({ summary, entries }: { summary: BrierSummary; entries:
   const skillPos  = summary.brier_skill_vs_coin != null && summary.brier_skill_vs_coin > 0
 
   return (
-    <SectionCard title="Prediction Accuracy" subtitle="How well our model calls knockout results">
+    <SectionCard title="Prediction Accuracy" subtitle="How well our model calls knockout results" variant="inset">
       {summary.n_matches === 0 ? (
         <p className="text-sm text-slate-500 italic">No completed knockout matches graded yet.</p>
       ) : (
@@ -335,13 +336,13 @@ function InsightCard({ match }: { match: Matchup | null }) {
 
 function TopPerformersCard({ players }: { players: PlayerResponse[] }) {
   return (
-    <SectionCard title="Top Performers" subtitle="Highest-rated players at this World Cup">
+    <SectionCard title="Top Performers" subtitle="Highest-rated players at this World Cup" variant="inset">
       {players.length === 0 ? (
         <p className="text-sm text-slate-500 italic">No player data available yet.</p>
       ) : (
-        <motion.ol variants={container} initial="hidden" animate="show" className="space-y-2">
+        <ol className="space-y-2">
           {players.map((p, i) => (
-            <motion.li key={p.reep_id} variants={row}>
+            <li key={p.reep_id}>
               <Link
                 href={`/players/${playerSlug(p)}`}
                 className="flex items-center gap-3 py-1 rounded-lg hover:bg-slate-800 px-1 transition-colors group"
@@ -358,16 +359,16 @@ function TopPerformersCard({ players }: { players: PlayerResponse[] }) {
                     {p.national_team ?? p.nationality} · {p.position_micro ?? p.position_macro}
                   </p>
                 </div>
-                <span className="text-sm font-bold text-emerald-400 tabular-nums shrink-0">
+                <span className="text-sm font-semibold text-slate-300 tabular-nums shrink-0">
                   {p.posterior_mean.toFixed(2)}
                 </span>
               </Link>
-            </motion.li>
+            </li>
           ))}
-        </motion.ol>
+        </ol>
       )}
 
-      <Link href="/players" className="text-xs text-emerald-500 hover:text-emerald-400 transition-colors">
+      <Link href="/players" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
         Search all players →
       </Link>
     </SectionCard>
@@ -392,7 +393,7 @@ function OvernightDeltasCard({ overnight }: { overnight: InsightsOvernight[] }) 
       {sorted.length === 0 ? (
         <p className="text-sm text-slate-500 italic">No overnight delta data available.</p>
       ) : (
-        <motion.ol variants={container} initial="hidden" animate="show" className="space-y-2.5">
+        <ol className="space-y-2.5">
           {sorted.map((item) => {
             const isUp   = item.delta >= 0
             const absDelta = Math.abs(item.delta * 100)
@@ -400,7 +401,7 @@ function OvernightDeltasCard({ overnight }: { overnight: InsightsOvernight[] }) 
             const deltaColor = isUp ? "text-emerald-400" : "text-rose-400"
             const barColor   = isUp ? "bg-emerald-500" : "bg-rose-500"
             return (
-              <motion.li key={item.team} variants={row} className="flex items-center gap-3">
+              <li key={item.team} className="flex items-center gap-3">
                 <span className={`text-xs font-bold w-3 shrink-0 ${deltaColor}`}>{arrow}</span>
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-baseline mb-1">
@@ -423,10 +424,10 @@ function OvernightDeltasCard({ overnight }: { overnight: InsightsOvernight[] }) 
                     />
                   </div>
                 </div>
-              </motion.li>
+              </li>
             )
           })}
-        </motion.ol>
+        </ol>
       )}
     </SectionCard>
   )
@@ -454,18 +455,13 @@ export default function HomeCards({
   overnight: InsightsOvernight[] | null
 }) {
   return (
-    <motion.div
-      variants={container}
-      initial="hidden"
-      animate="show"
-      className="grid grid-cols-1 lg:grid-cols-2 gap-5"
-    >
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
       <FavoritesCard champions={champions} overnight={overnight} />
       <CalibrationCard summary={brierSummary} entries={brierEntries} />
       {matchOfTheDay && <MatchOfTheDayCard match={matchOfTheDay} />}
       <InsightCard match={insightMatch} />
       {overnight && overnight.length > 0 && <OvernightDeltasCard overnight={overnight} />}
       <TopPerformersCard players={topPlayers} />
-    </motion.div>
+    </div>
   )
 }

@@ -18,6 +18,7 @@ export interface SimRound {
 export interface BracketSlotTeam {
   team: string
   prob: number
+  pre_match_prob?: number  // BT probability locked in before kickoff; set for completed R32 slots
 }
 
 export interface BracketSlotEntry {
@@ -336,6 +337,23 @@ export function playerSlug(player: {
       .replace(/-+/g, "-")
   }
   return player.reep_id
+}
+
+/**
+ * URL-safe slug from a nation/team name.
+ * "Bosnia & Herzegovina" → "bosnia-and-herzegovina"
+ * "United States" → "united-states"
+ */
+export function nationSlug(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
 }
 
 // ---------------------------------------------------------------------------

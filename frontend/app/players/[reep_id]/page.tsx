@@ -1,8 +1,8 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import Link from "next/link"
-import { trueScoutRating } from "@/lib/api"
-import { getPlayer, getSimilarPlayers } from "@/lib/server-data"
+import { trueScoutRating, nationSlug } from "@/lib/api"
+import { getPlayer, getSimilarPlayers, getAllNations } from "@/lib/server-data"
 import PlayerRadar from "./PlayerRadar"
 import TacticalAnalysis from "./TacticalAnalysis"
 import RawStats from "./RawStats"
@@ -134,7 +134,14 @@ export default async function PlayerProfilePage({
 
   if (!player) notFound()
 
-  const similar = await getSimilarPlayers(player)
+  const [similar, allNations] = await Promise.all([
+    getSimilarPlayers(player),
+    getAllNations(),
+  ])
+  const nationTeam = player.national_team ?? player.nationality ?? null
+  const nationPage = nationTeam
+    ? allNations.find((n) => n.name === nationTeam)
+    : null
 
   const tsRating    = trueScoutRating(player)
   const hdiLow      = player.hdi_low.toFixed(2)
@@ -177,14 +184,14 @@ export default async function PlayerProfilePage({
         >
           Players
         </Link>
-        {player.nationality && (
+        {nationTeam && (
           <>
             <Chevron />
             <Link
-              href={`/players?q=${encodeURIComponent(player.nationality)}`}
+              href={nationPage ? `/nations/${nationPage.slug}` : `/players?q=${encodeURIComponent(nationTeam)}`}
               className="text-slate-500 hover:text-slate-300 transition-colors"
             >
-              {player.nationality}
+              {nationTeam}
             </Link>
           </>
         )}
