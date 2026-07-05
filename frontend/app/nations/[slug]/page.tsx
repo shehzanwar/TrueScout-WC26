@@ -235,7 +235,7 @@ export default async function NationPage({
   )
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className="max-w-3xl lg:max-w-5xl mx-auto">
 
       {/* ── Breadcrumb ─────────────────────────────────────────────── */}
       <nav className="flex items-center gap-1.5 text-xs mb-6">

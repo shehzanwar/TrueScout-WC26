@@ -22,7 +22,7 @@ export default async function BrierPage() {
   const isEmpty = !data || data.summary.n_matches === 0
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-6xl 2xl:max-w-7xl mx-auto space-y-6">
 
       {/* Header */}
       <div>
