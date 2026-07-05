@@ -4,7 +4,7 @@ import Link from "next/link"
 import { motion } from "framer-motion"
 import { playerSlug, type SimTeam, type BrierSummary, type BrierEntry, type Matchup, type PlayerResponse, type InsightsOvernight, type BracketSlotEntry } from "@/lib/api"
 import { FlagIcon } from "@/app/components/FlagIcon"
-import Tooltip from "@/app/components/Tooltip"
+import Tooltip, { LabelWithInfo } from "@/app/components/Tooltip"
 
 // ---------------------------------------------------------------------------
 // Animation variants — minimal: one subtle lift per card only
@@ -20,13 +20,15 @@ const card = {
 // ---------------------------------------------------------------------------
 
 
-function StatPill({ value, label, accent = false }: { value: string; label: string; accent?: boolean }) {
+function StatPill({ value, label, accent = false, tip }: { value: string; label: string; accent?: boolean; tip?: string }) {
   return (
     <div className="flex flex-col items-center gap-0.5">
       <span className={`text-lg font-bold tabular-nums ${accent ? "text-emerald-400" : "text-slate-100"}`}>
         {value}
       </span>
-      <span className="text-xs text-slate-500 uppercase tracking-wide">{label}</span>
+      <span className="text-xs text-slate-500 uppercase tracking-wide">
+        {tip ? <LabelWithInfo label={label} tip={tip} /> : label}
+      </span>
     </div>
   )
 }
@@ -138,16 +140,27 @@ function CalibrationCard({ summary, entries }: { summary: BrierSummary; entries:
   const skillPos  = summary.brier_skill_vs_coin != null && summary.brier_skill_vs_coin > 0
 
   return (
-    <SectionCard title="Prediction Accuracy" subtitle="How well our model calls knockout results" variant="inset">
+    <SectionCard title="Prediction Accuracy" subtitle="Did our model pick the winners?" variant="inset">
       {summary.n_matches === 0 ? (
-        <p className="text-sm text-slate-500 italic">No completed knockout matches graded yet.</p>
+        <p className="text-sm text-slate-500 italic">No completed knockout matches graded yet. Check back after the first round.</p>
       ) : (
         <>
           <div className="grid grid-cols-3 gap-3 py-1">
             <StatPill value={String(summary.n_matches)} label="Graded" />
-            <StatPill value={brierModel} label="Brier Score" accent />
-            <StatPill value={skillPct} label="Edge" accent={skillPos} />
+            <StatPill
+              value={brierModel}
+              label="Brier Score"
+              accent
+              tip="Measures how accurate our probability predictions were. 0.0 = perfect, 0.25 = random guessing, 1.0 = always wrong. Lower is better."
+            />
+            <StatPill
+              value={skillPct}
+              label="Skill Edge"
+              accent={skillPos}
+              tip="How much better (or worse) our model is versus a 50/50 coin flip. Positive means the model is outperforming random chance."
+            />
           </div>
+          <p className="text-[11px] text-slate-600 text-center pb-1">lower score = more accurate · 0.25 = coin flip</p>
           {summary.brier_skill_vs_coin != null && (
             <div>
               <div className="flex justify-between text-xs text-slate-500 mb-1">

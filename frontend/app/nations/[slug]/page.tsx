@@ -49,6 +49,7 @@ export async function generateMetadata({
 // ---------------------------------------------------------------------------
 
 const ROUND_LABELS: Record<string, string> = {
+  GS:  "Group Stage",
   R32: "Round of 32",
   R16: "Round of 16",
   QF:  "Quarterfinals",
@@ -56,7 +57,7 @@ const ROUND_LABELS: Record<string, string> = {
   F:   "Final",
 }
 
-const ROUND_ORDER = ["R32", "R16", "QF", "SF", "F"]
+const ROUND_ORDER = ["GS", "R32", "R16", "QF", "SF", "F"]
 
 const POSITION_ORDER = ["GK", "DEF", "MID", "FWD"] as const
 const POSITION_LABEL: Record<string, string> = {
@@ -312,7 +313,7 @@ export default async function NationPage({
         {/* Left: match results */}
         <div>
           <h2 className="text-[10px] font-semibold uppercase tracking-widest text-slate-600 mb-3 pb-1.5 border-b border-slate-800">
-            Knockout Path
+            Match History
           </h2>
           {sortedMatches.length === 0 ? (
             <p className="text-xs text-slate-600 italic">No matches recorded</p>
