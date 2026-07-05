@@ -4,6 +4,7 @@ import Link from "next/link"
 import { motion } from "framer-motion"
 import { playerSlug, type SimTeam, type BrierSummary, type BrierEntry, type Matchup, type PlayerResponse, type InsightsOvernight, type BracketSlotEntry } from "@/lib/api"
 import { FlagIcon } from "@/app/components/FlagIcon"
+import Tooltip from "@/app/components/Tooltip"
 
 // ---------------------------------------------------------------------------
 // Animation variants — minimal: one subtle lift per card only
@@ -301,20 +302,14 @@ function InsightCard({ match }: { match: Matchup | null }) {
             model {Math.round(modelProb * 100)}% · bookies {Math.round(bookiesProb * 100)}%
           </span>
           {isHighVariance && (
-            <div className="relative group/tooltip">
+            <Tooltip content="This is a large disagreement between our model and the bookies. These calls have higher variance — the model sees something the market doesn't, but it could go either way.">
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/15 text-amber-400 border border-amber-500/25 cursor-default select-none">
                 <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 shrink-0">
                   <path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575Zm1.763.707a.25.25 0 0 0-.44 0L1.698 13.132a.25.25 0 0 0 .22.368h12.164a.25.25 0 0 0 .22-.368Zm.53 3.996v2.5a.75.75 0 0 1-1.5 0v-2.5a.75.75 0 0 1 1.5 0ZM9 11a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z" />
                 </svg>
                 high-variance call
               </span>
-              <div
-                role="tooltip"
-                className="pointer-events-none absolute bottom-full left-0 mb-2 z-20 hidden group-hover/tooltip:block w-64 rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-xs text-slate-300 leading-relaxed shadow-xl"
-              >
-                This is a large disagreement between our model and the bookies. These calls have higher variance — the model sees something the market doesn&apos;t, but it could go either way.
-              </div>
-            </div>
+            </Tooltip>
           )}
         </div>
 
@@ -357,6 +352,7 @@ function TopPerformersCard({ players }: { players: PlayerResponse[] }) {
                   </p>
                   <p className="text-xs text-slate-500 truncate">
                     {p.national_team ?? p.nationality} · {p.position_micro ?? p.position_macro}
+                    {p.age_at_wc != null ? ` · ${p.age_at_wc}y` : ""}
                   </p>
                 </div>
                 <span className="text-sm font-semibold text-slate-300 tabular-nums shrink-0">
