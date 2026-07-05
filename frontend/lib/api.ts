@@ -18,6 +18,7 @@ export interface SimRound {
 export interface BracketSlotTeam {
   team: string
   prob: number
+  pre_match_prob?: number  // BT probability locked in before kickoff; set for completed R32 slots
 }
 
 export interface BracketSlotEntry {
