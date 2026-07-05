@@ -146,25 +146,39 @@ def export_simulations(conn) -> dict:
         bracket_slots = bracket_slots_raw.get("slots")
         pairings = bracket_slots_raw.get("pairings")
 
-    # Enrich completed R32 slots with pre-match BT probability from match_probs table.
-    # The simulation sets prob=1.0 for confirmed winners; we restore the original
-    # pre-kick probability so the frontend can compute a stable round-chaos score
-    # that doesn't collapse to 0 once all R32 matches are decided.
+    # Enrich completed R32/R16 slots with pre-match BT probability so the frontend
+    # chaos meter uses the pre-kick probability rather than the post-lock-in 1.0.
     if bracket_slots:
-        pm_rows = conn.execute("""
+        def _build_pm_lookup(rows: list) -> dict:
+            lookup: dict[frozenset, dict[str, float]] = {}
+            for tl, tr, pl, pr in rows:
+                lookup[frozenset({tl, tr})] = {tl: float(pl), tr: float(pr)}
+            return lookup
+
+        pm_r32_rows = conn.execute("""
             SELECT team_left, team_right, prob_left, prob_right
             FROM match_probs
             WHERE run_date = (SELECT MAX(run_date) FROM match_probs)
         """).fetchall()
-        # Build lookup: {frozenset({teamA, teamB}): {teamA: prob, teamB: prob}}
-        pm_lookup: dict[frozenset, dict[str, float]] = {}
-        for tl, tr, pl, pr in pm_rows:
-            pm_lookup[frozenset({tl, tr})] = {tl: float(pl), tr: float(pr)}
+        pm_r32 = _build_pm_lookup(pm_r32_rows)
+
+        try:
+            pm_r16_rows = conn.execute("""
+                SELECT team_left, team_right, prob_left, prob_right
+                FROM match_probs_r16
+                WHERE run_date = (SELECT MAX(run_date) FROM match_probs_r16)
+            """).fetchall()
+            pm_r16 = _build_pm_lookup(pm_r16_rows)
+        except Exception:
+            pm_r16 = {}
+
+        lookup_by_round = {"R32": pm_r32, "R16": pm_r16}
         for slot in bracket_slots:
-            if slot.get("round") == "R32" and slot.get("top", {}).get("prob", 0) == 1.0:
+            rnd = slot.get("round")
+            lookup = lookup_by_round.get(rnd)
+            if lookup and slot.get("top", {}).get("prob", 0) == 1.0:
                 winner = slot["top"]["team"]
-                # Find the pre-match prob entry for this match
-                for key, probs in pm_lookup.items():
+                for key, probs in lookup.items():
                     if winner in key:
                         slot["top"]["pre_match_prob"] = round(probs[winner], 4)
                         break
@@ -479,6 +493,23 @@ def export_matchups(conn) -> dict:
     except Exception:
         pass
 
+    # Per-R16-match BT probabilities (written by _write_r16_match_probs in monte_carlo_sim.py).
+    # Same convention: keyed both ways, so ESPN home/away ordering doesn't matter.
+    bt_r16: dict[tuple[str, str], tuple[float, float]] = {}
+    try:
+        bt_r16_rows = conn.execute("""
+            SELECT team_left, team_right, prob_left, prob_right
+            FROM match_probs_r16
+            WHERE run_date = (SELECT MAX(run_date) FROM match_probs_r16)
+        """).fetchall()
+        for t_l, t_r, p_l, p_r in bt_r16_rows:
+            t_l_n = NAME_ALIASES.get(t_l, t_l)
+            t_r_n = NAME_ALIASES.get(t_r, t_r)
+            bt_r16[(t_l_n, t_r_n)] = (round(p_l, 4), round(p_r, 4))
+            bt_r16[(t_r_n, t_l_n)] = (round(p_r, 4), round(p_l, 4))
+    except Exception:
+        pass  # match_probs_r16 doesn't exist yet — will populate on next pipeline run
+
     result: dict = {}
     for round_code, round_name in ROUND_MAP.items():
         next_round = NEXT_ROUND.get(round_code, "W")
@@ -539,10 +570,12 @@ def export_matchups(conn) -> dict:
             if market_home is None and ev_str in manual_odds:
                 market_home, market_away = manual_odds[ev_str]
 
-            # For R32, use the pre-simulation BT head-to-head probability so
-            # completed matches don't show 100%/0% from the lock-in override.
+            # For R32 and R16, use the pre-simulation BT head-to-head probability
+            # so completed matches don't show 100%/0% from the lock-in override.
             if round_code == "R32" and (h_norm, a_norm) in bt_r32:
                 model_home, model_away = bt_r32[(h_norm, a_norm)]
+            elif round_code == "R16" and (h_norm, a_norm) in bt_r16:
+                model_home, model_away = bt_r16[(h_norm, a_norm)]
             else:
                 model_home = sim_map.get(h_norm)
                 model_away = sim_map.get(a_norm)

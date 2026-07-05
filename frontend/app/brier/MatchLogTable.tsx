@@ -162,9 +162,9 @@ function rowClass(type: RowType): string {
 
 function probClass(v: number | null): string {
   if (v === null) return "text-slate-600"
-  if (v >= 0.6) return "text-emerald-400 font-bold"
-  if (v >= 0.45) return "text-slate-300"
-  return "text-rose-400"
+  if (v >= 0.65) return "text-emerald-400"  // clear correct call
+  if (v < 0.40)  return "text-rose-400"      // model/market was surprised
+  return "text-slate-300"                     // marginal — no strong signal
 }
 
 // ---------------------------------------------------------------------------

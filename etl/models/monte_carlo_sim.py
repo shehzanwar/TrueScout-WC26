@@ -808,6 +808,70 @@ def _write_match_probs(
     logger.info("match_probs: wrote %d R32 BT probabilities for %s.", len(rows), run_date)
 
 
+def _write_r16_match_probs(
+    conn: duckdb.DuckDBPyConnection,
+    bracket_order: list[str],
+    strengths: np.ndarray,
+    scale: float,
+    run_date: "date",
+    completed_r32: dict[int, int],
+) -> None:
+    """
+    Compute and store the head-to-head BT probability for each R16 matchup.
+
+    For R32 slots that have a confirmed winner, uses that team's strength.
+    For pending R32 slots, uses the stronger of the two possible teams as
+    the projected representative.
+
+    Written to a separate match_probs_r16 table (same schema as match_probs).
+    export_json.py reads this table so R16 completed matches show pre-kick
+    probabilities instead of the post-lock-in 100%/0%.
+    """
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS match_probs_r16 (
+            run_date   DATE    NOT NULL,
+            team_left  VARCHAR NOT NULL,
+            team_right VARCHAR NOT NULL,
+            prob_left  DOUBLE  NOT NULL,
+            prob_right DOUBLE  NOT NULL,
+            PRIMARY KEY (run_date, team_left, team_right)
+        )
+    """)
+    conn.execute("DELETE FROM match_probs_r16 WHERE run_date = ?", [str(run_date)])
+
+    rows: list[tuple] = []
+    for k in range(8):
+        # R16 slot k pairs the winners of R32 matches 2k (left) and 2k+1 (right).
+        # R32 match j occupies bracket positions 2j and 2j+1.
+        # So left R32 match 2k → bracket positions 4k, 4k+1.
+        #    right R32 match 2k+1 → bracket positions 4k+2, 4k+3.
+
+        r32_left = 2 * k
+        if r32_left in completed_r32:
+            pos_l = completed_r32[r32_left]
+        else:
+            p0, p1 = 4 * k, 4 * k + 1
+            pos_l = p0 if strengths[p0] >= strengths[p1] else p1
+
+        r32_right = 2 * k + 1
+        if r32_right in completed_r32:
+            pos_r = completed_r32[r32_right]
+        else:
+            p2, p3 = 4 * k + 2, 4 * k + 3
+            pos_r = p2 if strengths[p2] >= strengths[p3] else p3
+
+        s_l = float(strengths[pos_l])
+        s_r = float(strengths[pos_r])
+        p_l = 1.0 / (1.0 + 10.0 ** (-(s_l - s_r) / scale))
+        rows.append((str(run_date), bracket_order[pos_l], bracket_order[pos_r], p_l, 1.0 - p_l))
+
+    conn.executemany(
+        "INSERT INTO match_probs_r16 (run_date, team_left, team_right, prob_left, prob_right) VALUES (?, ?, ?, ?, ?)",
+        rows,
+    )
+    logger.info("match_probs_r16: wrote %d R16 BT probabilities for %s.", len(rows), run_date)
+
+
 # ---------------------------------------------------------------------------
 # Vectorised single-elimination tournament
 # ---------------------------------------------------------------------------
@@ -1126,6 +1190,7 @@ def main() -> None:
         #     each game, so completed matches don't show 100%/0%.
         if not args.validate:
             _write_match_probs(conn, bracket_order, strengths_vec, args.scale, date.today())
+            _write_r16_match_probs(conn, bracket_order, strengths_vec, args.scale, date.today(), completed_r32)
 
         # 5. Simulate
         logger.info(
