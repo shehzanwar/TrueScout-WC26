@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { motion } from "framer-motion"
-import { playerSlug, type SimTeam, type BrierSummary, type BrierEntry, type Matchup, type PlayerResponse, type InsightsOvernight } from "@/lib/api"
+import { playerSlug, type SimTeam, type BrierSummary, type BrierEntry, type Matchup, type PlayerResponse, type InsightsOvernight, type BracketSlotEntry } from "@/lib/api"
 import { FlagIcon } from "@/app/components/FlagIcon"
 
 // ---------------------------------------------------------------------------
@@ -434,6 +434,71 @@ function OvernightDeltasCard({ overnight }: { overnight: InsightsOvernight[] }) 
 }
 
 // ---------------------------------------------------------------------------
+// Bracket Outlook (3rd column at 2xl+)
+// ---------------------------------------------------------------------------
+
+const BRACKET_ROUND_ORDER = ["R32", "R16", "QF", "SF", "F"] as const
+const BRACKET_ROUND_LABELS: Record<string, string> = {
+  R32: "Round of 32",
+  R16: "Round of 16",
+  QF:  "Quarterfinals",
+  SF:  "Semifinals",
+  F:   "Final",
+}
+
+function BracketPreviewCard({ slots }: { slots: BracketSlotEntry[] }) {
+  const currentRound = BRACKET_ROUND_ORDER.find((r) =>
+    slots.some((s) => s.round === r && s.top.prob < 1.0)
+  ) ?? null
+
+  if (!currentRound) return null
+
+  const currentSlots = slots
+    .filter((s) => s.round === currentRound)
+    .sort((a, b) => a.slot_idx - b.slot_idx)
+
+  return (
+    <SectionCard
+      title="Bracket Outlook"
+      subtitle={`${BRACKET_ROUND_LABELS[currentRound] ?? currentRound} · top pick per slot`}
+    >
+      <ol className="space-y-1.5">
+        {currentSlots.map((slot) => {
+          const confirmed = slot.top.prob >= 1.0
+          return (
+            <li key={slot.slot_idx} className="flex items-center gap-2">
+              <span className="w-4 text-right text-[10px] font-mono text-slate-600 tabular-nums shrink-0">
+                {slot.slot_idx + 1}
+              </span>
+              <span className="shrink-0">
+                <FlagIcon name={slot.top.team} size={14} />
+              </span>
+              <span
+                className={`flex-1 min-w-0 text-xs truncate ${
+                  confirmed ? "text-slate-500" : "text-slate-200"
+                }`}
+              >
+                {slot.top.team}
+              </span>
+              {confirmed ? (
+                <span className="text-[10px] text-emerald-600 shrink-0">✓</span>
+              ) : (
+                <span className="text-[10px] font-mono text-emerald-400 tabular-nums shrink-0">
+                  {Math.round(slot.top.prob * 100)}%
+                </span>
+              )}
+            </li>
+          )
+        })}
+      </ol>
+      <Link href="/bracket" className="text-xs text-emerald-500 hover:text-emerald-400 transition-colors">
+        Full bracket →
+      </Link>
+    </SectionCard>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Main export
 // ---------------------------------------------------------------------------
 
@@ -445,6 +510,7 @@ export default function HomeCards({
   insightMatch,
   topPlayers,
   overnight,
+  bracketSlots = [],
 }: {
   champions: SimTeam[]
   brierSummary: BrierSummary
@@ -453,15 +519,25 @@ export default function HomeCards({
   insightMatch: Matchup | null
   topPlayers: PlayerResponse[]
   overnight: InsightsOvernight[] | null
+  bracketSlots?: BracketSlotEntry[]
 }) {
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-      <FavoritesCard champions={champions} overnight={overnight} />
-      <CalibrationCard summary={brierSummary} entries={brierEntries} />
-      {matchOfTheDay && <MatchOfTheDayCard match={matchOfTheDay} />}
-      <InsightCard match={insightMatch} />
-      {overnight && overnight.length > 0 && <OvernightDeltasCard overnight={overnight} />}
-      <TopPerformersCard players={topPlayers} />
+    <div className="2xl:flex 2xl:gap-5 2xl:items-start">
+      {/* Main 2-col grid */}
+      <div className="flex-1 min-w-0 grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <FavoritesCard champions={champions} overnight={overnight} />
+        <CalibrationCard summary={brierSummary} entries={brierEntries} />
+        {matchOfTheDay && <MatchOfTheDayCard match={matchOfTheDay} />}
+        <InsightCard match={insightMatch} />
+        {overnight && overnight.length > 0 && <OvernightDeltasCard overnight={overnight} />}
+        <TopPerformersCard players={topPlayers} />
+      </div>
+      {/* 3rd column: bracket preview at 2xl+ */}
+      {bracketSlots.length > 0 && (
+        <div className="hidden 2xl:block 2xl:w-64 2xl:shrink-0">
+          <BracketPreviewCard slots={bracketSlots} />
+        </div>
+      )}
     </div>
   )
 }

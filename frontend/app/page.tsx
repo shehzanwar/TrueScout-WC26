@@ -49,7 +49,7 @@ export default async function HomePage() {
     )[0] ?? null
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="max-w-5xl 2xl:max-w-7xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-100">Dashboard</h1>
         <p className="mt-1 text-sm text-slate-500">
@@ -67,6 +67,7 @@ export default async function HomePage() {
         insightMatch={insightMatch}
         topPlayers={topPlayers}
         overnight={insights?.overnight ?? null}
+        bracketSlots={simData?.bracket_slots ?? []}
       />
     </div>
   )
