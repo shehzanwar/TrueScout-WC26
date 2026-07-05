@@ -10,6 +10,7 @@ export interface BracketTeam {
   titleProb: number     // P(win tournament) — secondary display
   isProjected: boolean  // false only for R32 (actual ESPN fixtures)
   slotProb?: number     // P(this team wins this specific match slot) — from joint distribution
+  preMatchProb?: number // pre-completion slotProb; preserved on R32 completed slots for chaos
 }
 
 export interface BracketSlotAlt {
@@ -110,11 +111,18 @@ export function buildBracket(
     return -(p * Math.log2(p) + q * Math.log2(q))
   }
 
-  // chaosScore: average binary entropy of top.prob across all slots in a round
+  // chaosScore: average binary entropy across all match slots in the round.
+  // For pending slots: uses current slotProb (simulation probability).
+  // For completed slots: uses preMatchProb (probability locked in before kickoff),
+  //   so the score reflects how unpredictable the round WAS, not how many matches remain.
+  // If a round has no data at all, returns 0.
   function roundChaos(slots: BracketSlot[]): number {
-    if (!slots.length) return 0
-    const sum = slots.reduce((acc, s) => acc + binEntropy(s.top.slotProb ?? 0.5), 0)
-    return sum / slots.length
+    const probs = slots.map(s => {
+      if (s.isCompleted) return s.top.preMatchProb ?? null  // use pre-kick prob for graded matches
+      return s.top.slotProb ?? null                        // use simulation prob for pending
+    }).filter((p): p is number => p !== null)
+    if (!probs.length) return 0
+    return probs.reduce((acc, p) => acc + binEntropy(p), 0) / probs.length
   }
 
   // teamData: build a BracketTeam for `name` as it appears in `displayRound`
@@ -123,6 +131,7 @@ export function buildBracket(
     displayRound: string,
     isProjected: boolean,
     slotProb?: number,
+    preMatchProb?: number,
   ): BracketTeam {
     const nextRound = NEXT[displayRound]
     const nextEntry = nextRound ? simMap.get(name)?.get(nextRound) : undefined
@@ -133,6 +142,7 @@ export function buildBracket(
       titleProb: wEntry?.tp ?? 0,
       isProjected,
       slotProb,
+      preMatchProb,
     }
   }
 
@@ -169,6 +179,14 @@ export function buildBracket(
     if (entry.top.team === team) return entry.top.prob
     const alt = entry.alt.find(a => a.team === team)
     return alt?.prob
+  }
+
+  // preMatchProbFor: look up the pre-kickoff BT probability for completed R32 slots.
+  // The ETL enriches top.pre_match_prob when the simulation-derived prob == 1.0.
+  function preMatchProbFor(slotIdx: number, team: string): number | undefined {
+    const entry = slotMap.get(`R32:${slotIdx}`)
+    if (entry?.top.team === team) return entry.top.pre_match_prob
+    return undefined
   }
 
   // R32: actual ESPN fixture pairings (slot_idx = match index = array position).
@@ -209,12 +227,14 @@ export function buildBracket(
       score = `${winnerScore}–${loserScore}`
     }
 
-    // Override slotProb for confirmed R32 results: winner = 1.0, loser = 0.0
-    const topProb  = actualWinner ? 1.0 : (slotProbFor("R32", j, topName) ?? undefined)
-    const botProb  = actualWinner ? 0.0 : (slotProbFor("R32", j, botName) ?? undefined)
+    // For completed matches: display slotProb as 1.0/0.0 but preserve the pre-kick
+    // BT probability (from match_probs table, via ETL enrichment) for chaos scoring.
+    const preMatchTop = actualWinner ? preMatchProbFor(j, topName) : undefined
+    const topProb     = actualWinner ? 1.0 : (slotProbFor("R32", j, topName) ?? undefined)
+    const botProb     = actualWinner ? 0.0 : (slotProbFor("R32", j, botName) ?? undefined)
 
     return {
-      top:         teamData(topName, "R32", false, topProb),
+      top:         teamData(topName, "R32", false, topProb, preMatchTop),
       bottom:      teamData(botName, "R32", false, botProb),
       alts:        actualWinner ? [] : (entry?.alt.filter(a => a.team !== topName && a.team !== botName) ?? []),
       isCompleted: !!actualWinner,

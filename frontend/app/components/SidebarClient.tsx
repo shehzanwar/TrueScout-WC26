@@ -37,6 +37,16 @@ const NAV = [
     ),
   },
   {
+    href: "/nations",
+    label: "Nations",
+    tagline: "32-team knockout squads",
+    icon: (
+      <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+        <path fillRule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-1.503.204A6.5 6.5 0 1 1 4.225 6.838c.12.296.295.56.5.787l.034.038.038.033A1.5 1.5 0 0 1 5 9c0 .828.545 1.521 1.294 1.757l.535.174.286.857A1.503 1.503 0 0 0 8.547 13H10a1.5 1.5 0 0 0 1.5-1.5v-.5a.5.5 0 0 1 .5-.5h1a1 1 0 0 0 .8-.4l.5-.667A.5.5 0 0 1 14.7 9.2l.644.483A6.515 6.515 0 0 1 16.497 10.204Z" clipRule="evenodd" />
+      </svg>
+    ),
+  },
+  {
     href: "/players",
     label: "Player Search",
     tagline: "Find any player",
