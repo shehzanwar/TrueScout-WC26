@@ -77,6 +77,52 @@ ROUNDS = ["R32", "R16", "QF", "SF", "F", "W"]
 # Keep local reference for direct dict access (used by _R32_SQL glob expansions)
 _NAME_ALIASES: dict[str, str] = TEAM_ALIASES
 
+# ---------------------------------------------------------------------------
+# Venue / home-advantage constants
+# ---------------------------------------------------------------------------
+
+# Maps venue city (as it appears in ESPN fixture data) to host nation canonical name.
+# Covers all WC 2026 stadiums across the three host countries.
+_VENUE_HOST_NATION: dict[str, str] = {
+    # Mexico
+    "Mexico City":      "Mexico",
+    "Ciudad de Mexico": "Mexico",
+    "Guadalajara":      "Mexico",
+    "Monterrey":        "Mexico",
+    # USA — all 11 WC 2026 stadiums
+    "Arlington":        "United States",
+    "Dallas":           "United States",
+    "Los Angeles":      "United States",
+    "Inglewood":        "United States",
+    "East Rutherford":  "United States",
+    "New York":         "United States",
+    "Santa Clara":      "United States",
+    "San Francisco":    "United States",
+    "Philadelphia":     "United States",
+    "Miami":            "United States",
+    "Miami Gardens":    "United States",
+    "Kansas City":      "United States",
+    "Seattle":          "United States",
+    "Foxborough":       "United States",
+    "Boston":           "United States",
+    "Pasadena":         "United States",
+    "Houston":          "United States",
+    # Canada
+    "Vancouver":        "Canada",
+    "Toronto":          "Canada",
+}
+
+# Strength delta applied when a host nation plays at their own country's venue.
+# Mexico receives a larger boost: home crowd + Azteca altitude (~2,240 m).
+_HOME_VENUE_BOOST: dict[str, float] = {
+    "Mexico":        0.30,
+    "United States": 0.15,
+    "Canada":        0.15,
+}
+
+# Additional penalty for opponents playing Mexico at any Mexican venue (altitude).
+_MEXICO_ALTITUDE_PENALTY = -0.10
+
 
 def _normalize(name: str) -> str:
     """Map any known team name variant to the canonical Sofascore name."""
@@ -516,6 +562,75 @@ def _compute_rest_adjustments(
             )
         else:
             logger.debug("Rest adj: %-28s  rest=%dd  delta=0.00 (no penalty)", team, rest_days)
+
+    return adjustments
+
+
+# ---------------------------------------------------------------------------
+# Venue / home-advantage adjustment
+# ---------------------------------------------------------------------------
+
+def _compute_venue_adjustments(
+    conn: duckdb.DuckDBPyConnection,
+    bracket_order: list[str],
+) -> dict[str, float]:
+    """
+    Apply home-venue advantage for the three WC 2026 host nations (R32 only).
+
+    Mexico gets a larger boost: Azteca altitude (~2,240 m) plus home crowd.
+    Opponents drawn to play any Mexican venue also receive an altitude penalty.
+    Later rounds are not adjusted — R16+ venues may cross national borders.
+
+    Returns {canonical_team_name: strength_delta}. Non-zero entries only.
+    """
+    bronze    = Path(settings.parquet_bronze_dir)
+    espn_glob = (bronze / "espn" / "matches" / "*.parquet").as_posix()
+
+    try:
+        r32_df = conn.execute(f"""
+            SELECT home_team_name, away_team_name, venue_city
+            FROM read_parquet('{espn_glob}', union_by_name=true)
+            WHERE round_name = 'Round of 32'
+        """).df()
+    except Exception as exc:
+        logger.warning("Venue adjustment: cannot read R32 fixtures: %s", exc)
+        return {}
+
+    if r32_df.empty:
+        return {}
+
+    adjustments: dict[str, float] = {}
+
+    for _, row in r32_df.iterrows():
+        venue_city  = str(row.get("venue_city") or "").strip()
+        host_nation = _VENUE_HOST_NATION.get(venue_city)
+        if not host_nation:
+            continue
+
+        home_norm = _normalize(str(row["home_team_name"]))
+        away_norm = _normalize(str(row["away_team_name"]))
+        boost     = _HOME_VENUE_BOOST.get(host_nation, 0.0)
+
+        # Home boost: only when the host nation is actually playing this match
+        for team in (home_norm, away_norm):
+            if team == host_nation and boost:
+                adjustments[team] = adjustments.get(team, 0.0) + boost
+                logger.info(
+                    "Venue adj: %-28s  venue=%-16s  delta=+%.2f (home boost)",
+                    team, venue_city, boost,
+                )
+
+        # Altitude penalty for whoever faces Mexico at a Mexican venue
+        if host_nation == "Mexico":
+            opponent = away_norm if home_norm == "Mexico" else home_norm
+            if opponent != "Mexico" and opponent in bracket_order:
+                adjustments[opponent] = (
+                    adjustments.get(opponent, 0.0) + _MEXICO_ALTITUDE_PENALTY
+                )
+                logger.info(
+                    "Venue adj: %-28s  venue=%-16s  delta=%.2f (altitude penalty)",
+                    opponent, venue_city, _MEXICO_ALTITUDE_PENALTY,
+                )
 
     return adjustments
 
@@ -1178,6 +1293,16 @@ def main() -> None:
             logger.info("Applied rest adjustments to %d team(s).", len(rest_adj))
         else:
             logger.info("No rest adjustments applied (3+ rest days for all teams).")
+
+        # 3d. Venue / home-advantage adjustment
+        venue_adj = _compute_venue_adjustments(conn, bracket_order)
+        if venue_adj:
+            for team, delta in venue_adj.items():
+                if team in strengths_map:
+                    strengths_map[team] = max(1.0, strengths_map[team] + delta)
+            logger.info("Applied venue adjustments to %d team(s).", len(venue_adj))
+        else:
+            logger.info("No venue adjustments applied (no host nations in their R32 fixtures).")
 
         # 4. Ordered strength vector
         strengths_vec = np.array(

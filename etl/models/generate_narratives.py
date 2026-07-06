@@ -209,7 +209,7 @@ def _call_gemini(api_key: str, model: str, system: str, user: str) -> str | None
     payload = json.dumps({
         "system_instruction": {"parts": [{"text": system}]},
         "contents":           [{"role": "user", "parts": [{"text": user}]}],
-        "generationConfig":   {"maxOutputTokens": 1200, "temperature": 0.7},
+        "generationConfig":   {"maxOutputTokens": 2048, "temperature": 0.7},
     }).encode("utf-8")
 
     req = urllib.request.Request(
