@@ -1,0 +1,6 @@
+{
+  "narrative": "Lionel Messi is Argentina's formidable Right Winger. He boasts an overall rating of 8.54/10, placing him in the top 1% of right wingers at this tournament. His rating range, reflecting the match sample size, is between 8.15 and 8.94.\n\nMessi's attacking output at this World Cup is exceptional, registering 1.969 goals per 90 minutes from 1.123 expected goals. He also averages 6.188 shots and 2.812 key passes per 90 minutes, highlighting his creative and finishing prowess. While his xA per 90 minutes at this World Cup is 0.412, it was 0.526 at club level over the last two seasons.\n\nMessi clearly operates as Argentina's primary offensive engine, driving both scoring and chance creation. Scouts should continue to observe his elite goal-scoring efficiency, especially given his 1.123 xG per 90 minutes at this World Cup, which is higher than his 0.768 xG per 90 minutes at club level. Fans can anticipate his continued decisive contributions as the tournament progresses.",
+  "voice": "data_analyst",
+  "model": "gemini-2.5-flash",
+  "generated_at": "2026-07-06T06:43:12.727889+00:00"
+}
