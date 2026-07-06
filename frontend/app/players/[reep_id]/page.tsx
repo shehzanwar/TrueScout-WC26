@@ -232,9 +232,9 @@ export default async function PlayerProfilePage({
             sub={pctLabel}
           />
           <StatRow
-            label={<LabelWithInfo label="Bayesian Posterior" tip="Raw Bayesian rating: a weighted blend of club form (last 2 seasons) and World Cup performance before the confidence penalty is applied." />}
+            label={<LabelWithInfo label="Model Rating" tip="A weighted blend of club form (last 2 seasons) and this World Cup performance — the raw signal before adjusting for how much data we have on this player." />}
             value={player.posterior_mean.toFixed(2)}
-            sub={`HDI ${hdiLow} – ${hdiHigh}`}
+            sub={`likely ${hdiLow} – ${hdiHigh}`}
           />
           <StatRow
             label={<LabelWithInfo label="From club (last 2 seasons)" tip="Performance at club level before this World Cup — the baseline before in-tournament form is factored in." />}

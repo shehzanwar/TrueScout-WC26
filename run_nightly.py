@@ -113,6 +113,7 @@ def run_pipeline() -> dict[str, bool]:
     from etl.load.load_group_stage       import main as load_main
     from etl.load.load_identity          import main as identity_main
     from etl.silver.build_features       import main as features_main
+    from etl.models.archetypes           import main as archetypes_main
     from etl.models.bayesian_ratings     import main as ratings_main
     from etl.models.calibration          import fit_scale as _fit_scale
     from etl.models.monte_carlo_sim      import main as sim_main
@@ -186,6 +187,14 @@ def run_pipeline() -> dict[str, bool]:
     results["5_build_features"] = _step(
         "Build Silver feature matrix",
         features_main,
+    )
+
+    # Step 5.5 — K-Means archetype clustering (position-aware, 3-8 clusters)
+    # Reads features.parquet written by step 5; must run before bayesian_ratings
+    # so the archetypes table is fresh when ratings joins cluster_id.
+    results["5_archetypes"] = _step(
+        "K-Means archetype clustering",
+        archetypes_main,
     )
 
     # Step 6 — Update Bayesian posteriors
@@ -280,6 +289,7 @@ def main() -> None:
     _INGESTION = {"1_espn_pull", "2_sofascore_pull", "2_sofascore_knockout",
                   "3_load_matches", "4_load_identity",
                   "4_market_values",    # botasaurus unavailable on CI; skipped by design
+                  "5_archetypes",       # soft-fail: sklearn optional dep, falls back to stale clusters
                   "6_fit_calibration",  # soft-fail: < 12 graded matches → DEFAULT_SCALE used
                   "9_narratives"}   # narrative pre-gen: soft-fail (quota exhaustion expected)
     _CRITICAL  = {"5_build_features", "6_bayesian_ratings", "7_monte_carlo_sim",
