@@ -1,6 +1,6 @@
 {
-  "narrative": "Elijah Just is a dynamic right winger representing New Zealand at the World Cup. His overall rating of 7.5/10 places him among the top 3% of right wingers in this tournament. This rating reflects both",
+  "narrative": "Elijah Just is a right winger for New Zealand, currently holding an overall rating of 7.47/10. This places him in the top 2% of right wingers at the tournament. His rating range is 7.05–7.89, reflecting his match sample size.\n\nJust demonstrates exceptional finishing at this World Cup, scoring 1.019 goals per 90 minutes despite an expected goals rate of just 0.173 per 90 minutes. He also contributes significantly defensively, averaging 2.038 tackles and 1.019 clearances per 90 minutes. However, his creative output is limited, with only 0.34 key passes and 0.125 expected assists per 90 minutes.\n\nJust serves as a crucial goal threat for New Zealand, consistently outperforming his expected goals at this tournament. Scouts should observe if he can maintain his remarkable finishing rate and increase his creative output, given his lower expected assists and key passes per 90 minutes. His ability to combine prolific scoring with significant defensive work makes him a player to watch closely.",
   "voice": "data_analyst",
   "model": "gemini-2.5-flash",
-  "generated_at": "2026-07-03T06:12:16.831989+00:00"
+  "generated_at": "2026-07-06T06:47:14.897301+00:00"
 }

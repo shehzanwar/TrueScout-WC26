@@ -69,7 +69,7 @@ export const NAV: NavItem[] = [
   },
   {
     href: "/brier",
-    label: "Model Calibration",
+    label: "Track Record",
     tagline: "How accurate are we?",
     icon: (
       <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
