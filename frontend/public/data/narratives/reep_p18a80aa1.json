@@ -1,0 +1,6 @@
+{
+  "narrative": "Kai Havertz is a centre-forward representing Germany at the World Cup. His overall rating stands at 7.37/10, placing him in the top 3% of centre-forwards at this tournament. This rating range, between 6.98–7.76, reflects the match sample size from his 355 minutes played.\n\nHavertz has been highly clinical at this World Cup, scoring 0.761 goals per 90 minutes, significantly above his 0.447 expected goals per 90 minutes. His defensive contribution is notable with 0.761 tackles per 90 minutes and 0.761 clearances per 90 minutes. However, his expected assists at 0.096 per 90 minutes suggest he is not a primary creative hub for others.\n\nHavertz plays a crucial role as a clinical finisher for Germany, demonstrating an ability to convert chances effectively. Scouts should continue to observe his exceptional goal-scoring efficiency, especially how he maintains 0.761 goals per 90 minutes with 2.282 shots per 90 minutes. Fans should also watch for any increase in his creative output, given his relatively low 0.096 expected assists per 90 minutes.",
+  "voice": "data_analyst",
+  "model": "gemini-2.5-flash",
+  "generated_at": "2026-07-06T09:12:18.551097+00:00"
+}
