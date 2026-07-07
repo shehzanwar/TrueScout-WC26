@@ -2,9 +2,44 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
-import { searchPlayers, playerSlug, type PlayerSearchResult } from "@/lib/api"
+import { searchPlayers, trueScoutRating, playerSlug, type PlayerSearchResult, type PlayerResponse } from "@/lib/api"
 import FifaBadge from "./FifaBadge"
 import { FlagIcon } from "@/app/components/FlagIcon"
+
+// ---------------------------------------------------------------------------
+// Position filter chips
+// ---------------------------------------------------------------------------
+
+type PosFilter = "ALL" | "GK" | "DEF" | "MID" | "FWD"
+
+const POS_LABELS: { key: PosFilter; label: string }[] = [
+  { key: "ALL", label: "All positions" },
+  { key: "GK",  label: "GK" },
+  { key: "DEF", label: "DEF" },
+  { key: "MID", label: "MID" },
+  { key: "FWD", label: "FWD" },
+]
+
+function PositionChips({ active, onChange }: { active: PosFilter; onChange: (p: PosFilter) => void }) {
+  return (
+    <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filter by position">
+      {POS_LABELS.map(({ key, label }) => (
+        <button
+          key={key}
+          onClick={() => onChange(key)}
+          className={[
+            "px-3 py-1 rounded-full text-xs font-medium transition-colors border",
+            active === key
+              ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-400"
+              : "bg-slate-900 border-slate-700 text-slate-500 hover:text-slate-300 hover:border-slate-600",
+          ].join(" ")}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  )
+}
 
 function confidenceLabel(score: number): { label: string; color: string } {
   if (score >= 0.7) return { label: "High", color: "text-emerald-400" }
@@ -241,8 +276,35 @@ export default function PlayerSearchClient({ initialQ }: { initialQ: string }) {
   const [searched, setSearched] = useState(false)
   const [sortKey, setSortKey] = useState<SortKey>("truescout_rating")
   const [sortDir, setSortDir] = useState<SortDir>("desc")
+  const [posFilter, setPosFilter] = useState<PosFilter>("ALL")
+  const [topPlayers, setTopPlayers] = useState<PlayerSearchResult[]>([])
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // Load top players from players_lite.json for browse mode
+  useEffect(() => {
+    fetch("/data/players_lite.json", { cache: "force-cache" })
+      .then((r) => r.json())
+      .then((all: PlayerResponse[]) => {
+        const top = all
+          .sort((a, b) => trueScoutRating(b) - trueScoutRating(a))
+          .slice(0, 100)
+          .map((p) => ({
+            reep_id:          p.reep_id,
+            name:             p.name,
+            nationality:      p.nationality,
+            national_team:    p.national_team ?? null,
+            position_micro:   p.position_micro,
+            position_macro:   p.position_macro,
+            posterior_mean:   p.posterior_mean,
+            truescout_rating: trueScoutRating(p),
+            confidence_score: p.confidence_score,
+            percentile_rank:  p.percentile_rank,
+          }))
+        setTopPlayers(top)
+      })
+      .catch(() => {/* silent */})
+  }, [])
 
   const doSearch = useCallback(async (q: string) => {
     if (q.trim().length < 2) {
@@ -296,7 +358,12 @@ export default function PlayerSearchClient({ initialQ }: { initialQ: string }) {
     }
   }
 
-  const sorted = sortResults(results, sortKey, sortDir)
+  const filterByPos = (list: PlayerSearchResult[]) =>
+    posFilter === "ALL" ? list : list.filter((p) => p.position_macro === posFilter)
+
+  const sorted = filterByPos(sortResults(results, sortKey, sortDir))
+  const browsing = query.trim().length < 2
+  const browseList = filterByPos(topPlayers)
 
   return (
     <div className="space-y-4">
@@ -325,43 +392,55 @@ export default function PlayerSearchClient({ initialQ }: { initialQ: string }) {
         )}
       </div>
 
+      {/* Position filter chips */}
+      <PositionChips active={posFilter} onChange={setPosFilter} />
+
       {/* Results */}
-      {query.trim().length < 2 ? (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl py-16 flex flex-col items-center gap-2 text-center">
-          <p className="text-slate-600 text-sm">Start typing to search 3,274 WC 2026 players</p>
-        </div>
-      ) : loading && !results.length ? (
+      {loading && browsing && !topPlayers.length ? (
         <div className="bg-slate-900 border border-slate-800 rounded-xl py-16 flex items-center justify-center">
           <div className="w-5 h-5 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
         </div>
-      ) : searched && results.length === 0 ? (
+      ) : loading && !browsing && !results.length ? (
+        <div className="bg-slate-900 border border-slate-800 rounded-xl py-16 flex items-center justify-center">
+          <div className="w-5 h-5 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
+        </div>
+      ) : !browsing && searched && results.length === 0 ? (
         <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
           <EmptyState query={query} />
         </div>
-      ) : sorted.length > 0 ? (
-        <>
-          {/* Desktop: sortable table */}
-          <div className="hidden lg:block">
-            <SortableTable results={sorted} sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
-            <p className="text-[10px] text-slate-700 mt-2 text-right">{sorted.length} players · click a column header to sort</p>
-          </div>
+      ) : (() => {
+        const list = browsing ? browseList : sorted
+        const caption = browsing
+          ? `Top ${list.length} players by rating${posFilter !== "ALL" ? ` · ${posFilter}` : ""} — type a name to search all 3,274`
+          : `${list.length} players · click a column header to sort`
+        if (!list.length) return null
+        return (
+          <>
+            {/* Desktop: sortable table */}
+            <div className="hidden lg:block">
+              <SortableTable results={list} sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+              <p className="text-[10px] text-slate-700 mt-2 text-right">{caption}</p>
+            </div>
 
-          {/* Mobile: card list */}
-          <div className="lg:hidden bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
-            <div className="flex items-center gap-3 px-4 pb-2 pt-3 border-b border-slate-800">
-              <span className="w-8 shrink-0" />
-              <span className="flex-1 text-[11px] uppercase tracking-wider text-slate-600">Player</span>
-              <span className="text-[11px] uppercase tracking-wider text-slate-600 text-right shrink-0">Rating / Data</span>
-              <span className="w-3.5 shrink-0" />
+            {/* Mobile: card list */}
+            <div className="lg:hidden bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+              <div className="flex items-center gap-3 px-4 pb-2 pt-3 border-b border-slate-800">
+                <span className="w-8 shrink-0" />
+                <span className="flex-1 text-[11px] uppercase tracking-wider text-slate-600">
+                  {browsing ? `Top ${list.length}${posFilter !== "ALL" ? ` ${posFilter}` : ""} players` : "Player"}
+                </span>
+                <span className="text-[11px] uppercase tracking-wider text-slate-600 text-right shrink-0">Rating / Data</span>
+                <span className="w-3.5 shrink-0" />
+              </div>
+              <div className="divide-y divide-slate-800/50 p-1">
+                {list.map((p) => (
+                  <SearchResultRow key={p.reep_id} player={p} />
+                ))}
+              </div>
             </div>
-            <div className="divide-y divide-slate-800/50 p-1">
-              {results.map((p) => (
-                <SearchResultRow key={p.reep_id} player={p} />
-              ))}
-            </div>
-          </div>
-        </>
-      ) : null}
+          </>
+        )
+      })()}
     </div>
   )
 }

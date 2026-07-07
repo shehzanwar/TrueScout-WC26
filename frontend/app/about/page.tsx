@@ -105,6 +105,11 @@ export default async function AboutPage() {
 
       {/* Header */}
       <div>
+        <p className="text-sm text-slate-300 leading-relaxed mb-3 border-l-2 border-emerald-500/40 pl-3">
+          TrueScout is a statistical intelligence layer for the 2026 FIFA World Cup —
+          combining two years of club data with live tournament performance to rate every
+          player and forecast the knockout bracket, updated nightly.
+        </p>
         <h1 className="text-2xl font-bold text-slate-100">How TrueScout Works</h1>
         <p className="mt-1 text-sm text-slate-500">
           A plain-English guide to the model, the data, and what to trust
@@ -291,7 +296,10 @@ export default async function AboutPage() {
           <Prose>
             The &ldquo;Player Style&rdquo; label on each profile reflects which archetype cluster a
             player belongs to within their position group. The &ldquo;Similar Players&rdquo; section
-            surfaces the highest-rated players in the same cluster.
+            surfaces the highest-rated players in the same cluster.{" "}
+            <Link href="/players/messi-reep_pbd9a559b" className="text-emerald-500 hover:text-emerald-400 transition-colors">
+              See an example on Messi&apos;s profile →
+            </Link>
           </Prose>
         </Card>
 
@@ -397,7 +405,9 @@ export default async function AboutPage() {
       {/* Footer */}
       <div className="flex items-center justify-between pt-2 border-t border-slate-800">
         <p className="text-xs text-slate-700">
-          TrueScout · WC 2026 · Updated nightly at 02:00 UTC
+          TrueScout <span className="text-slate-800">·</span>{" "}
+          <span className="font-mono">v0.2</span>{" "}
+          <span className="text-slate-800">·</span> WC 2026 · Updated nightly at 02:00 UTC
         </p>
         <div className="flex items-center gap-4">
           <Link href="/players" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">

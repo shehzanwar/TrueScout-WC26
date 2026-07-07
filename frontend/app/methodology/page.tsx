@@ -102,7 +102,58 @@ export default function MethodologyPage() {
           The nightly ETL runs in three medallion layers, triggered automatically each night
           and after each round of matches:
         </Prose>
-        <div className="space-y-3">
+
+        {/* Pipeline flow diagram */}
+        <div className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+          <svg viewBox="0 0 680 260" xmlns="http://www.w3.org/2000/svg" className="w-full max-w-2xl mx-auto" style={{ minWidth: 480 }}>
+            {/* ── Source boxes ── */}
+            {[
+              { x: 10,  label: "ESPN",       sub: "results · odds" },
+              { x: 120, label: "Sofascore",  sub: "ratings · lineups" },
+              { x: 250, label: "Understat",  sub: "xG · xA" },
+              { x: 380, label: "Reep",       sub: "player IDs" },
+            ].map(({ x, label, sub }) => (
+              <g key={label}>
+                <rect x={x} y={8} width={96} height={46} rx={6} fill="#0f172a" stroke="#334155" strokeWidth={1.5} />
+                <text x={x + 48} y={28} textAnchor="middle" fill="#94a3b8" fontSize={11} fontWeight={600}>{label}</text>
+                <text x={x + 48} y={42} textAnchor="middle" fill="#475569" fontSize={9}>{sub}</text>
+              </g>
+            ))}
+
+            {/* ── Down arrows to Bronze ── */}
+            {[57, 167, 297, 427].map((cx) => (
+              <g key={cx}>
+                <line x1={cx} y1={54} x2={cx} y2={72} stroke="#1e3a5f" strokeWidth={1.5} />
+                <polygon points={`${cx-4},69 ${cx+4},69 ${cx},76`} fill="#1e3a5f" />
+              </g>
+            ))}
+
+            {/* ── Bronze bar ── */}
+            <rect x={10} y={76} width={513} height={44} rx={7} fill="#0c1f38" stroke="#1d4ed8" strokeWidth={1.5} />
+            <text x={266} y={96} textAnchor="middle" fill="#60a5fa" fontSize={11} fontWeight={700}>Bronze Layer</text>
+            <text x={266} y={111} textAnchor="middle" fill="#3b82f6" fontSize={9}>Raw parquet files · append-only · one file per source per day</text>
+
+            {/* ── Arrow to Silver ── */}
+            <line x1={266} y1={120} x2={266} y2={138} stroke="#1e3a5f" strokeWidth={1.5} />
+            <polygon points="262,135 270,135 266,142" fill="#1e3a5f" />
+
+            {/* ── Silver bar ── */}
+            <rect x={60} y={142} width={412} height={44} rx={7} fill="#0d1f1a" stroke="#059669" strokeWidth={1.5} />
+            <text x={266} y={162} textAnchor="middle" fill="#34d399" fontSize={11} fontWeight={700}>Silver Layer</text>
+            <text x={266} y={177} textAnchor="middle" fill="#10b981" fontSize={9}>features.parquet · one row per player · opponent-adjusted form + club priors</text>
+
+            {/* ── Arrow to Gold ── */}
+            <line x1={266} y1={186} x2={266} y2={204} stroke="#1e3a5f" strokeWidth={1.5} />
+            <polygon points="262,201 270,201 266,208" fill="#1e3a5f" />
+
+            {/* ── Gold bar ── */}
+            <rect x={110} y={208} width={312} height={44} rx={7} fill="#1c1405" stroke="#d97706" strokeWidth={1.5} />
+            <text x={266} y={228} textAnchor="middle" fill="#fbbf24" fontSize={11} fontWeight={700}>Gold Layer</text>
+            <text x={266} y={243} textAnchor="middle" fill="#f59e0b" fontSize={9}>DuckDB · ratings · simulations · brier log · archetypes → static JSON → Vercel CDN</text>
+          </svg>
+        </div>
+
+        <div className="space-y-3 pt-1">
           {[
             ["Bronze", "Raw parquet files from ESPN (match results, odds), Sofascore (player ratings, lineups, market values), and Understat (xG/xA by club season). Append-only — each nightly pull adds new rows, never overwrites."],
             ["Silver", "Cleaned and joined features.parquet — one row per player containing WC match aggregates, club priors, league Elo coefficients, and opponent-adjusted form ratings."],
@@ -195,7 +246,10 @@ posterior_var  = 1 / (1/prior_var + 1/lhood_var)`}
         </div>
         <Prose>
           All axis scores are converted to FIFA-style 0–99 integers for display. Each axis
-          tooltip on the player profile shows the underlying raw statistic.
+          tooltip on the player profile shows the underlying raw statistic.{" "}
+          <Link href="/players/mbappe-reep_p4b7614c5" className="text-emerald-500 hover:text-emerald-400 transition-colors underline underline-offset-2">
+            See Mbappé&apos;s radar as an example →
+          </Link>
         </Prose>
       </Section>
 
@@ -305,9 +359,12 @@ posterior_var  = 1 / (1/prior_var + 1/lhood_var)`}
       </Section>
 
       {/* Footer nav */}
-      <div className="flex gap-4 text-xs text-slate-600 pt-4 border-t border-slate-800">
-        <Link href="/about" className="hover:text-slate-400 transition-colors">← Plain-English About</Link>
-        <Link href="/brier" className="hover:text-slate-400 transition-colors">Track Record →</Link>
+      <div className="flex items-center justify-between pt-4 border-t border-slate-800">
+        <div className="flex gap-4 text-xs text-slate-600">
+          <Link href="/about" className="hover:text-slate-400 transition-colors">← Plain-English About</Link>
+          <Link href="/brier" className="hover:text-slate-400 transition-colors">Track Record →</Link>
+        </div>
+        <p className="text-xs text-slate-800 font-mono">v0.2</p>
       </div>
 
     </div>

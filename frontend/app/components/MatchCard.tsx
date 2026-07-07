@@ -80,20 +80,27 @@ function buildPreview(match: Matchup): string | null {
 function ProbRow({
   homeProb,
   label,
+  barColor,
 }: {
   homeProb: number | null
   label: string
+  barColor?: "sky" | "amber" | "auto"
 }) {
   const homePct = homeProb != null ? Math.round(homeProb * 100) : null
   const awayPct = homePct != null ? 100 - homePct : null
   const barWidth = homePct ?? 50
+
+  const fixedBar =
+    barColor === "sky"   ? "bg-sky-500" :
+    barColor === "amber" ? "bg-amber-500" :
+    probBarColor(homeProb)
 
   return (
     <div className="flex items-center gap-2.5">
       <span className="w-[4.5rem] text-[11px] text-slate-500 shrink-0">{label}</span>
       <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
         <div
-          className={`h-full ${probBarColor(homeProb)} transition-[width] duration-500 ease-out`}
+          className={`h-full ${fixedBar} transition-[width] duration-500 ease-out`}
           style={{ width: `${barWidth}%` }}
         />
       </div>
@@ -352,10 +359,10 @@ export default function MatchCard({ match }: { match: Matchup }) {
           </div>
 
           {home.model_advance_prob != null && (
-            <ProbRow homeProb={home.model_advance_prob} label="Our model" />
+            <ProbRow homeProb={home.model_advance_prob} label="Our model" barColor="sky" />
           )}
           {home.market_advance_prob != null && (
-            <ProbRow homeProb={home.market_advance_prob} label="Bookies" />
+            <ProbRow homeProb={home.market_advance_prob} label="Bookies" barColor="amber" />
           )}
 
           {showEdge && (

@@ -4,6 +4,7 @@ import SummaryCards from "./SummaryCards"
 import MatchLogTable from "./MatchLogTable"
 import CalibrationScatter from "./CalibrationScatter"
 import BiggestCalls from "./BiggestCalls"
+import BrierTimeline from "./BrierTimeline"
 import ValuePickScoreboard from "./ValuePickScoreboard"
 
 export const metadata: Metadata = {
@@ -65,6 +66,9 @@ export default async function BrierPage() {
         <>
           {/* Summary cards */}
           <SummaryCards s={data.summary} />
+
+          {/* Accuracy trend — full width */}
+          <BrierTimeline entries={data.entries} />
 
           {/* Two-column: scatter + biggest calls | match log */}
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
