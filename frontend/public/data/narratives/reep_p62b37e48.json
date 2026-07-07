@@ -1,0 +1,6 @@
+{
+  "narrative": "Hernán Galíndez is Ecuador's goalkeeper, boasting an overall rating of 7.24/10. This places him in the top 8% of goalkeepers at the tournament. His rating range of 6.82–7.67 reflects the current match sample size.\n\nGalíndez has played 360 minutes at this World Cup, demonstrating his consistent presence for the team. He averages 2.25 saves per 90 minutes, highlighting his primary role as a shot-stopper. His expected assists per 90 minutes are low at 0.006 for the World Cup, a slight increase from his club level of 0.002 over the last two seasons, indicating limited offensive distribution.\n\nWith 88% of his rating derived from club form, Galíndez brings a foundation of strong performance to the national team. His role is clearly that of a reliable last line of defense, given his low expected assist numbers. Scouts and fans should continue to monitor his save rate and overall command as the tournament progresses.",
+  "voice": "data_analyst",
+  "model": "gemini-2.5-flash",
+  "generated_at": "2026-07-07T09:13:31.034263+00:00"
+}
