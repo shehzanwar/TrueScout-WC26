@@ -258,72 +258,67 @@ export default function BracketGrid({ bracket }: { bracket: BracketData }) {
   return (
     <div>
       <Legend />
-      <HeaderRow rounds={bracket.rounds} />
 
-      {/* Horizontally scrolling bracket */}
+      {/* Horizontally scrolling bracket — header scrolls in sync with columns */}
       <div
         className="overflow-x-auto pb-3"
         style={{ WebkitOverflowScrolling: "touch", msOverflowStyle: "none", scrollbarWidth: "none" }}
       >
-        <div
-          className="flex items-stretch"
-          style={{ height: TOTAL_HEIGHT, minWidth: "max-content" }}
-        >
-          {bracket.rounds.map((round, ri) => {
-            const slotFlex = SLOT_FLEX[round.code] ?? 1
-            const connGroupFlex = slotFlex * 2  // each connector group spans 2 prev slots
+        {/* Single min-width wrapper so header + bracket scroll together */}
+        <div style={{ minWidth: "max-content" }}>
+          <HeaderRow rounds={bracket.rounds} />
 
-            return (
-              <div key={round.code} className="flex items-stretch">
-                {/* Connector before every round except R32 */}
-                {ri > 0 && (
-                  <Connector
-                    count={round.slots.length}
-                    flexPerGroup={connGroupFlex}
-                  />
-                )}
+          <div className="flex items-stretch" style={{ height: TOTAL_HEIGHT }}>
+            {bracket.rounds.map((round, ri) => {
+              const slotFlex = SLOT_FLEX[round.code] ?? 1
+              const connGroupFlex = slotFlex * 2
 
-                {/* Round column */}
-                <div
-                  className="flex flex-col h-full shrink-0"
-                  style={{ width: COLUMN_WIDTH }}
-                >
-                  {round.slots.map((slot, si) => (
-                    <div
-                      key={si}
-                      className="flex items-center justify-center px-1"
-                      style={{ flex: slotFlex }}
-                    >
-                      <BracketSlot slot={slot} animDelay={si * 0.03} />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )
-          })}
-
-          {/* Champion connector + card */}
-          {bracket.champion && (
-            <>
-              {/* Champion connector: single arm at midpoint pointing right */}
-              <div
-                className="flex flex-col items-stretch h-full shrink-0"
-                style={{ width: CONNECTOR_WIDTH }}
-              >
-                <div className="flex-1 relative">
+              return (
+                <div key={round.code} className="flex items-stretch">
+                  {ri > 0 && (
+                    <Connector
+                      count={round.slots.length}
+                      flexPerGroup={connGroupFlex}
+                    />
+                  )}
                   <div
-                    className="absolute h-0 border-t border-slate-700/50"
-                    style={{ top: "50%", left: 0, right: 0 }}
-                  />
+                    className="flex flex-col h-full shrink-0"
+                    style={{ width: COLUMN_WIDTH }}
+                  >
+                    {round.slots.map((slot, si) => (
+                      <div
+                        key={si}
+                        className="flex items-center justify-center px-1"
+                        style={{ flex: slotFlex }}
+                      >
+                        <BracketSlot slot={slot} animDelay={si * 0.03} />
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )
+            })}
 
-              <ChampionCard
-                name={bracket.champion.name}
-                titleProb={bracket.champion.titleProb}
-              />
-            </>
-          )}
+            {bracket.champion && (
+              <>
+                <div
+                  className="flex flex-col items-stretch h-full shrink-0"
+                  style={{ width: CONNECTOR_WIDTH }}
+                >
+                  <div className="flex-1 relative">
+                    <div
+                      className="absolute h-0 border-t border-slate-700/50"
+                      style={{ top: "50%", left: 0, right: 0 }}
+                    />
+                  </div>
+                </div>
+                <ChampionCard
+                  name={bracket.champion.name}
+                  titleProb={bracket.champion.titleProb}
+                />
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>
