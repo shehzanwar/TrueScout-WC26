@@ -69,12 +69,15 @@ function DrawerContent({
 
       {/* Footer */}
       <div className="px-5 py-4 border-t border-slate-800 space-y-2">
-        <Link
-          href="/about"
-          className="block text-xs text-slate-600 hover:text-slate-400 transition-colors"
-        >
-          About · How it works
-        </Link>
+        <div className="flex gap-3">
+          <Link href="/about" className="text-xs text-slate-600 hover:text-slate-400 transition-colors">
+            About
+          </Link>
+          <span className="text-slate-700">·</span>
+          <Link href="/methodology" className="text-xs text-slate-600 hover:text-slate-400 transition-colors">
+            Methodology
+          </Link>
+        </div>
         <p className="text-xs text-slate-700">WC 2026 Intelligence</p>
       </div>
     </>
