@@ -3,6 +3,7 @@ import { getBrier } from "@/lib/server-data"
 import SummaryCards from "./SummaryCards"
 import MatchLogTable from "./MatchLogTable"
 import CalibrationScatter from "./CalibrationScatter"
+import BiggestCalls from "./BiggestCalls"
 import ValuePickScoreboard from "./ValuePickScoreboard"
 
 export const metadata: Metadata = {
@@ -65,9 +66,12 @@ export default async function BrierPage() {
           {/* Summary cards */}
           <SummaryCards s={data.summary} />
 
-          {/* Two-column: scatter + table */}
+          {/* Two-column: scatter + biggest calls | match log */}
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-            <CalibrationScatter entries={data.entries} />
+            <div className="flex flex-col gap-5">
+              <CalibrationScatter entries={data.entries} />
+              <BiggestCalls entries={data.entries} />
+            </div>
             <div className="flex flex-col">
               <MatchLogTable entries={data.entries} />
             </div>
