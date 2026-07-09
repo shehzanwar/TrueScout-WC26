@@ -125,8 +125,7 @@ export async function POST(req: NextRequest) {
     { role: "user", parts: [{ text: message }] },
   ]
 
-  let lastError = ""
-  for (const model of MODELS) {
+  async function callModel(model: string): Promise<{ reply: string; model: string } | { error: string; status: number; retryAfterMs?: number }> {
     const url = `${GEMINI_BASE}/${model}:generateContent?key=${apiKey}`
     let resp: Response
     try {
@@ -141,27 +140,49 @@ export async function POST(req: NextRequest) {
         signal: AbortSignal.timeout(45_000),
       })
     } catch (err) {
-      lastError = err instanceof Error ? err.message : "Network error"
-      continue
+      return { error: err instanceof Error ? err.message : "Network error", status: 503 }
+    }
+
+    if (resp.status === 429 || resp.status === 503) {
+      let retryAfterMs: number | undefined
+      try {
+        const e = await resp.json() as { error?: { message?: string } }
+        const msg = e?.error?.message ?? ""
+        const match = msg.match(/retry in ([\d.]+)s/i)
+        if (match) retryAfterMs = Math.ceil(parseFloat(match[1]) * 1000)
+      } catch { /* ignore */ }
+      return { error: "rate_limited", status: resp.status, retryAfterMs }
     }
 
     if (!resp.ok) {
-      try {
-        const e = await resp.json() as { error?: { message?: string } }
-        lastError = e?.error?.message ?? `Gemini ${resp.status}`
-      } catch { lastError = `Gemini ${resp.status}` }
-      continue
+      return { error: `Gemini ${resp.status}`, status: resp.status }
     }
 
     const data = await resp.json() as { candidates?: { content?: { parts?: { text?: string }[] } }[] }
     const raw = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim()
-    if (!raw) { lastError = "empty response"; continue }
+    if (!raw) return { error: "empty response", status: 502 }
 
     const reply = stripReasoningTags(raw)
-    if (!reply) { lastError = "reasoning-only response"; continue }
+    if (!reply) return { error: "reasoning-only response", status: 502 }
 
-    return NextResponse.json({ reply, model })
+    return { reply, model }
   }
 
-  return NextResponse.json({ error: lastError || "Gemini unavailable" }, { status: 502 })
+  for (const model of MODELS) {
+    const result = await callModel(model)
+    if ("reply" in result) return NextResponse.json({ reply: result.reply, model: result.model })
+
+    // On rate limit: wait the suggested delay (capped at 60s) then retry once
+    if (result.error === "rate_limited" && result.retryAfterMs) {
+      const delay = Math.min(result.retryAfterMs, 60_000)
+      await new Promise(r => setTimeout(r, delay))
+      const retry = await callModel(model)
+      if ("reply" in retry) return NextResponse.json({ reply: retry.reply, model: retry.model })
+    }
+  }
+
+  return NextResponse.json(
+    { error: "The AI assistant is temporarily busy — try again in a moment." },
+    { status: 503 }
+  )
 }
