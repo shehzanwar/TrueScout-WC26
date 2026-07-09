@@ -271,6 +271,30 @@ export async function getInsights(): Promise<InsightsResponse | null> {
 }
 
 // ---------------------------------------------------------------------------
+// Tournament top stats (scorers / assists / defensive)
+// ---------------------------------------------------------------------------
+
+export interface TopStatEntry {
+  reep_id: string
+  slug: string
+  name: string
+  national_team: string
+  value: number
+  detail?: string
+  wc_minutes: number
+}
+
+export interface TournamentStats {
+  top_scorers: TopStatEntry[]
+  top_assists: TopStatEntry[]
+  top_defensive: TopStatEntry[]
+}
+
+export async function getTournamentStats(): Promise<TournamentStats | null> {
+  return readDataOrNull<TournamentStats>("top_stats.json")
+}
+
+// ---------------------------------------------------------------------------
 // Nations — derived from simulations + matchups + players
 // ---------------------------------------------------------------------------
 

@@ -443,6 +443,99 @@ function OvernightDeltasCard({ overnight }: { overnight: InsightsOvernight[] }) 
 }
 
 // ---------------------------------------------------------------------------
+// Tournament Stats (scorers / assists / defensive actions)
+// ---------------------------------------------------------------------------
+
+interface TopStatEntry {
+  reep_id: string
+  slug: string
+  name: string
+  national_team: string
+  value: number
+  detail?: string
+  wc_minutes: number
+}
+
+export interface TournamentStats {
+  top_scorers: TopStatEntry[]
+  top_assists: TopStatEntry[]
+  top_defensive: TopStatEntry[]
+}
+
+function StatsColumn({
+  title, entries, unit, accent,
+}: {
+  title: string
+  entries: TopStatEntry[]
+  unit: string
+  accent: string
+}) {
+  if (!entries.length) return null
+  return (
+    <div className="flex flex-col gap-2.5 min-w-0">
+      <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">{title}</p>
+      <ol className="space-y-1">
+        {entries.map((p, i) => (
+          <li key={p.reep_id}>
+            <Link
+              href={`/players/${p.slug}`}
+              className="flex items-center gap-2 py-0.5 px-1 rounded hover:bg-slate-800/60 transition-colors group"
+            >
+              <span className="w-4 text-center text-[10px] font-bold text-slate-600 tabular-nums shrink-0">
+                {i + 1}
+              </span>
+              <span className="shrink-0">
+                <FlagIcon name={p.national_team} size={13} />
+              </span>
+              <span className="flex-1 min-w-0 text-xs text-slate-200 truncate group-hover:text-sky-400 transition-colors">
+                {p.name}
+              </span>
+              <span className={`text-xs font-bold tabular-nums shrink-0 ${accent}`}>
+                {p.value}{unit}
+              </span>
+            </Link>
+            {p.detail && (
+              <p className="text-[10px] text-slate-600 pl-7 -mt-0.5 leading-none">
+                {p.detail}
+              </p>
+            )}
+          </li>
+        ))}
+      </ol>
+    </div>
+  )
+}
+
+function TournamentStatsCard({ stats }: { stats: TournamentStats }) {
+  return (
+    <motion.div
+      variants={card}
+      className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col gap-4"
+    >
+      <div>
+        <h2 className="text-sm font-semibold text-slate-100 uppercase tracking-wider">
+          Tournament Leaders
+        </h2>
+        <p className="text-xs text-slate-500 mt-0.5">
+          Goals · Assists · Defensive actions (tackles + interceptions) across all matches
+        </p>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-slate-800/60 gap-y-5 sm:gap-y-0">
+        <div className="sm:pr-5">
+          <StatsColumn title="Top Scorers" entries={stats.top_scorers} unit="G" accent="text-amber-400" />
+        </div>
+        <div className="sm:px-5 pt-5 sm:pt-0">
+          <StatsColumn title="Top Assisters" entries={stats.top_assists} unit="A" accent="text-sky-400" />
+        </div>
+        <div className="sm:pl-5 pt-5 sm:pt-0">
+          <StatsColumn title="Defensive Actions" entries={stats.top_defensive} unit="" accent="text-emerald-400" />
+        </div>
+      </div>
+    </motion.div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Bracket Outlook (3rd column at 2xl+)
 // ---------------------------------------------------------------------------
 
@@ -520,6 +613,7 @@ export default function HomeCards({
   topPlayers,
   overnight,
   bracketSlots = [],
+  tournamentStats = null,
 }: {
   champions: SimTeam[]
   brierSummary: BrierSummary
@@ -529,6 +623,7 @@ export default function HomeCards({
   topPlayers: PlayerResponse[]
   overnight: InsightsOvernight[] | null
   bracketSlots?: BracketSlotEntry[]
+  tournamentStats?: TournamentStats | null
 }) {
   return (
     <div className="2xl:flex 2xl:gap-5 2xl:items-start">
@@ -540,6 +635,7 @@ export default function HomeCards({
         <InsightCard match={insightMatch} />
         {overnight && overnight.length > 0 && <OvernightDeltasCard overnight={overnight} />}
         <TopPerformersCard players={topPlayers} />
+        {tournamentStats && <TournamentStatsCard stats={tournamentStats} />}
       </div>
       {/* 3rd column: bracket preview at 2xl+ */}
       {bracketSlots.length > 0 && (

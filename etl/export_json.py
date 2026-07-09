@@ -1665,6 +1665,71 @@ def export_insights(
 
 
 # ---------------------------------------------------------------------------
+# Tournament top-stats export (scorers / assists / defensive)
+# ---------------------------------------------------------------------------
+
+def export_top_stats(players: list[dict]) -> dict:
+    """
+    Build top-N lists for goals, assists, and defensive actions (tackles + interceptions).
+    Input: the already-exported players list from export_players().
+    """
+    N = 7
+    active = [p for p in players if (p.get("wc_minutes") or 0) >= 45]
+
+    def _row(p: dict, value: float, detail: str | None = None) -> dict:
+        r = {
+            "reep_id":      p["reep_id"],
+            "slug":         p.get("slug", ""),
+            "name":         p["name"],
+            "national_team": p.get("national_team", ""),
+            "value":        value,
+            "wc_minutes":   p.get("wc_minutes") or 0,
+        }
+        if detail:
+            r["detail"] = detail
+        return r
+
+    # Goals
+    top_scorers = sorted(
+        active,
+        key=lambda p: (-(p.get("wc_goals_raw") or 0), -(p.get("wc_minutes") or 0)),
+    )[:N]
+
+    # Assists
+    top_assists = sorted(
+        active,
+        key=lambda p: (-(p.get("wc_assists_raw") or 0), -(p.get("wc_minutes") or 0)),
+    )[:N]
+
+    # Defensive actions = tackles + interceptions
+    def _def(p: dict) -> int:
+        return int((p.get("wc_tackles_raw") or 0) + (p.get("wc_interceptions_raw") or 0))
+
+    top_defensive = sorted(
+        active,
+        key=lambda p: (-_def(p), -(p.get("wc_minutes") or 0)),
+    )[:N]
+
+    return {
+        "top_scorers": [
+            _row(p, p.get("wc_goals_raw") or 0)
+            for p in top_scorers if (p.get("wc_goals_raw") or 0) > 0
+        ],
+        "top_assists": [
+            _row(p, p.get("wc_assists_raw") or 0)
+            for p in top_assists if (p.get("wc_assists_raw") or 0) > 0
+        ],
+        "top_defensive": [
+            _row(
+                p, _def(p),
+                detail=f"{int(p.get('wc_tackles_raw') or 0)}T + {int(p.get('wc_interceptions_raw') or 0)}I",
+            )
+            for p in top_defensive if _def(p) > 0
+        ],
+    }
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
@@ -1722,6 +1787,13 @@ def main():
         json.dumps(players_lite, separators=(",", ":")), encoding="utf-8"
     )
     print(f"  ✓  players_lite.json ({len(players_lite)} players, slim)")
+
+    print("Exporting top_stats.json …")
+    top_stats = export_top_stats(players)
+    (OUTPUT_DIR / "top_stats.json").write_text(
+        json.dumps(top_stats, ensure_ascii=False, separators=(",", ":")), encoding="utf-8"
+    )
+    print(f"  ✓  {len(top_stats['top_scorers'])} scorers · {len(top_stats['top_assists'])} assisters · {len(top_stats['top_defensive'])} defenders")
 
     print("Exporting insights.json …")
     insights = export_insights(sims, matchups, players, prev_sims=prev_sims)
