@@ -99,8 +99,14 @@ FROM read_parquet('{matches}', union_by_name=true) m
 LEFT JOIN read_parquet('{odds}', union_by_name=true) o
     ON m.event_id = o.event_id
 WHERE m.is_completed = true
-  AND m.round_name IN ('Round of 32', 'Round of 16',
-                       'Quarterfinal', 'Semifinal', 'Final')
+  AND (
+    m.round_name IN ('Round of 32', 'Round of 16',
+                     'Quarterfinal', 'Quarterfinals',
+                     'Semifinal', 'Semifinals',
+                     'Final', 'Finals')
+    OR m.round_name ILIKE '%quarter%'
+    OR m.round_name ILIKE '%semi%'
+  )
 ORDER BY m.match_date, CAST(m.event_id AS BIGINT)
 """
 

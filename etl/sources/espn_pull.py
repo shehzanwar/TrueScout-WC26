@@ -88,9 +88,9 @@ DEFAULT_LEAGUE_SLUG: str = "fifa.world"
 GROUP_STAGE_START: str = "2026-06-11"
 GROUP_STAGE_END: str = "2026-07-02"
 
-# WC 2026 knockout stage: R32 (Jun 28–Jul 3) + R16 (Jul 4–7)
+# WC 2026 knockout stage: R32 (Jun 28–Jul 3) + R16 (Jul 4–7) + QF (Jul 9–12) + SF (Jul 14–15) + F (Jul 19)
 KNOCKOUT_START: str = "2026-06-28"
-KNOCKOUT_END:   str = "2026-07-07"
+KNOCKOUT_END:   str = "2026-07-19"
 
 TIMEOUT_S: int = 30
 REQUEST_SLEEP_S: float = 0.8   # ESPN is less aggressive than Sofascore; shorter sleep
@@ -818,7 +818,7 @@ def main(
         dates = _date_range(KNOCKOUT_START, KNOCKOUT_END)
         completed_only = False   # include scheduled fixtures for bracket data
         logger.info(
-            "Knockout sweep (R32+R16): %s → %s (%d dates, includes pre-match)",
+            "Knockout sweep (R32→F): %s → %s (%d dates, includes pre-match)",
             KNOCKOUT_START, KNOCKOUT_END, len(dates),
         )
     elif date_str:
@@ -891,7 +891,7 @@ Examples:
   # Full group-stage history
   py -m etl.sources.espn_pull --group-stage
 
-  # Knockout R32+R16 fixtures (includes pre-match for bracket team names)
+  # Knockout R32→F fixtures (includes pre-match for bracket team names)
   py -m etl.sources.espn_pull --knockout
 
   # Single date
@@ -913,7 +913,7 @@ Examples:
     mode_group.add_argument(
         "--knockout",
         action="store_true",
-        help=f"Pull {KNOCKOUT_START} to {KNOCKOUT_END} (R32+R16 fixtures, includes pre-match).",
+        help=f"Pull {KNOCKOUT_START} to {KNOCKOUT_END} (R32→F fixtures, includes pre-match).",
     )
 
     parser.add_argument(

@@ -41,8 +41,8 @@ ROUND_LABELS = {
 ROUND_MAP = {
     "R32": "Round of 32",
     "R16": "Round of 16",
-    "QF":  "Quarterfinal",
-    "SF":  "Semifinal",
+    "QF":  "Quarterfinals",   # ESPN uses plural
+    "SF":  "Semifinals",      # ESPN uses plural
     "F":   "Final",
 }
 NEXT_ROUND = {"R32": "R16", "R16": "QF", "QF": "SF", "SF": "F", "F": "W"}

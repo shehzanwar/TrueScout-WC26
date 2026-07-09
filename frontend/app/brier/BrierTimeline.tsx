@@ -66,7 +66,7 @@ function buildTimeline(entries: BrierEntry[]): TimelinePoint[] {
     points.push({
       idx: countModel,
       label: `${e.home_team.split(" ").slice(-1)[0]} vs ${e.away_team.split(" ").slice(-1)[0]}`,
-      round: e.round.replace("Round of ", "R").replace("Quarterfinal", "QF").replace("Semifinal", "SF"),
+      round: e.round.replace("Round of ", "R").replace(/Quarterfinals?/, "QF").replace(/Semifinals?/, "SF"),
       model: parseFloat((sumModel / countModel).toFixed(4)),
       market: countMarket > 0 ? parseFloat((sumMarket / countMarket).toFixed(4)) : null,
       coinFlip: 0.25,
