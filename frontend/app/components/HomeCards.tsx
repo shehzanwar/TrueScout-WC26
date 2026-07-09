@@ -491,14 +491,13 @@ function StatsColumn({
                 {p.name}
               </span>
               <span className={`text-xs font-bold tabular-nums shrink-0 ${accent}`}>
-                {p.value}{unit}
+                {p.value}
+                <span className="font-normal text-[10px] ml-0.5 opacity-75">{unit}</span>
+                {p.detail && (
+                  <span className="font-normal text-[10px] text-slate-500 ml-1">({p.detail})</span>
+                )}
               </span>
             </Link>
-            {p.detail && (
-              <p className="text-[10px] text-slate-600 pl-7 -mt-0.5 leading-none">
-                {p.detail}
-              </p>
-            )}
           </li>
         ))}
       </ol>
@@ -522,13 +521,13 @@ function TournamentStatsCard({ stats }: { stats: TournamentStats }) {
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-slate-800/60 gap-y-5 sm:gap-y-0">
         <div className="sm:pr-5">
-          <StatsColumn title="Top Scorers" entries={stats.top_scorers} unit="G" accent="text-amber-400" />
+          <StatsColumn title="Top Scorers" entries={stats.top_scorers} unit="goals" accent="text-amber-400" />
         </div>
         <div className="sm:px-5 pt-5 sm:pt-0">
-          <StatsColumn title="Top Assisters" entries={stats.top_assists} unit="A" accent="text-sky-400" />
+          <StatsColumn title="Top Assisters" entries={stats.top_assists} unit="assists" accent="text-sky-400" />
         </div>
         <div className="sm:pl-5 pt-5 sm:pt-0">
-          <StatsColumn title="Defensive Actions" entries={stats.top_defensive} unit="" accent="text-emerald-400" />
+          <StatsColumn title="Defensive Actions" entries={stats.top_defensive} unit="actions" accent="text-emerald-400" />
         </div>
       </div>
     </motion.div>
