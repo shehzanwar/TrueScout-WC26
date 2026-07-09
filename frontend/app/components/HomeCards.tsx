@@ -34,9 +34,9 @@ function StatPill({ value, label, accent = false, tip }: { value: string; label:
 }
 
 function SectionCard({
-  title, subtitle, children, variant = "default",
+  title, subtitle, children, variant = "default", className = "",
 }: {
-  title: string; subtitle?: string; children: React.ReactNode; variant?: "default" | "inset" | "ruled"
+  title: string; subtitle?: string; children: React.ReactNode; variant?: "default" | "inset" | "ruled"; className?: string
 }) {
   const wrapCls =
     variant === "inset"
@@ -45,7 +45,7 @@ function SectionCard({
       ? "border-t border-slate-800 pt-5 flex flex-col gap-4"
       : "bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col gap-4"
   return (
-    <motion.div variants={card} className={wrapCls}>
+    <motion.div variants={card} className={className ? `${wrapCls} ${className}` : wrapCls}>
       <div>
         <h2 className="text-sm font-semibold text-slate-100 uppercase tracking-wider">{title}</h2>
         {subtitle && <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>}
@@ -344,11 +344,11 @@ function InsightCard({ match }: { match: Matchup | null }) {
 
 function TopPerformersCard({ players }: { players: PlayerResponse[] }) {
   return (
-    <SectionCard title="Top Performers" subtitle="Highest-rated players at this World Cup" variant="inset">
+    <SectionCard title="Top Performers" subtitle="Highest-rated players at this World Cup" variant="inset" className="lg:col-span-2">
       {players.length === 0 ? (
         <p className="text-sm text-slate-500 italic">No player data available yet.</p>
       ) : (
-        <ol className="space-y-2">
+        <ol className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-0">
           {players.map((p, i) => (
             <li key={p.reep_id}>
               <Link
@@ -398,11 +398,12 @@ function OvernightDeltasCard({ overnight }: { overnight: InsightsOvernight[] }) 
     <SectionCard
       title="Overnight Swings"
       subtitle="Biggest title-probability shifts since yesterday's run"
+      className="lg:col-span-2"
     >
       {sorted.length === 0 ? (
         <p className="text-sm text-slate-500 italic">No overnight delta data available.</p>
       ) : (
-        <ol className="space-y-2.5">
+        <ol className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2.5">
           {sorted.map((item) => {
             const isUp   = item.delta >= 0
             const absDelta = Math.abs(item.delta * 100)
