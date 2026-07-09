@@ -327,8 +327,14 @@ export function buildBracket(
       // A team confirmed via a completed R32/R16 result is not "projected"
       const winnerConfirmed = confirmedWinners.has(matchWinner)
       const loserConfirmed  = confirmedWinners.has(matchLoser)
+      // Save the pre-match BT probability before locking slotProb to 1.0/0.0.
+      // roundChaos uses top.preMatchProb on completed slots so the chaos meter reflects
+      // how competitive the round WAS (same pattern as R32 via preMatchProbFor).
+      const preMatchWinnerProb = r16Done
+        ? slotMap.get(`${code}:${newSlotIdx}`)?.top.pre_match_prob
+        : undefined
       nextSlots.push({
-        top:    teamData(matchWinner, code, !winnerConfirmed, r16Done ? 1.0 : slotProbFor(code, newSlotIdx, matchWinner)),
+        top:    teamData(matchWinner, code, !winnerConfirmed, r16Done ? 1.0 : slotProbFor(code, newSlotIdx, matchWinner), preMatchWinnerProb),
         bottom: teamData(matchLoser,  code, !loserConfirmed,  r16Done ? 0.0 : slotProbFor(code, newSlotIdx, matchLoser)),
         alts:   r16Done ? [] : altsFromEntry,
         isCompleted: r16Done || undefined,
