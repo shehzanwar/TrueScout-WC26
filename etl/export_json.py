@@ -1791,10 +1791,16 @@ def export_awards(players: list[dict]) -> dict:
         saves = int(best_gk.get("wc_saves_raw") or 0)
         golden_glove = _row(best_gk, saves, detail=f"{saves} saves")
 
-    # Golden Ball: top 5 rated outfield players with ≥90 WC minutes
+    # Golden Ball: top 5 rated OUTFIELD players with ≥180 WC minutes.
+    # GKs excluded — Golden Glove covers them separately.
+    # 180-minute floor ensures at least 2 full matches of tournament involvement.
     candidates = sorted(
-        [p for p in players if (p.get("wc_minutes") or 0) >= 90],
-        key=lambda p: -(p.get("posterior_mean") or 0),
+        [
+            p for p in players
+            if (p.get("position_bucket") or p.get("position_macro")) != "GK"
+            and (p.get("wc_minutes") or 0) >= 180
+        ],
+        key=lambda p: (-(p.get("posterior_mean") or 0), -(p.get("wc_minutes") or 0)),
     )[:5]
     golden_ball = [
         {
