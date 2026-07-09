@@ -1,0 +1,6 @@
+{
+  "narrative": "Sadio Mané is a dynamic Left Winger representing Senegal at the FIFA World Cup 2026. His overall rating stands at 7.17/10, positioning him within the top 8% of left wingers competing in this tournament. This rating, which has a range of 6.81–7.53, reflects the current match sample size.\n\nAt this World Cup, Mané has shown strong creative contributions, making 2.967 key passes and registering 0.247 assists per 90 minutes. His expected assists (xA) per 90 minutes also sits at 0.247, highlighting his playmaking. However, his direct goal threat is more subdued, with just 1.236 shots and 0.167 expected goals (xG) per 90 minutes.\n\nMané's role for Senegal is clearly that of a primary creator and wide threat, driving offensive play from his flank. Scouts and fans should continue to watch his exceptional key passing and assist output in the upcoming matches. It will be interesting to see if he can convert more of his opportunities and increase his direct goal involvement.",
+  "voice": "data_analyst",
+  "model": "gemini-2.5-flash",
+  "generated_at": "2026-07-08T09:12:44.960376+00:00"
+}

@@ -1653,9 +1653,20 @@ def export_insights(
         overnight.sort(key=lambda x: -abs(x["delta"]))
         overnight = overnight[:5]
 
+    _now = _dt.now(_tz.utc)
+    _run_date_str = sims.get("run_date", "")
+    _data_age_hours: float | None = None
+    if _run_date_str:
+        try:
+            _rd = _dt.fromisoformat(_run_date_str).replace(tzinfo=_tz.utc)
+            _data_age_hours = round((_now - _rd).total_seconds() / 3600, 1)
+        except Exception:
+            pass
+
     return {
-        "generated_at":   _dt.now(_tz.utc).isoformat(),
-        "run_date":        sims.get("run_date", ""),
+        "generated_at":    _now.isoformat(),
+        "run_date":        _run_date_str,
+        "data_age_hours":  _data_age_hours,
         "top_favorites":   top_favorites,
         "value_picks":     value_picks,
         "next_match":      next_match,

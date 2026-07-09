@@ -277,6 +277,7 @@ export interface InsightsOvernight {
 export interface InsightsResponse {
   generated_at: string
   run_date: string
+  data_age_hours: number | null
   top_favorites: InsightsFavorite[]
   value_picks: InsightsValuePick[]
   next_match: { event_id: string; match_date: string; home: string | null; away: string | null } | null

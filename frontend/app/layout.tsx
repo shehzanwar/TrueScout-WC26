@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google"
 import "./globals.css"
 import Sidebar from "./components/Sidebar"
 import SidebarClient from "./components/SidebarClient"
+import StaleDataBanner from "./components/StaleDataBanner"
 import { getSimulations } from "@/lib/server-data"
 
 const geistSans = Geist({
@@ -53,7 +54,10 @@ export default async function RootLayout({
         {/* Mobile: sticky top bar + slide-in drawer */}
         <div className="flex-1 min-w-0 flex flex-col">
           <SidebarClient />
-          <main className="flex-1 min-w-0 p-6 lg:p-8">{children}</main>
+          <main className="flex-1 min-w-0 p-6 lg:p-8">
+            <StaleDataBanner runDate={lastUpdated} />
+            {children}
+          </main>
         </div>
       </body>
     </html>

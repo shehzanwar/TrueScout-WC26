@@ -333,8 +333,15 @@ def load_sofascore_club_priors() -> pd.DataFrame:
     if df.empty:
         return pd.DataFrame()
 
-    # Weight by minutes played within each player
+    # Weight by minutes played within each player, with season-level decay.
+    # Older seasons get exp(-lambda * year_gap) weight vs the most recent season.
+    # lambda=1.0 → previous season ≈ 37% weight, two seasons ago ≈ 14%.
+    _SEASON_DECAY_LAMBDA = 1.0
     df["w"] = df["minutes_played"].fillna(0).astype(float)
+    max_year = df["season_year"].max()
+    df["w"] = df["w"] * np.exp(
+        -_SEASON_DECAY_LAMBDA * (max_year - df["season_year"]).clip(lower=0)
+    )
 
     def _wavg(grp: pd.DataFrame, col: str) -> float:
         w = grp["w"]

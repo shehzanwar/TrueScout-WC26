@@ -12564,3 +12564,1108 @@ C:\Users\couga\miniconda3\envs\wc26\python.exe (PID 80296)
 2026-07-08 02:16:19  INFO      truescout.nightly —     ✓  9_narratives
 2026-07-08 02:16:19  INFO      truescout.nightly — ========================================================================
 2026-07-08 02:16:19  WARNING   truescout.nightly — Non-critical ingestion step(s) failed (4_market_values) — using baseline Git data; downstream math succeeded. Vercel deployment will proceed.
+2026-07-08 23:28:12  INFO      truescout.nightly — ========================================================================
+2026-07-08 23:28:12  INFO      truescout.nightly —   TrueScout Nightly Batch — 2026-07-09 06:28:12 UTC
+2026-07-08 23:28:12  INFO      truescout.nightly — ========================================================================
+2026-07-08 23:28:17  INFO      truescout.nightly — ── Step: ESPN pull (knockout) ──────────────────────────────────
+2026-07-08 23:28:17  INFO      etl.sources.espn_pull — === TrueScout ESPN pull | league=fifa.world ===
+2026-07-08 23:28:17  INFO      etl.sources.espn_pull — Knockout sweep (R32+R16): 2026-06-28 → 2026-07-07 (10 dates, includes pre-match)
+2026-07-08 23:28:18  INFO      etl.sources.espn_pull — [1/10] Pulling 2026-06-28 …
+2026-07-08 23:28:18  INFO      etl.sources.espn_pull — ESPN scoreboard → fifa.world / 2026-06-28
+2026-07-08 23:28:18  INFO      etl.sources.espn_pull —   Raw events: 1 (all statuses)
+2026-07-08 23:28:18  INFO      etl.sources.espn_pull —   all valid events: 1
+2026-07-08 23:28:18  INFO      etl.sources.espn_pull — Bronze → matches_2026-06-28.parquet                              (1 rows)
+2026-07-08 23:28:18  INFO      etl.sources.espn_pull — Skipping empty DataFrame → odds_2026-06-28.parquet
+2026-07-08 23:28:19  INFO      etl.sources.espn_pull — [2/10] Pulling 2026-06-29 …
+2026-07-08 23:28:19  INFO      etl.sources.espn_pull — ESPN scoreboard → fifa.world / 2026-06-29
+2026-07-08 23:28:19  INFO      etl.sources.espn_pull —   Raw events: 3 (all statuses)
+2026-07-08 23:28:19  INFO      etl.sources.espn_pull —   all valid events: 3
+2026-07-08 23:28:19  INFO      etl.sources.espn_pull — Bronze → matches_2026-06-29.parquet                              (3 rows)
+2026-07-08 23:28:19  INFO      etl.sources.espn_pull — Skipping empty DataFrame → odds_2026-06-29.parquet
+2026-07-08 23:28:20  INFO      etl.sources.espn_pull — [3/10] Pulling 2026-06-30 …
+2026-07-08 23:28:20  INFO      etl.sources.espn_pull — ESPN scoreboard → fifa.world / 2026-06-30
+2026-07-08 23:28:20  INFO      etl.sources.espn_pull —   Raw events: 3 (all statuses)
+2026-07-08 23:28:20  INFO      etl.sources.espn_pull —   all valid events: 3
+2026-07-08 23:28:20  INFO      etl.sources.espn_pull — Bronze → matches_2026-06-30.parquet                              (3 rows)
+2026-07-08 23:28:20  INFO      etl.sources.espn_pull — Skipping empty DataFrame → odds_2026-06-30.parquet
+2026-07-08 23:28:21  INFO      etl.sources.espn_pull — [4/10] Pulling 2026-07-01 …
+2026-07-08 23:28:21  INFO      etl.sources.espn_pull — ESPN scoreboard → fifa.world / 2026-07-01
+2026-07-08 23:28:21  INFO      etl.sources.espn_pull —   Raw events: 3 (all statuses)
+2026-07-08 23:28:21  INFO      etl.sources.espn_pull —   all valid events: 3
+2026-07-08 23:28:21  INFO      etl.sources.espn_pull — Bronze → matches_2026-07-01.parquet                              (3 rows)
+2026-07-08 23:28:21  INFO      etl.sources.espn_pull — Skipping empty DataFrame → odds_2026-07-01.parquet
+2026-07-08 23:28:22  INFO      etl.sources.espn_pull — [5/10] Pulling 2026-07-02 …
+2026-07-08 23:28:22  INFO      etl.sources.espn_pull — ESPN scoreboard → fifa.world / 2026-07-02
+2026-07-08 23:28:22  INFO      etl.sources.espn_pull —   Raw events: 3 (all statuses)
+2026-07-08 23:28:22  INFO      etl.sources.espn_pull —   all valid events: 3
+2026-07-08 23:28:22  INFO      etl.sources.espn_pull — Bronze → matches_2026-07-02.parquet                              (3 rows)
+2026-07-08 23:28:22  INFO      etl.sources.espn_pull — Skipping empty DataFrame → odds_2026-07-02.parquet
+2026-07-08 23:28:23  INFO      etl.sources.espn_pull — [6/10] Pulling 2026-07-03 …
+2026-07-08 23:28:23  INFO      etl.sources.espn_pull — ESPN scoreboard → fifa.world / 2026-07-03
+2026-07-08 23:28:23  INFO      etl.sources.espn_pull —   Raw events: 3 (all statuses)
+2026-07-08 23:28:23  INFO      etl.sources.espn_pull —   all valid events: 3
+2026-07-08 23:28:23  INFO      etl.sources.espn_pull — Bronze → matches_2026-07-03.parquet                              (3 rows)
+2026-07-08 23:28:23  INFO      etl.sources.espn_pull — Skipping empty DataFrame → odds_2026-07-03.parquet
+2026-07-08 23:28:24  INFO      etl.sources.espn_pull — [7/10] Pulling 2026-07-04 …
+2026-07-08 23:28:24  INFO      etl.sources.espn_pull — ESPN scoreboard → fifa.world / 2026-07-04
+2026-07-08 23:28:24  INFO      etl.sources.espn_pull —   Raw events: 2 (all statuses)
+2026-07-08 23:28:24  INFO      etl.sources.espn_pull —   all valid events: 2
+2026-07-08 23:28:24  INFO      etl.sources.espn_pull — Bronze → matches_2026-07-04.parquet                              (2 rows)
+2026-07-08 23:28:24  INFO      etl.sources.espn_pull — Skipping empty DataFrame → odds_2026-07-04.parquet
+2026-07-08 23:28:25  INFO      etl.sources.espn_pull — [8/10] Pulling 2026-07-05 …
+2026-07-08 23:28:25  INFO      etl.sources.espn_pull — ESPN scoreboard → fifa.world / 2026-07-05
+2026-07-08 23:28:25  INFO      etl.sources.espn_pull —   Raw events: 2 (all statuses)
+2026-07-08 23:28:25  INFO      etl.sources.espn_pull —   all valid events: 2
+2026-07-08 23:28:25  INFO      etl.sources.espn_pull — Bronze → matches_2026-07-05.parquet                              (2 rows)
+2026-07-08 23:28:25  INFO      etl.sources.espn_pull — Skipping empty DataFrame → odds_2026-07-05.parquet
+2026-07-08 23:28:26  INFO      etl.sources.espn_pull — [9/10] Pulling 2026-07-06 …
+2026-07-08 23:28:26  INFO      etl.sources.espn_pull — ESPN scoreboard → fifa.world / 2026-07-06
+2026-07-08 23:28:26  INFO      etl.sources.espn_pull —   Raw events: 2 (all statuses)
+2026-07-08 23:28:26  INFO      etl.sources.espn_pull —   all valid events: 2
+2026-07-08 23:28:26  INFO      etl.sources.espn_pull — Bronze → matches_2026-07-06.parquet                              (2 rows)
+2026-07-08 23:28:26  INFO      etl.sources.espn_pull — Skipping empty DataFrame → odds_2026-07-06.parquet
+2026-07-08 23:28:27  INFO      etl.sources.espn_pull — [10/10] Pulling 2026-07-07 …
+2026-07-08 23:28:27  INFO      etl.sources.espn_pull — ESPN scoreboard → fifa.world / 2026-07-07
+2026-07-08 23:28:27  INFO      etl.sources.espn_pull —   Raw events: 2 (all statuses)
+2026-07-08 23:28:27  INFO      etl.sources.espn_pull —   all valid events: 2
+2026-07-08 23:28:27  INFO      etl.sources.espn_pull — Bronze → matches_2026-07-07.parquet                              (2 rows)
+2026-07-08 23:28:27  INFO      etl.sources.espn_pull — Skipping empty DataFrame → odds_2026-07-07.parquet
+2026-07-08 23:28:27  INFO      etl.db.connection — DuckDB write connection opened -> S:\Projects\TrueScout\data\truescout.duckdb
+2026-07-08 23:28:27  INFO      etl.db.init_db — Parquet views: 11 / 11 sources available.
+2026-07-08 23:28:27  INFO      etl.sources.espn_pull — === ESPN pull complete: 24 match rows | 0 odds rows across 10 dates ===
+2026-07-08 23:28:27  INFO      truescout.nightly —    ✓ ESPN pull (knockout) completed in 9.9s
+2026-07-08 23:28:27  INFO      truescout.nightly — ── Step: Sofascore pull (group stage rounds) ──────────────────────────────────
+2026-07-08 23:28:27  INFO      etl.sources.sofascore_pull — === TrueScout Sofascore pull | tournament=16 season=58210 ===
+2026-07-08 23:28:28  INFO      etl.sources.sofascore_pull — Available rounds: [1, 2, 3, 5, 6, 27, 28, 29, 50]
+2026-07-08 23:28:28  INFO      etl.sources.sofascore_pull — Sweeping 9 rounds.
+2026-07-08 23:28:28  INFO      etl.sources.sofascore_pull — ── Round 1 ──
+2026-07-08 23:28:28  INFO      etl.sources.sofascore_pull — Round 1: 24 total / 24 completed
+2026-07-08 23:28:28  INFO      etl.sources.sofascore_pull — Bronze → events_round_001.parquet                                (24 rows)
+2026-07-08 23:28:28  INFO      etl.sources.sofascore_pull —   [1/24] Event 15186710 — Mexico vs South Africa
+2026-07-08 23:28:30  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:28:32  INFO      etl.sources.sofascore_pull —     statistics: 130 metric rows
+2026-07-08 23:28:32  INFO      etl.sources.sofascore_pull —   [2/24] Event 15186720 — South Korea vs Czechia
+2026-07-08 23:28:34  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:28:36  INFO      etl.sources.sofascore_pull —     statistics: 127 metric rows
+2026-07-08 23:28:36  INFO      etl.sources.sofascore_pull —   [3/24] Event 15186836 — Canada vs Bosnia & Herzegovina
+2026-07-08 23:28:38  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:28:40  INFO      etl.sources.sofascore_pull —     statistics: 128 metric rows
+2026-07-08 23:28:40  INFO      etl.sources.sofascore_pull —   [4/24] Event 15186873 — USA vs Paraguay
+2026-07-08 23:28:42  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:28:44  INFO      etl.sources.sofascore_pull —     statistics: 127 metric rows
+2026-07-08 23:28:44  INFO      etl.sources.sofascore_pull —   [5/24] Event 15186526 — Qatar vs Switzerland
+2026-07-08 23:28:46  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:28:48  INFO      etl.sources.sofascore_pull —     statistics: 129 metric rows
+2026-07-08 23:28:48  INFO      etl.sources.sofascore_pull —   [6/24] Event 15186850 — Brazil vs Morocco
+2026-07-08 23:28:50  INFO      etl.sources.sofascore_pull —     lineups: 51 players
+2026-07-08 23:28:52  INFO      etl.sources.sofascore_pull —     statistics: 128 metric rows
+2026-07-08 23:28:52  INFO      etl.sources.sofascore_pull —   [7/24] Event 15186853 — Haiti vs Scotland
+2026-07-08 23:28:55  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:28:57  INFO      etl.sources.sofascore_pull —     statistics: 121 metric rows
+2026-07-08 23:28:57  INFO      etl.sources.sofascore_pull —   [8/24] Event 15186874 — Australia vs Türkiye
+2026-07-08 23:28:59  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:29:01  INFO      etl.sources.sofascore_pull —     statistics: 128 metric rows
+2026-07-08 23:29:01  INFO      etl.sources.sofascore_pull —   [9/24] Event 15186899 — Germany vs Curaçao
+2026-07-08 23:29:03  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:29:05  INFO      etl.sources.sofascore_pull —     statistics: 127 metric rows
+2026-07-08 23:29:05  INFO      etl.sources.sofascore_pull —   [10/24] Event 15186945 — Netherlands vs Japan
+2026-07-08 23:29:07  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:29:09  INFO      etl.sources.sofascore_pull —     statistics: 117 metric rows
+2026-07-08 23:29:09  INFO      etl.sources.sofascore_pull —   [11/24] Event 15186904 — Côte d'Ivoire vs Ecuador
+2026-07-08 23:29:12  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:29:14  INFO      etl.sources.sofascore_pull —     statistics: 122 metric rows
+2026-07-08 23:29:14  INFO      etl.sources.sofascore_pull —   [12/24] Event 15186951 — Sweden vs Tunisia
+2026-07-08 23:29:17  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:29:19  INFO      etl.sources.sofascore_pull —     statistics: 126 metric rows
+2026-07-08 23:29:19  INFO      etl.sources.sofascore_pull —   [13/24] Event 15186783 — Spain vs Cabo Verde
+2026-07-08 23:29:20  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:29:22  INFO      etl.sources.sofascore_pull —     statistics: 122 metric rows
+2026-07-08 23:29:22  INFO      etl.sources.sofascore_pull —   [14/24] Event 15186837 — Belgium vs Egypt
+2026-07-08 23:29:25  INFO      etl.sources.sofascore_pull —     lineups: 51 players
+2026-07-08 23:29:26  INFO      etl.sources.sofascore_pull —     statistics: 123 metric rows
+2026-07-08 23:29:26  INFO      etl.sources.sofascore_pull —   [15/24] Event 15186811 — Saudi Arabia vs Uruguay
+2026-07-08 23:29:28  INFO      etl.sources.sofascore_pull —     lineups: 50 players
+2026-07-08 23:29:30  INFO      etl.sources.sofascore_pull —     statistics: 125 metric rows
+2026-07-08 23:29:30  INFO      etl.sources.sofascore_pull —   [16/24] Event 15186832 — Iran vs New Zealand
+2026-07-08 23:29:33  INFO      etl.sources.sofascore_pull —     lineups: 51 players
+2026-07-08 23:29:35  INFO      etl.sources.sofascore_pull —     statistics: 121 metric rows
+2026-07-08 23:29:35  INFO      etl.sources.sofascore_pull —   [17/24] Event 15186501 — France vs Senegal
+2026-07-08 23:29:38  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:29:40  INFO      etl.sources.sofascore_pull —     statistics: 124 metric rows
+2026-07-08 23:29:40  INFO      etl.sources.sofascore_pull —   [18/24] Event 15186773 — Iraq vs Norway
+2026-07-08 23:29:43  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:29:44  INFO      etl.sources.sofascore_pull —     statistics: 128 metric rows
+2026-07-08 23:29:44  INFO      etl.sources.sofascore_pull —   [19/24] Event 15186854 — Argentina vs Algeria
+2026-07-08 23:29:47  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:29:49  INFO      etl.sources.sofascore_pull —     statistics: 120 metric rows
+2026-07-08 23:29:49  INFO      etl.sources.sofascore_pull —   [20/24] Event 15186751 — Austria vs Jordan
+2026-07-08 23:29:51  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:29:53  INFO      etl.sources.sofascore_pull —     statistics: 125 metric rows
+2026-07-08 23:29:53  INFO      etl.sources.sofascore_pull —   [21/24] Event 15186709 — Portugal vs DR Congo
+2026-07-08 23:29:56  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:29:57  INFO      etl.sources.sofascore_pull —     statistics: 123 metric rows
+2026-07-08 23:29:57  INFO      etl.sources.sofascore_pull —   [22/24] Event 15186504 — England vs Croatia
+2026-07-08 23:30:00  INFO      etl.sources.sofascore_pull —     lineups: 51 players
+2026-07-08 23:30:02  INFO      etl.sources.sofascore_pull —     statistics: 126 metric rows
+2026-07-08 23:30:02  INFO      etl.sources.sofascore_pull —   [23/24] Event 15186687 — Ghana vs Panama
+2026-07-08 23:30:04  INFO      etl.sources.sofascore_pull —     lineups: 51 players
+2026-07-08 23:30:06  INFO      etl.sources.sofascore_pull —     statistics: 128 metric rows
+2026-07-08 23:30:06  INFO      etl.sources.sofascore_pull —   [24/24] Event 15186722 — Uzbekistan vs Colombia
+2026-07-08 23:30:08  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:30:10  INFO      etl.sources.sofascore_pull —     statistics: 128 metric rows
+2026-07-08 23:30:10  INFO      etl.sources.sofascore_pull — Bronze → lineups_round_001.parquet                               (1241 rows)
+2026-07-08 23:30:10  INFO      etl.sources.sofascore_pull — Bronze → statistics_round_001.parquet                            (3003 rows)
+2026-07-08 23:30:10  INFO      etl.sources.sofascore_pull — ── Round 2 ──
+2026-07-08 23:30:10  INFO      etl.sources.sofascore_pull — Round 2: 24 total / 24 completed
+2026-07-08 23:30:10  INFO      etl.sources.sofascore_pull — Bronze → events_round_002.parquet                                (24 rows)
+2026-07-08 23:30:10  INFO      etl.sources.sofascore_pull —   [1/24] Event 15186731 — Czechia vs South Africa
+2026-07-08 23:30:13  INFO      etl.sources.sofascore_pull —     lineups: 49 players
+2026-07-08 23:30:15  INFO      etl.sources.sofascore_pull —     statistics: 127 metric rows
+2026-07-08 23:30:15  INFO      etl.sources.sofascore_pull —   [2/24] Event 15186806 — Switzerland vs Bosnia & Herzegovina
+2026-07-08 23:30:17  INFO      etl.sources.sofascore_pull —     lineups: 51 players
+2026-07-08 23:30:19  INFO      etl.sources.sofascore_pull —     statistics: 128 metric rows
+2026-07-08 23:30:19  INFO      etl.sources.sofascore_pull —   [3/24] Event 15186798 — Canada vs Qatar
+2026-07-08 23:30:20  INFO      etl.sources.sofascore_pull —     lineups: 51 players
+2026-07-08 23:30:23  INFO      etl.sources.sofascore_pull —     statistics: 132 metric rows
+2026-07-08 23:30:23  INFO      etl.sources.sofascore_pull —   [4/24] Event 15186490 — Mexico vs South Korea
+2026-07-08 23:30:24  INFO      etl.sources.sofascore_pull —     lineups: 51 players
+2026-07-08 23:30:26  INFO      etl.sources.sofascore_pull —     statistics: 123 metric rows
+2026-07-08 23:30:26  INFO      etl.sources.sofascore_pull —   [5/24] Event 15186878 — USA vs Australia
+2026-07-08 23:30:29  INFO      etl.sources.sofascore_pull —     lineups: 51 players
+2026-07-08 23:30:31  INFO      etl.sources.sofascore_pull —     statistics: 126 metric rows
+2026-07-08 23:30:31  INFO      etl.sources.sofascore_pull —   [6/24] Event 15186859 — Scotland vs Morocco
+2026-07-08 23:30:33  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:30:35  INFO      etl.sources.sofascore_pull —     statistics: 128 metric rows
+2026-07-08 23:30:35  INFO      etl.sources.sofascore_pull —   [7/24] Event 15186856 — Brazil vs Haiti
+2026-07-08 23:30:37  INFO      etl.sources.sofascore_pull —     lineups: 51 players
+2026-07-08 23:30:39  INFO      etl.sources.sofascore_pull —     statistics: 128 metric rows
+2026-07-08 23:30:39  INFO      etl.sources.sofascore_pull —   [8/24] Event 15186879 — Türkiye vs Paraguay
+2026-07-08 23:30:41  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:30:44  INFO      etl.sources.sofascore_pull —     statistics: 126 metric rows
+2026-07-08 23:30:44  INFO      etl.sources.sofascore_pull —   [9/24] Event 15186957 — Netherlands vs Sweden
+2026-07-08 23:30:46  INFO      etl.sources.sofascore_pull —     lineups: 51 players
+2026-07-08 23:30:47  INFO      etl.sources.sofascore_pull —     statistics: 128 metric rows
+2026-07-08 23:30:47  INFO      etl.sources.sofascore_pull —   [10/24] Event 15186905 — Germany vs Côte d'Ivoire
+2026-07-08 23:30:49  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:30:52  INFO      etl.sources.sofascore_pull —     statistics: 125 metric rows
+2026-07-08 23:30:52  INFO      etl.sources.sofascore_pull —   [11/24] Event 15186906 — Ecuador vs Curaçao
+2026-07-08 23:30:54  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:30:57  INFO      etl.sources.sofascore_pull —     statistics: 124 metric rows
+2026-07-08 23:30:57  INFO      etl.sources.sofascore_pull —   [12/24] Event 15186963 — Tunisia vs Japan
+2026-07-08 23:30:59  INFO      etl.sources.sofascore_pull —     lineups: 50 players
+2026-07-08 23:31:01  INFO      etl.sources.sofascore_pull —     statistics: 127 metric rows
+2026-07-08 23:31:01  INFO      etl.sources.sofascore_pull —   [13/24] Event 15186840 — Spain vs Saudi Arabia
+2026-07-08 23:31:04  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:31:06  INFO      etl.sources.sofascore_pull —     statistics: 125 metric rows
+2026-07-08 23:31:06  INFO      etl.sources.sofascore_pull —   [14/24] Event 15186499 — Belgium vs Iran
+2026-07-08 23:31:08  INFO      etl.sources.sofascore_pull —     lineups: 50 players
+2026-07-08 23:31:10  INFO      etl.sources.sofascore_pull —     statistics: 129 metric rows
+2026-07-08 23:31:10  INFO      etl.sources.sofascore_pull —   [15/24] Event 15186800 — Uruguay vs Cabo Verde
+2026-07-08 23:31:12  INFO      etl.sources.sofascore_pull —     lineups: 50 players
+2026-07-08 23:31:14  INFO      etl.sources.sofascore_pull —     statistics: 124 metric rows
+2026-07-08 23:31:14  INFO      etl.sources.sofascore_pull —   [16/24] Event 15186827 — New Zealand vs Egypt
+2026-07-08 23:31:17  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:31:19  INFO      etl.sources.sofascore_pull —     statistics: 126 metric rows
+2026-07-08 23:31:19  INFO      etl.sources.sofascore_pull —   [17/24] Event 15186502 — Argentina vs Austria
+2026-07-08 23:31:22  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:31:23  INFO      etl.sources.sofascore_pull —     statistics: 124 metric rows
+2026-07-08 23:31:23  INFO      etl.sources.sofascore_pull —   [18/24] Event 15186769 — France vs Iraq
+2026-07-08 23:31:26  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:31:28  INFO      etl.sources.sofascore_pull —     statistics: 128 metric rows
+2026-07-08 23:31:28  INFO      etl.sources.sofascore_pull —   [19/24] Event 15186770 — Norway vs Senegal
+2026-07-08 23:31:30  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:31:32  INFO      etl.sources.sofascore_pull —     statistics: 125 metric rows
+2026-07-08 23:31:32  INFO      etl.sources.sofascore_pull —   [20/24] Event 15186740 — Jordan vs Algeria
+2026-07-08 23:31:34  INFO      etl.sources.sofascore_pull —     lineups: 51 players
+2026-07-08 23:31:36  INFO      etl.sources.sofascore_pull —     statistics: 130 metric rows
+2026-07-08 23:31:36  INFO      etl.sources.sofascore_pull —   [21/24] Event 15186858 — Portugal vs Uzbekistan
+2026-07-08 23:31:39  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:31:41  INFO      etl.sources.sofascore_pull —     statistics: 129 metric rows
+2026-07-08 23:31:41  INFO      etl.sources.sofascore_pull —   [22/24] Event 15186672 — England vs Ghana
+2026-07-08 23:31:44  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:31:46  INFO      etl.sources.sofascore_pull —     statistics: 124 metric rows
+2026-07-08 23:31:46  INFO      etl.sources.sofascore_pull —   [23/24] Event 15186520 — Panama vs Croatia
+2026-07-08 23:31:48  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:31:50  INFO      etl.sources.sofascore_pull —     statistics: 127 metric rows
+2026-07-08 23:31:50  INFO      etl.sources.sofascore_pull —   [24/24] Event 15186713 — Colombia vs DR Congo
+2026-07-08 23:31:53  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:31:55  INFO      etl.sources.sofascore_pull —     statistics: 122 metric rows
+2026-07-08 23:31:55  INFO      etl.sources.sofascore_pull — Bronze → lineups_round_002.parquet                               (1232 rows)
+2026-07-08 23:31:55  INFO      etl.sources.sofascore_pull — Bronze → statistics_round_002.parquet                            (3035 rows)
+2026-07-08 23:31:55  INFO      etl.sources.sofascore_pull — ── Round 3 ──
+2026-07-08 23:31:55  INFO      etl.sources.sofascore_pull — Round 3: 24 total / 24 completed
+2026-07-08 23:31:55  INFO      etl.sources.sofascore_pull — Bronze → events_round_003.parquet                                (24 rows)
+2026-07-08 23:31:55  INFO      etl.sources.sofascore_pull —   [1/24] Event 15186829 — Bosnia & Herzegovina vs Qatar
+2026-07-08 23:31:57  INFO      etl.sources.sofascore_pull —     lineups: 49 players
+2026-07-08 23:32:00  INFO      etl.sources.sofascore_pull —     statistics: 126 metric rows
+2026-07-08 23:32:00  INFO      etl.sources.sofascore_pull —   [2/24] Event 15186821 — Switzerland vs Canada
+2026-07-08 23:32:02  INFO      etl.sources.sofascore_pull —     lineups: 49 players
+2026-07-08 23:32:04  INFO      etl.sources.sofascore_pull —     statistics: 129 metric rows
+2026-07-08 23:32:04  INFO      etl.sources.sofascore_pull —   [3/24] Event 15186864 — Morocco vs Haiti
+2026-07-08 23:32:06  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:32:08  INFO      etl.sources.sofascore_pull —     statistics: 126 metric rows
+2026-07-08 23:32:08  INFO      etl.sources.sofascore_pull —   [4/24] Event 15186861 — Scotland vs Brazil
+2026-07-08 23:32:10  INFO      etl.sources.sofascore_pull —     lineups: 51 players
+2026-07-08 23:32:12  INFO      etl.sources.sofascore_pull —     statistics: 130 metric rows
+2026-07-08 23:32:12  INFO      etl.sources.sofascore_pull —   [5/24] Event 15186732 — Czechia vs Mexico
+2026-07-08 23:32:14  INFO      etl.sources.sofascore_pull —     lineups: 51 players
+2026-07-08 23:32:16  INFO      etl.sources.sofascore_pull —     statistics: 124 metric rows
+2026-07-08 23:32:16  INFO      etl.sources.sofascore_pull —   [6/24] Event 15186744 — South Africa vs South Korea
+2026-07-08 23:32:18  INFO      etl.sources.sofascore_pull —     lineups: 50 players
+2026-07-08 23:32:20  INFO      etl.sources.sofascore_pull —     statistics: 125 metric rows
+2026-07-08 23:32:20  INFO      etl.sources.sofascore_pull —   [7/24] Event 15186908 — Curaçao vs Côte d'Ivoire
+2026-07-08 23:32:23  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:32:25  INFO      etl.sources.sofascore_pull —     statistics: 128 metric rows
+2026-07-08 23:32:25  INFO      etl.sources.sofascore_pull —   [8/24] Event 15186907 — Ecuador vs Germany
+2026-07-08 23:32:27  INFO      etl.sources.sofascore_pull —     lineups: 50 players
+2026-07-08 23:32:30  INFO      etl.sources.sofascore_pull —     statistics: 124 metric rows
+2026-07-08 23:32:30  INFO      etl.sources.sofascore_pull —   [9/24] Event 15186972 — Japan vs Sweden
+2026-07-08 23:32:32  INFO      etl.sources.sofascore_pull —     lineups: 51 players
+2026-07-08 23:32:34  INFO      etl.sources.sofascore_pull —     statistics: 129 metric rows
+2026-07-08 23:32:34  INFO      etl.sources.sofascore_pull —   [10/24] Event 15186973 — Tunisia vs Netherlands
+2026-07-08 23:32:37  INFO      etl.sources.sofascore_pull —     lineups: 50 players
+2026-07-08 23:32:39  INFO      etl.sources.sofascore_pull —     statistics: 122 metric rows
+2026-07-08 23:32:39  INFO      etl.sources.sofascore_pull —   [11/24] Event 15186891 — Paraguay vs Australia
+2026-07-08 23:32:41  INFO      etl.sources.sofascore_pull —     lineups: 49 players
+2026-07-08 23:32:44  INFO      etl.sources.sofascore_pull —     statistics: 113 metric rows
+2026-07-08 23:32:44  INFO      etl.sources.sofascore_pull —   [12/24] Event 15186887 — Türkiye vs USA
+2026-07-08 23:32:46  INFO      etl.sources.sofascore_pull —     lineups: 51 players
+2026-07-08 23:32:48  INFO      etl.sources.sofascore_pull —     statistics: 128 metric rows
+2026-07-08 23:32:48  INFO      etl.sources.sofascore_pull —   [13/24] Event 15186537 — Norway vs France
+2026-07-08 23:32:49  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:32:51  INFO      etl.sources.sofascore_pull —     statistics: 128 metric rows
+2026-07-08 23:32:51  INFO      etl.sources.sofascore_pull —   [14/24] Event 15186771 — Senegal vs Iraq
+2026-07-08 23:32:53  INFO      etl.sources.sofascore_pull —     lineups: 51 players
+2026-07-08 23:32:55  INFO      etl.sources.sofascore_pull —     statistics: 129 metric rows
+2026-07-08 23:32:55  INFO      etl.sources.sofascore_pull —   [15/24] Event 15186803 — Cabo Verde vs Saudi Arabia
+2026-07-08 23:32:57  INFO      etl.sources.sofascore_pull —     lineups: 50 players
+2026-07-08 23:32:59  INFO      etl.sources.sofascore_pull —     statistics: 124 metric rows
+2026-07-08 23:32:59  INFO      etl.sources.sofascore_pull —   [16/24] Event 15186841 — Uruguay vs Spain
+2026-07-08 23:33:01  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:33:03  INFO      etl.sources.sofascore_pull —     statistics: 125 metric rows
+2026-07-08 23:33:03  INFO      etl.sources.sofascore_pull —   [17/24] Event 15186828 — Egypt vs Iran
+2026-07-08 23:33:05  INFO      etl.sources.sofascore_pull —     lineups: 50 players
+2026-07-08 23:33:07  INFO      etl.sources.sofascore_pull —     statistics: 130 metric rows
+2026-07-08 23:33:07  INFO      etl.sources.sofascore_pull —   [18/24] Event 15186822 — New Zealand vs Belgium
+2026-07-08 23:33:09  INFO      etl.sources.sofascore_pull —     lineups: 50 players
+2026-07-08 23:33:11  INFO      etl.sources.sofascore_pull —     statistics: 130 metric rows
+2026-07-08 23:33:11  INFO      etl.sources.sofascore_pull —   [19/24] Event 15186624 — Croatia vs Ghana
+2026-07-08 23:33:13  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:33:15  INFO      etl.sources.sofascore_pull —     statistics: 126 metric rows
+2026-07-08 23:33:15  INFO      etl.sources.sofascore_pull —   [20/24] Event 15186676 — Panama vs England
+2026-07-08 23:33:17  INFO      etl.sources.sofascore_pull —     lineups: 51 players
+2026-07-08 23:33:20  INFO      etl.sources.sofascore_pull —     statistics: 128 metric rows
+2026-07-08 23:33:20  INFO      etl.sources.sofascore_pull —   [21/24] Event 15186696 — Colombia vs Portugal
+2026-07-08 23:33:21  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:33:24  INFO      etl.sources.sofascore_pull —     statistics: 125 metric rows
+2026-07-08 23:33:24  INFO      etl.sources.sofascore_pull —   [22/24] Event 15186717 — DR Congo vs Uzbekistan
+2026-07-08 23:33:26  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:33:28  INFO      etl.sources.sofascore_pull —     statistics: 126 metric rows
+2026-07-08 23:33:28  INFO      etl.sources.sofascore_pull —   [23/24] Event 15186747 — Algeria vs Austria
+2026-07-08 23:33:30  INFO      etl.sources.sofascore_pull —     lineups: 51 players
+2026-07-08 23:33:32  INFO      etl.sources.sofascore_pull —     statistics: 127 metric rows
+2026-07-08 23:33:32  INFO      etl.sources.sofascore_pull —   [24/24] Event 15186734 — Jordan vs Argentina
+2026-07-08 23:33:34  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:33:36  INFO      etl.sources.sofascore_pull —     statistics: 123 metric rows
+2026-07-08 23:33:36  INFO      etl.sources.sofascore_pull — Bronze → lineups_round_003.parquet                               (1220 rows)
+2026-07-08 23:33:36  INFO      etl.sources.sofascore_pull — Bronze → statistics_round_003.parquet                            (3025 rows)
+2026-07-08 23:33:36  INFO      etl.sources.sofascore_pull — ── Round 5 ──
+2026-07-08 23:33:37  WARNING   etl.sources.sofascore_pull — 404 at https://www.sofascore.com/api/v1/unique-tournament/16/season/58210/events/round/5 — trying next domain
+2026-07-08 23:33:37  WARNING   etl.sources.sofascore_pull — Error payload saved → round-5_unique-tournament_16_season_58210_events_round_5_www.sofascore.com_063337.bin
+2026-07-08 23:33:37  WARNING   etl.sources.sofascore_pull — 404 at https://api.sofascore.app/api/v1/unique-tournament/16/season/58210/events/round/5 — trying next domain
+2026-07-08 23:33:37  WARNING   etl.sources.sofascore_pull — Error payload saved → round-5_unique-tournament_16_season_58210_events_round_5_api.sofascore.app_063337.bin
+2026-07-08 23:33:37  WARNING   etl.sources.sofascore_pull — All domains returned 404 for path: /unique-tournament/16/season/58210/events/round/5 (no data / IP blocked)
+2026-07-08 23:33:37  ERROR     etl.sources.sofascore_pull — No response for round 5.
+2026-07-08 23:33:37  INFO      etl.sources.sofascore_pull —   No completed events for round 5 — skipping.
+2026-07-08 23:33:37  INFO      etl.sources.sofascore_pull — ── Round 6 ──
+2026-07-08 23:33:37  WARNING   etl.sources.sofascore_pull — 404 at https://www.sofascore.com/api/v1/unique-tournament/16/season/58210/events/round/6 — trying next domain
+2026-07-08 23:33:37  WARNING   etl.sources.sofascore_pull — Error payload saved → round-6_unique-tournament_16_season_58210_events_round_6_www.sofascore.com_063337.bin
+2026-07-08 23:33:37  WARNING   etl.sources.sofascore_pull — 404 at https://api.sofascore.app/api/v1/unique-tournament/16/season/58210/events/round/6 — trying next domain
+2026-07-08 23:33:37  WARNING   etl.sources.sofascore_pull — Error payload saved → round-6_unique-tournament_16_season_58210_events_round_6_api.sofascore.app_063337.bin
+2026-07-08 23:33:37  WARNING   etl.sources.sofascore_pull — All domains returned 404 for path: /unique-tournament/16/season/58210/events/round/6 (no data / IP blocked)
+2026-07-08 23:33:37  ERROR     etl.sources.sofascore_pull — No response for round 6.
+2026-07-08 23:33:37  INFO      etl.sources.sofascore_pull —   No completed events for round 6 — skipping.
+2026-07-08 23:33:37  INFO      etl.sources.sofascore_pull — ── Round 27 ──
+2026-07-08 23:33:38  WARNING   etl.sources.sofascore_pull — 404 at https://www.sofascore.com/api/v1/unique-tournament/16/season/58210/events/round/27 — trying next domain
+2026-07-08 23:33:38  WARNING   etl.sources.sofascore_pull — Error payload saved → round-27_unique-tournament_16_season_58210_events_round_27_www.sofascore.com_063338.bin
+2026-07-08 23:33:38  WARNING   etl.sources.sofascore_pull — 404 at https://api.sofascore.app/api/v1/unique-tournament/16/season/58210/events/round/27 — trying next domain
+2026-07-08 23:33:38  WARNING   etl.sources.sofascore_pull — Error payload saved → round-27_unique-tournament_16_season_58210_events_round_27_api.sofascore.app_063338.bin
+2026-07-08 23:33:38  WARNING   etl.sources.sofascore_pull — All domains returned 404 for path: /unique-tournament/16/season/58210/events/round/27 (no data / IP blocked)
+2026-07-08 23:33:38  ERROR     etl.sources.sofascore_pull — No response for round 27.
+2026-07-08 23:33:38  INFO      etl.sources.sofascore_pull —   No completed events for round 27 — skipping.
+2026-07-08 23:33:38  INFO      etl.sources.sofascore_pull — ── Round 28 ──
+2026-07-08 23:33:38  WARNING   etl.sources.sofascore_pull — 404 at https://www.sofascore.com/api/v1/unique-tournament/16/season/58210/events/round/28 — trying next domain
+2026-07-08 23:33:38  WARNING   etl.sources.sofascore_pull — Error payload saved → round-28_unique-tournament_16_season_58210_events_round_28_www.sofascore.com_063338.bin
+2026-07-08 23:33:38  WARNING   etl.sources.sofascore_pull — 404 at https://api.sofascore.app/api/v1/unique-tournament/16/season/58210/events/round/28 — trying next domain
+2026-07-08 23:33:38  WARNING   etl.sources.sofascore_pull — Error payload saved → round-28_unique-tournament_16_season_58210_events_round_28_api.sofascore.app_063338.bin
+2026-07-08 23:33:38  WARNING   etl.sources.sofascore_pull — All domains returned 404 for path: /unique-tournament/16/season/58210/events/round/28 (no data / IP blocked)
+2026-07-08 23:33:38  ERROR     etl.sources.sofascore_pull — No response for round 28.
+2026-07-08 23:33:38  INFO      etl.sources.sofascore_pull —   No completed events for round 28 — skipping.
+2026-07-08 23:33:38  INFO      etl.sources.sofascore_pull — ── Round 29 ──
+2026-07-08 23:33:38  WARNING   etl.sources.sofascore_pull — 404 at https://www.sofascore.com/api/v1/unique-tournament/16/season/58210/events/round/29 — trying next domain
+2026-07-08 23:33:38  WARNING   etl.sources.sofascore_pull — Error payload saved → round-29_unique-tournament_16_season_58210_events_round_29_www.sofascore.com_063338.bin
+2026-07-08 23:33:38  WARNING   etl.sources.sofascore_pull — 404 at https://api.sofascore.app/api/v1/unique-tournament/16/season/58210/events/round/29 — trying next domain
+2026-07-08 23:33:38  WARNING   etl.sources.sofascore_pull — Error payload saved → round-29_unique-tournament_16_season_58210_events_round_29_api.sofascore.app_063338.bin
+2026-07-08 23:33:38  WARNING   etl.sources.sofascore_pull — All domains returned 404 for path: /unique-tournament/16/season/58210/events/round/29 (no data / IP blocked)
+2026-07-08 23:33:38  ERROR     etl.sources.sofascore_pull — No response for round 29.
+2026-07-08 23:33:38  INFO      etl.sources.sofascore_pull —   No completed events for round 29 — skipping.
+2026-07-08 23:33:38  INFO      etl.sources.sofascore_pull — ── Round 50 ──
+2026-07-08 23:33:38  WARNING   etl.sources.sofascore_pull — 404 at https://www.sofascore.com/api/v1/unique-tournament/16/season/58210/events/round/50 — trying next domain
+2026-07-08 23:33:38  WARNING   etl.sources.sofascore_pull — Error payload saved → round-50_unique-tournament_16_season_58210_events_round_50_www.sofascore.com_063338.bin
+2026-07-08 23:33:38  WARNING   etl.sources.sofascore_pull — 404 at https://api.sofascore.app/api/v1/unique-tournament/16/season/58210/events/round/50 — trying next domain
+2026-07-08 23:33:38  WARNING   etl.sources.sofascore_pull — Error payload saved → round-50_unique-tournament_16_season_58210_events_round_50_api.sofascore.app_063338.bin
+2026-07-08 23:33:38  WARNING   etl.sources.sofascore_pull — All domains returned 404 for path: /unique-tournament/16/season/58210/events/round/50 (no data / IP blocked)
+2026-07-08 23:33:38  ERROR     etl.sources.sofascore_pull — No response for round 50.
+2026-07-08 23:33:38  INFO      etl.sources.sofascore_pull —   No completed events for round 50 — skipping.
+2026-07-08 23:33:38  INFO      etl.db.init_db — Parquet views: 11 / 11 sources available.
+2026-07-08 23:33:38  INFO      etl.sources.sofascore_pull — === Sofascore pull complete: 72 events | 3693 player rows | 9063 stat rows ===
+2026-07-08 23:33:38  INFO      truescout.nightly —    ✓ Sofascore pull (group stage rounds) completed in 311.2s
+2026-07-08 23:33:38  INFO      truescout.nightly — ── Step: Sofascore pull (knockout bracket) ──────────────────────────────────
+2026-07-08 23:33:38  INFO      etl.sources.sofascore_pull — === TrueScout Sofascore pull | tournament=16 season=58210 ===
+2026-07-08 23:33:39  INFO      etl.sources.sofascore_pull — cuptrees: Round of 32 — 16 finished events
+2026-07-08 23:33:39  INFO      etl.sources.sofascore_pull — cuptrees: Round of 16 — 8 finished events
+2026-07-08 23:33:39  INFO      etl.sources.sofascore_pull — ── Knockout: Round of 32 (16 events) ──
+2026-07-08 23:33:39  INFO      etl.sources.sofascore_pull —   [1/16] event_id=12813014
+2026-07-08 23:33:40  INFO      etl.sources.sofascore_pull —     Germany vs Paraguay
+2026-07-08 23:33:42  INFO      etl.sources.sofascore_pull —     lineups: 50 players
+2026-07-08 23:33:45  INFO      etl.sources.sofascore_pull —     statistics: 204 metric rows
+2026-07-08 23:33:45  INFO      etl.sources.sofascore_pull —   [2/16] event_id=12812995
+2026-07-08 23:33:47  INFO      etl.sources.sofascore_pull —     France vs Sweden
+2026-07-08 23:33:49  INFO      etl.sources.sofascore_pull —     lineups: 51 players
+2026-07-08 23:33:51  INFO      etl.sources.sofascore_pull —     statistics: 124 metric rows
+2026-07-08 23:33:51  INFO      etl.sources.sofascore_pull —   [3/16] event_id=12813000
+2026-07-08 23:33:53  INFO      etl.sources.sofascore_pull —     South Africa vs Canada
+2026-07-08 23:33:55  INFO      etl.sources.sofascore_pull —     lineups: 50 players
+2026-07-08 23:33:58  INFO      etl.sources.sofascore_pull —     statistics: 124 metric rows
+2026-07-08 23:33:58  INFO      etl.sources.sofascore_pull —   [4/16] event_id=12812998
+2026-07-08 23:34:00  INFO      etl.sources.sofascore_pull —     Netherlands vs Morocco
+2026-07-08 23:34:02  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:34:04  INFO      etl.sources.sofascore_pull —     statistics: 208 metric rows
+2026-07-08 23:34:04  INFO      etl.sources.sofascore_pull —   [5/16] event_id=12812997
+2026-07-08 23:34:06  INFO      etl.sources.sofascore_pull —     Portugal vs Croatia
+2026-07-08 23:34:08  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:34:11  INFO      etl.sources.sofascore_pull —     statistics: 129 metric rows
+2026-07-08 23:34:11  INFO      etl.sources.sofascore_pull —   [6/16] event_id=12813004
+2026-07-08 23:34:13  INFO      etl.sources.sofascore_pull —     Spain vs Austria
+2026-07-08 23:34:15  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:34:17  INFO      etl.sources.sofascore_pull —     statistics: 126 metric rows
+2026-07-08 23:34:17  INFO      etl.sources.sofascore_pull —   [7/16] event_id=12812992
+2026-07-08 23:34:19  INFO      etl.sources.sofascore_pull —     USA vs Bosnia & Herzegovina
+2026-07-08 23:34:21  INFO      etl.sources.sofascore_pull —     lineups: 50 players
+2026-07-08 23:34:23  INFO      etl.sources.sofascore_pull —     statistics: 131 metric rows
+2026-07-08 23:34:23  INFO      etl.sources.sofascore_pull —   [8/16] event_id=12813013
+2026-07-08 23:34:25  INFO      etl.sources.sofascore_pull —     Belgium vs Senegal
+2026-07-08 23:34:27  INFO      etl.sources.sofascore_pull —     lineups: 50 players
+2026-07-08 23:34:29  INFO      etl.sources.sofascore_pull —     statistics: 209 metric rows
+2026-07-08 23:34:29  INFO      etl.sources.sofascore_pull —   [9/16] event_id=12813012
+2026-07-08 23:34:31  INFO      etl.sources.sofascore_pull —     Brazil vs Japan
+2026-07-08 23:34:33  INFO      etl.sources.sofascore_pull —     lineups: 51 players
+2026-07-08 23:34:35  INFO      etl.sources.sofascore_pull —     statistics: 127 metric rows
+2026-07-08 23:34:35  INFO      etl.sources.sofascore_pull —   [10/16] event_id=12812989
+2026-07-08 23:34:37  INFO      etl.sources.sofascore_pull —     Côte d'Ivoire vs Norway
+2026-07-08 23:34:39  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:34:41  INFO      etl.sources.sofascore_pull —     statistics: 127 metric rows
+2026-07-08 23:34:41  INFO      etl.sources.sofascore_pull —   [11/16] event_id=12813001
+2026-07-08 23:34:42  INFO      etl.sources.sofascore_pull —     Mexico vs Ecuador
+2026-07-08 23:34:44  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:34:47  INFO      etl.sources.sofascore_pull —     statistics: 129 metric rows
+2026-07-08 23:34:47  INFO      etl.sources.sofascore_pull —   [12/16] event_id=12813020
+2026-07-08 23:34:49  INFO      etl.sources.sofascore_pull —     England vs DR Congo
+2026-07-08 23:34:51  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:34:53  INFO      etl.sources.sofascore_pull —     statistics: 129 metric rows
+2026-07-08 23:34:53  INFO      etl.sources.sofascore_pull —   [13/16] event_id=12812999
+2026-07-08 23:34:56  INFO      etl.sources.sofascore_pull —     Argentina vs Cabo Verde
+2026-07-08 23:34:58  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:35:00  INFO      etl.sources.sofascore_pull —     statistics: 207 metric rows
+2026-07-08 23:35:00  INFO      etl.sources.sofascore_pull —   [14/16] event_id=12813018
+2026-07-08 23:35:02  INFO      etl.sources.sofascore_pull —     Australia vs Egypt
+2026-07-08 23:35:05  INFO      etl.sources.sofascore_pull —     lineups: 47 players
+2026-07-08 23:35:06  INFO      etl.sources.sofascore_pull —     statistics: 201 metric rows
+2026-07-08 23:35:06  INFO      etl.sources.sofascore_pull —   [15/16] event_id=12813019
+2026-07-08 23:35:09  INFO      etl.sources.sofascore_pull —     Switzerland vs Algeria
+2026-07-08 23:35:11  INFO      etl.sources.sofascore_pull —     lineups: 49 players
+2026-07-08 23:35:13  INFO      etl.sources.sofascore_pull —     statistics: 126 metric rows
+2026-07-08 23:35:13  INFO      etl.sources.sofascore_pull —   [16/16] event_id=12813011
+2026-07-08 23:35:15  INFO      etl.sources.sofascore_pull —     Colombia vs Ghana
+2026-07-08 23:35:17  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:35:19  INFO      etl.sources.sofascore_pull —     statistics: 125 metric rows
+2026-07-08 23:35:19  INFO      etl.sources.sofascore_pull — Bronze → events_kt_round-of-32.parquet                           (16 rows)
+2026-07-08 23:35:19  INFO      etl.sources.sofascore_pull — Bronze → lineups_kt_round-of-32.parquet                          (814 rows)
+2026-07-08 23:35:19  INFO      etl.sources.sofascore_pull — Bronze → statistics_kt_round-of-32.parquet                       (2426 rows)
+2026-07-08 23:35:19  INFO      etl.sources.sofascore_pull — ── Knockout: Round of 16 (8 events) ──
+2026-07-08 23:35:19  INFO      etl.sources.sofascore_pull —   [1/8] event_id=12813010
+2026-07-08 23:35:21  INFO      etl.sources.sofascore_pull —     Paraguay vs France
+2026-07-08 23:35:24  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:35:26  INFO      etl.sources.sofascore_pull —     statistics: 123 metric rows
+2026-07-08 23:35:26  INFO      etl.sources.sofascore_pull —   [2/8] event_id=12813009
+2026-07-08 23:35:27  INFO      etl.sources.sofascore_pull —     Canada vs Morocco
+2026-07-08 23:35:29  INFO      etl.sources.sofascore_pull —     lineups: 51 players
+2026-07-08 23:35:31  INFO      etl.sources.sofascore_pull —     statistics: 126 metric rows
+2026-07-08 23:35:31  INFO      etl.sources.sofascore_pull —   [3/8] event_id=12812990
+2026-07-08 23:35:33  INFO      etl.sources.sofascore_pull —     Portugal vs Spain
+2026-07-08 23:35:36  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:35:37  INFO      etl.sources.sofascore_pull —     statistics: 129 metric rows
+2026-07-08 23:35:37  INFO      etl.sources.sofascore_pull —   [4/8] event_id=12813002
+2026-07-08 23:35:39  INFO      etl.sources.sofascore_pull —     USA vs Belgium
+2026-07-08 23:35:42  INFO      etl.sources.sofascore_pull —     lineups: 51 players
+2026-07-08 23:35:44  INFO      etl.sources.sofascore_pull —     statistics: 129 metric rows
+2026-07-08 23:35:44  INFO      etl.sources.sofascore_pull —   [5/8] event_id=12813006
+2026-07-08 23:35:46  INFO      etl.sources.sofascore_pull —     Brazil vs Norway
+2026-07-08 23:35:49  INFO      etl.sources.sofascore_pull —     lineups: 50 players
+2026-07-08 23:35:50  INFO      etl.sources.sofascore_pull —     statistics: 130 metric rows
+2026-07-08 23:35:50  INFO      etl.sources.sofascore_pull —   [6/8] event_id=12813007
+2026-07-08 23:35:52  INFO      etl.sources.sofascore_pull —     Mexico vs England
+2026-07-08 23:35:54  INFO      etl.sources.sofascore_pull —     lineups: 52 players
+2026-07-08 23:35:56  INFO      etl.sources.sofascore_pull —     statistics: 129 metric rows
+2026-07-08 23:35:56  INFO      etl.sources.sofascore_pull —   [7/8] event_id=12812993
+2026-07-08 23:35:57  INFO      etl.sources.sofascore_pull —     Argentina vs Egypt
+2026-07-08 23:36:00  INFO      etl.sources.sofascore_pull —     lineups: 50 players
+2026-07-08 23:36:02  INFO      etl.sources.sofascore_pull —     statistics: 128 metric rows
+2026-07-08 23:36:02  INFO      etl.sources.sofascore_pull —   [8/8] event_id=12812991
+2026-07-08 23:36:04  INFO      etl.sources.sofascore_pull —     Switzerland vs Colombia
+2026-07-08 23:36:06  INFO      etl.sources.sofascore_pull —     lineups: 49 players
+2026-07-08 23:36:08  INFO      etl.sources.sofascore_pull —     statistics: 201 metric rows
+2026-07-08 23:36:08  INFO      etl.sources.sofascore_pull — Bronze → events_kt_round-of-16.parquet                           (8 rows)
+2026-07-08 23:36:08  INFO      etl.sources.sofascore_pull — Bronze → lineups_kt_round-of-16.parquet                          (407 rows)
+2026-07-08 23:36:08  INFO      etl.sources.sofascore_pull — Bronze → statistics_kt_round-of-16.parquet                       (1095 rows)
+2026-07-08 23:36:08  INFO      etl.db.init_db — Parquet views: 11 / 11 sources available.
+2026-07-08 23:36:08  INFO      etl.sources.sofascore_pull — === Sofascore knockout pull complete: 24 events | 1221 player rows | 3521 stat rows ===
+2026-07-08 23:36:08  INFO      truescout.nightly —    ✓ Sofascore pull (knockout bracket) completed in 149.6s
+2026-07-08 23:36:08  INFO      truescout.nightly — ── Step: Load matches (group stage + knockout) ──────────────────────────────────
+2026-07-08 23:36:08  INFO      etl.load.load_group_stage — === TrueScout group-stage loader ===
+2026-07-08 23:36:09  INFO      etl.db.init_db — Schema: 17 tables created / verified.
+2026-07-08 23:36:09  INFO      etl.db.init_db — Parquet views: 11 / 11 sources available.
+2026-07-08 23:36:09  INFO      etl.load.load_group_stage — Bronze rows (completed): 96
+2026-07-08 23:36:09  INFO      etl.load.load_group_stage — Round breakdown: {'Round of 32': 16, 'Round of 16': 8, 'Group A': 6, 'Group B': 6, 'Group D': 6, 'Group C': 6, 'Group E': 6, 'Group F': 6, 'Group H': 6, 'Group G': 6, 'Group I': 6, 'Group J': 6, 'Group K': 6, 'Group L': 6}
+2026-07-08 23:36:09  INFO      etl.load.load_group_stage — Teams upserted: 48 rows → teams
+2026-07-08 23:36:09  INFO      etl.load.load_group_stage — Matches upserted: 96 rows → matches
+2026-07-08 23:36:09  INFO      etl.load.load_group_stage — matches table — total=72  home_wins=34  draws=20  away_wins=18
+2026-07-08 23:36:09  INFO      etl.load.load_group_stage — === Loader complete: 48 teams, 96 matches upserted ===
+2026-07-08 23:36:09  INFO      truescout.nightly —    ✓ Load matches (group stage + knockout) completed in 0.9s
+2026-07-08 23:36:09  INFO      truescout.nightly — ── Step: Load identity crosswalk ──────────────────────────────────
+2026-07-08 23:36:09  INFO      etl.load.load_identity — === TrueScout load_identity ===
+2026-07-08 23:36:09  INFO      etl.load.load_identity — position_overrides: applied 1 manual overrides
+2026-07-08 23:36:09  INFO      etl.load.load_identity — identity_overrides: nulled key_fbref on 3 rows
+2026-07-08 23:36:13  INFO      etl.load.load_identity — market_values: populated 1131 rows from bronze parquet
+2026-07-08 23:36:13  INFO      etl.load.load_identity — identity_players: 401126 total rows  (83926 with key_sofascore)
+2026-07-08 23:36:13  INFO      etl.load.load_identity — === load_identity complete ===
+2026-07-08 23:36:13  INFO      truescout.nightly —    ✓ Load identity crosswalk completed in 3.7s
+2026-07-08 23:36:13  INFO      truescout.nightly — ── Step: Market value fetch (Sofascore/Transfermarkt) ──────────────────────────────────
+2026-07-08 23:36:13  INFO      etl.sources.market_value_pull — Fetching market values for 67 players (refresh=False, existing=1131 in parquet)
+2026-07-08 23:36:13  INFO      etl.sources.market_value_pull — Batch 1/2 (50 players) …
+2026-07-08 23:36:14  INFO      websocket — Websocket connected
+2026-07-08 23:36:14  INFO      websocket — Websocket connected
+2026-07-08 23:37:43  ERROR     websocket — [WinError 10054] An existing connection was forcibly closed by the remote host - goodbye
+2026-07-08 23:37:44  INFO      etl.sources.market_value_pull —   Progress: 50/67 done (50 new, 0 errors)
+2026-07-08 23:37:44  INFO      etl.sources.market_value_pull — Batch 2/2 (17 players) …
+2026-07-08 23:37:44  INFO      websocket — Websocket connected
+2026-07-08 23:37:44  INFO      websocket — Websocket connected
+2026-07-08 23:38:12  ERROR     websocket — Connection to remote host was lost. - goodbye
+2026-07-08 23:38:13  INFO      etl.sources.market_value_pull —   Progress: 67/67 done (67 new, 0 errors)
+2026-07-08 23:38:13  ERROR     truescout.nightly —    ✗ Market value fetch (Sofascore/Transfermarkt) failed after 120.1s — continuing with existing data
+2026-07-08 23:38:13  ERROR     truescout.nightly —      TypeError: Cannot compare tz-naive and tz-aware timestamps
+2026-07-08 23:38:13  INFO      truescout.nightly — ── Step: Build Silver feature matrix ──────────────────────────────────
+2026-07-08 23:38:13  INFO      etl.silver.build_features — === TrueScout Phase 2: build_features ===
+2026-07-08 23:38:13  INFO      etl.silver.build_features — WC aggregation: 1028 unique players
+2026-07-08 23:38:13  INFO      etl.silver.build_features — Sofascore bridge: 83926 entries
+2026-07-08 23:38:13  INFO      etl.silver.build_features — Club priors: 2627 players (reep_id linked)
+2026-07-08 23:38:13  INFO      etl.silver.build_features — Sofascore club priors: 401 players
+2026-07-08 23:38:13  INFO      etl.silver.build_features — fbref_intl: stripped 66 CONMEBOL qual rows from CONCACAF players (cross-contamination guard)
+2026-07-08 23:38:14  INFO      etl.silver.build_features — FBref international form priors: 979 players
+2026-07-08 23:38:14  INFO      etl.silver.build_features — Opponent-strength adjustment + time-decay (α=0.50, half_life=60d, global_mean=6.759): 1007 players adjusted.
+2026-07-08 23:38:14  WARNING   etl.silver.build_features — 9 WC players could not be bridged to reep_id (sofascore_id not in identity_players).
+2026-07-08 23:38:14  WARNING   etl.silver.build_features — 31 players could not be position-bucketed (all 3 sources missing/unmapped); flagged UNK — excluded from percentile ranking.
+2026-07-08 23:38:14  INFO      etl.silver.build_features — Sofascore club-stats prior filled for 323 players (goals/90+assists/90 proxy)
+2026-07-08 23:38:14  INFO      etl.silver.build_features — FBref international form prior filled for 65 players (qualifying/tournament xG+xA)
+2026-07-08 23:38:14  INFO      etl.silver.build_features — Defensive boost (DEF): 306 players — mean boost=+0.150, max=+0.300
+2026-07-08 23:38:14  INFO      etl.silver.build_features — Defensive boost (GK): 59 players — mean boost=+0.153, max=+0.300
+2026-07-08 23:38:14  INFO      etl.silver.build_features — Feature matrix: 3232 players  (WC only=217  prior only=2213  both=802)
+2026-07-08 23:38:14  INFO      etl.silver.build_features — Position buckets: {'MID': 1166, 'DEF': 1107, 'FWD': 688, 'GK': 240, 'UNK': 31}
+2026-07-08 23:38:14  INFO      etl.silver.build_features — Position sources: {'reep': 2559, 'understat': 496, 'sofascore_modal': 146, 'unknown': 31}
+2026-07-08 23:38:14  INFO      etl.silver.build_features — Written: features.parquet  (3232 rows, 89 cols)
+2026-07-08 23:38:14  INFO      etl.silver.build_features —   GK  :  240 players  (44 with both WC+prior)
+2026-07-08 23:38:14  INFO      etl.silver.build_features —   DEF : 1107 players  (247 with both WC+prior)
+2026-07-08 23:38:14  INFO      etl.silver.build_features —   MID : 1166 players  (330 with both WC+prior)
+2026-07-08 23:38:14  INFO      etl.silver.build_features —   FWD :  688 players  (181 with both WC+prior)
+2026-07-08 23:38:14  INFO      truescout.nightly —    ✓ Build Silver feature matrix completed in 1.2s
+2026-07-08 23:38:14  INFO      truescout.nightly — ── Step: K-Means archetype clustering ──────────────────────────────────
+2026-07-08 23:38:14  INFO      etl.models.archetypes — === TrueScout Phase 2: archetypes ===
+2026-07-08 23:38:14  INFO      etl.models.archetypes — --- GK: 240 players ---
+2026-07-08 23:38:17  INFO      etl.models.archetypes —   Best k=3  silhouette=0.7838  (features: prior_assists_per_90, prior_shots_per_90, prior_key_passes_per_90)
+2026-07-08 23:38:17  INFO      etl.models.archetypes — --- DEF: 1107 players ---
+2026-07-08 23:38:17  INFO      etl.models.archetypes —   Best k=3  silhouette=0.4057  (features: prior_xg_per_90, prior_goals_per_90, prior_assists_per_90, prior_shots_per_90, prior_key_passes_per_90)
+2026-07-08 23:38:17  INFO      etl.models.archetypes — --- MID: 1166 players ---
+2026-07-08 23:38:18  INFO      etl.models.archetypes —   Best k=3  silhouette=0.3481  (features: prior_xa_per_90, prior_goals_per_90, prior_shots_per_90, prior_key_passes_per_90)
+2026-07-08 23:38:18  INFO      etl.models.archetypes — --- FWD: 688 players ---
+2026-07-08 23:38:18  INFO      etl.models.archetypes —   Best k=3  silhouette=0.2846  (features: prior_xg_per_90, prior_xa_per_90, prior_goals_per_90, prior_assists_per_90, prior_shots_per_90, prior_key_passes_per_90)
+2026-07-08 23:38:24  INFO      etl.models.archetypes — Upserted 3201 rows -> archetypes
+2026-07-08 23:38:24  INFO      etl.models.archetypes — === Archetypes complete: 3201 players clustered ===
+2026-07-08 23:38:24  INFO      truescout.nightly —    ✓ K-Means archetype clustering completed in 9.6s
+2026-07-08 23:38:24  INFO      truescout.nightly — ── Step: Bayesian ratings update ──────────────────────────────────
+2026-07-08 23:38:24  INFO      etl.models.bayesian_ratings — === TrueScout Phase 2: bayesian_ratings ===
+2026-07-08 23:38:24  INFO      etl.models.bayesian_ratings — Loaded 1131 market values from S:\Projects\TrueScout\data\bronze\market_values.parquet
+2026-07-08 23:38:24  INFO      etl.models.bayesian_ratings — Loaded 3232 players from features.parquet + archetypes join
+2026-07-08 23:38:24  INFO      etl.models.bayesian_ratings — Market value prior available for 152 outfield no-prior players
+2026-07-08 23:38:24  INFO      etl.models.bayesian_ratings — Anchor stats computed for 14 clusters
+2026-07-08 23:38:24  INFO      etl.models.bayesian_ratings — Market value Z-score applied to 152 players (MV_PRIOR_PULL=0.20)
+2026-07-08 23:38:24  INFO      etl.models.bayesian_ratings — Age-position curve applied to 3201 players (floor=0.75)
+2026-07-08 23:38:24  INFO      etl.models.bayesian_ratings — Using opponent-adjusted WC ratings (wc_rating_adjusted)
+2026-07-08 23:38:24  INFO      etl.models.bayesian_ratings — Ratings ready: 3232 players  (shrinkage w: min=0.000  mean=0.144  max=0.908)
+2026-07-08 23:38:24  WARNING   etl.models.bayesian_ratings — 31 players have UNK position bucket (excluded from percentile ranking).
+2026-07-08 23:38:24  WARNING   etl.models.bayesian_ratings — 1 DEF/GK players have wc_xg_per_90 > 1.0 — reclassifying → FWD: ['Kaan Ayhan']
+2026-07-08 23:38:24  INFO      etl.models.bayesian_ratings — Written 3232 rows -> player_ratings
+2026-07-08 23:38:24  INFO      etl.models.bayesian_ratings — === bayesian_ratings complete ===
+2026-07-08 23:38:24  INFO      truescout.nightly —    ✓ Bayesian ratings update completed in 0.1s
+2026-07-08 23:38:24  INFO      truescout.nightly — ── Step: Fit calibration scale ──────────────────────────────────
+2026-07-08 23:38:24  INFO      etl.models.calibration — fit_scale: scale=0.8000 (log-loss=0.574986 over 24 matches)
+2026-07-08 23:38:24  INFO      truescout.nightly —    ✓ Fit calibration scale completed in 0.0s
+2026-07-08 23:38:24  INFO      truescout.nightly — ── Step: Monte Carlo bracket simulation ──────────────────────────────────
+2026-07-08 23:38:24  INFO      etl.models.calibration — Loaded fitted logistic_scale=0.8000 from model_params.
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim — Bracket loaded from Bronze (16 R32 + 8 R16 fixtures).
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim — Strength computed for 48 teams (top-15 avg posterior).
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim — Squad-value adjustments applied (48 teams with data).
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim —   France: +0.500 (squad=€1441M)
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim —   England: +0.482 (squad=€1298M)
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim —   Spain: +0.470 (squad=€1214M)
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim —   Portugal: +0.427 (squad=€946M)
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim —   Germany: +0.418 (squad=€902M)
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim —   …
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim —   Qatar: -0.300 (squad=€15M)
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim —   Jordan: -0.280 (squad=€16M)
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim —   Iraq: -0.256 (squad=€19M)
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim —   Curaçao: -0.216 (squad=€24M)
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim —   Iran: -0.200 (squad=€26M)
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim — No rest adjustments applied (3+ rest days for all teams).
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim — Venue adj: Mexico                        venue=Mexico City       delta=+0.30 (home boost)
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim — Venue adj: Ecuador                       venue=Mexico City       delta=-0.10 (altitude penalty)
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim — Applied venue adjustments to 2 team(s).
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim — R32 lock-in: sim match 0 — Canada wins (bracket pos 1).
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim — R32 lock-in: sim match 4 — Brazil wins (bracket pos 8).
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim — R32 lock-in: sim match 2 — Paraguay wins (bracket pos 5).
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim — R32 lock-in: sim match 1 — Morocco wins (bracket pos 3).
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim — R32 lock-in: sim match 5 — Norway wins (bracket pos 11).
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim — R32 lock-in: sim match 3 — France wins (bracket pos 6).
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim — R32 lock-in: sim match 6 — Mexico wins (bracket pos 12).
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim — R32 lock-in: sim match 7 — England wins (bracket pos 14).
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim — R32 lock-in: sim match 11 — Belgium wins (bracket pos 22).
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim — R32 lock-in: sim match 10 — United States wins (bracket pos 20).
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim — R32 lock-in: sim match 9 — Spain wins (bracket pos 18).
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim — R32 lock-in: sim match 8 — Portugal wins (bracket pos 16).
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim — R32 lock-in: sim match 12 — Switzerland wins (bracket pos 24).
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim — R32 lock-in: sim match 15 — Egypt wins (bracket pos 31).
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim — R32 lock-in: sim match 14 — Argentina wins (bracket pos 28).
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim — R32 lock-in: sim match 13 — Colombia wins (bracket pos 26).
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim — Locked 16 completed R32 result(s) for simulation.
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim — R16 lock-in: slot 0 — Morocco wins (bracket pos 3).
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim — R16 lock-in: slot 1 — France wins (bracket pos 6).
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim — R16 lock-in: slot 2 — Norway wins (bracket pos 11).
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim — R16 lock-in: slot 3 — England wins (bracket pos 14).
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim — R16 lock-in: slot 4 — Spain wins (bracket pos 18).
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim — R16 lock-in: slot 5 — Belgium wins (bracket pos 22).
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim — R16 lock-in: slot 7 — Argentina wins (bracket pos 28).
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim — R16 lock-in: slot 6 — Switzerland wins (bracket pos 24).
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim — Locked 8 completed R16 result(s) for simulation.
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim — match_probs: wrote 16 R32 BT probabilities for 2026-07-08.
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim — match_probs_r16: wrote 8 R16 BT probabilities for 2026-07-08.
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim — Running 100000 iterations (scale=0.80, seed=42) ...
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim — Simulation complete in 0.23s.
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim — === R32 matchups being simulated ===
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim —   M01: South Africa                 (6.740) vs Canada                       (7.015)
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim —   M02: Netherlands                  (7.514) vs Morocco                      (7.300)
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim —   M03: Germany                      (7.535) vs Paraguay                     (7.150)
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim —   M04: France                       (7.736) vs Sweden                       (7.208)
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim —   M05: Brazil                       (7.514) vs Japan                        (7.197)
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim —   M06: Ivory Coast                  (7.309) vs Norway                       (7.446)
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim —   M07: Mexico                       (7.476) vs Ecuador                      (7.065)
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim —   M08: England                      (7.520) vs Congo DR                     (6.872)
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim —   M09: Portugal                     (7.542) vs Croatia                      (7.124)
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim —   M10: Spain                        (7.620) vs Austria                      (6.915)
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim —   M11: United States                (7.271) vs Bosnia & Herzegovina         (6.874)
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim —   M12: Belgium                      (7.397) vs Senegal                      (7.290)
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim —   M13: Switzerland                  (7.314) vs Algeria                      (7.016)
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim —   M14: Colombia                     (7.262) vs Ghana                        (7.079)
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim —   M15: Argentina                    (7.532) vs Cape Verde                   (6.823)
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim —   M16: Australia                    (6.936) vs Egypt                        (7.092)
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim — === Top-10 title probabilities ===
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim —   France                        28.9%
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim —   Spain                         19.5%
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim —   Argentina                     14.4%
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim —   England                       12.2%
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim —   Norway                        8.6%
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim —   Belgium                       7.0%
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim —   Switzerland                   5.2%
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim —   Morocco                       4.2%
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim —   Sweden                        0.0%
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim —   Paraguay                      0.0%
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim — Title prob sum = 1.000000 (expect 1.0)
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim — simulations: 2112 rows total after upsert.
+2026-07-08 23:38:24  INFO      etl.models.monte_carlo_sim — Done. run_date=2026-07-08 | 32 teams | 192 rows written | bracket_slots.json: 31 slots.
+2026-07-08 23:38:24  INFO      truescout.nightly —    ✓ Monte Carlo bracket simulation completed in 0.2s
+2026-07-08 23:38:24  INFO      truescout.nightly — ── Step: Brier score tracker ──────────────────────────────────
+2026-07-08 23:38:24  INFO      etl.models.calibration — Loaded fitted logistic_scale=0.8000 from model_params.
+2026-07-08 23:38:24  INFO      etl.models.brier_tracker — Loaded 24 completed knockout match(es); strengths for 48 teams.
+2026-07-08 23:38:24  INFO      etl.models.brier_tracker — Manual FT-pens override for event 760488 (Netherlands vs Morocco): Morocco advanced.
+2026-07-08 23:38:24  INFO      etl.models.brier_tracker — Manual FT-pens override for event 760489 (Germany vs Paraguay): Paraguay advanced.
+2026-07-08 23:38:24  INFO      etl.models.brier_tracker — Manual FT-pens override for event 760499 (Australia vs Egypt): Egypt advanced.
+2026-07-08 23:38:24  WARNING   etl.models.brier_tracker — Market overround 1.0000 ≤ 1.0 for Australia vs Egypt — odds may be vig-removed already.
+2026-07-08 23:38:24  WARNING   etl.models.brier_tracker — Market overround 1.0000 ≤ 1.0 for Argentina vs Cape Verde — odds may be vig-removed already.
+2026-07-08 23:38:24  INFO      etl.models.brier_tracker — Manual FT-pens override for event 760508 (Switzerland vs Colombia): Switzerland advanced.
+2026-07-08 23:38:24  INFO      etl.models.brier_tracker — brier_log: 0 new row(s) inserted (24 already existed).  Total rows: 143.
+2026-07-08 23:38:24  INFO      truescout.nightly —    ✓ Brier score tracker completed in 0.0s
+2026-07-08 23:38:24  INFO      truescout.nightly — ── Step: Export static JSON ──────────────────────────────────
+2026-07-08 23:38:25  INFO      truescout.nightly —    ✓ Export static JSON completed in 1.4s
+2026-07-08 23:38:25  INFO      truescout.nightly — ── Step: Verify exported JSON ──────────────────────────────────
+2026-07-08 23:38:25  INFO      etl.verify_outputs — verify_outputs: title_prob sum = 1.0000 ✓
+2026-07-08 23:38:25  INFO      etl.verify_outputs — verify_outputs: 3232 players ✓
+2026-07-08 23:38:25  INFO      etl.verify_outputs — verify_outputs: player fields validated ✓
+2026-07-08 23:38:25  INFO      etl.verify_outputs — verify_outputs: 96 matchups across 6 rounds ✓
+2026-07-08 23:38:25  INFO      etl.verify_outputs — verify_outputs: brier summary ok — 24 matches graded ✓
+2026-07-08 23:38:25  INFO      etl.verify_outputs — verify_outputs: all checks passed ✓
+2026-07-08 23:38:25  INFO      truescout.nightly —    ✓ Verify exported JSON completed in 0.1s
+2026-07-08 23:38:25  INFO      truescout.nightly — ── Step: Narrative pre-generation ──────────────────────────────────
+2026-07-08 23:38:25  INFO      etl.models.generate_narratives — Loaded 3232 players from players.json.
+2026-07-08 23:38:25  INFO      etl.models.generate_narratives — 2055 candidates (confidence >= 0.30); limit=100; force=False
+2026-07-08 23:38:34  INFO      etl.models.generate_narratives — [1/100] Hwang In-beom — data_analyst — gemini-2.5-flash — 864 chars
+2026-07-08 23:38:43  INFO      etl.models.generate_narratives — [2/100] Nathaniel Brown — data_analyst — gemini-2.5-flash — 935 chars
+2026-07-08 23:38:51  INFO      etl.models.generate_narratives — [3/100] Sidny Lopes Cabral — data_analyst — gemini-2.5-flash — 867 chars
+2026-07-08 23:38:56  WARNING   etl.models.generate_narratives — HTTP 429 from gemini-2.5-flash — retry 1/3 in 10.0s
+2026-07-08 23:39:06  WARNING   etl.models.generate_narratives — HTTP 429 from gemini-2.5-flash — retry 2/3 in 20.0s
+2026-07-08 23:39:26  WARNING   etl.models.generate_narratives — Gemini gemini-2.5-flash HTTP 429
+2026-07-08 23:39:26  WARNING   etl.models.generate_narratives — Gemini gemini-2.5-flash returned no content — trying next model
+2026-07-08 23:39:26  WARNING   etl.models.generate_narratives — No narrative for reep_pb33c9950 (Mike Maignan)
+2026-07-08 23:39:30  WARNING   etl.models.generate_narratives — HTTP 429 from gemini-2.5-flash — retry 1/3 in 10.0s
+2026-07-08 23:39:40  WARNING   etl.models.generate_narratives — HTTP 429 from gemini-2.5-flash — retry 2/3 in 20.0s
+2026-07-08 23:40:00  WARNING   etl.models.generate_narratives — Gemini gemini-2.5-flash HTTP 429
+2026-07-08 23:40:00  WARNING   etl.models.generate_narratives — Gemini gemini-2.5-flash returned no content — trying next model
+2026-07-08 23:40:00  WARNING   etl.models.generate_narratives — No narrative for reep_pac8e830d (Matheus Cunha)
+2026-07-08 23:40:05  WARNING   etl.models.generate_narratives — HTTP 429 from gemini-2.5-flash — retry 1/3 in 10.0s
+2026-07-08 23:40:15  WARNING   etl.models.generate_narratives — HTTP 429 from gemini-2.5-flash — retry 2/3 in 20.0s
+2026-07-08 23:40:35  WARNING   etl.models.generate_narratives — Gemini gemini-2.5-flash HTTP 429
+2026-07-08 23:40:35  WARNING   etl.models.generate_narratives — Gemini gemini-2.5-flash returned no content — trying next model
+2026-07-08 23:40:35  WARNING   etl.models.generate_narratives — No narrative for reep_p73b327d9 (Aubrey Modiba)
+2026-07-08 23:40:35  WARNING   etl.models.generate_narratives — 3 consecutive failures — likely daily quota hit. Stopping; remaining players picked up on next run.
+2026-07-08 23:40:35  INFO      etl.models.generate_narratives — Narrative generation complete: 3 generated, 104 already cached, 1948 not reached.
+2026-07-08 23:40:35  INFO      truescout.nightly —    ✓ Narrative pre-generation completed in 129.6s
+2026-07-08 23:40:35  INFO      truescout.nightly — ========================================================================
+2026-07-08 23:40:35  INFO      truescout.nightly —   Batch complete — 14/15 steps succeeded — 742.7s total
+2026-07-08 23:40:35  INFO      truescout.nightly —     ✓  1_espn_pull
+2026-07-08 23:40:35  INFO      truescout.nightly —     ✓  2_sofascore_pull
+2026-07-08 23:40:35  INFO      truescout.nightly —     ✓  2_sofascore_knockout
+2026-07-08 23:40:35  INFO      truescout.nightly —     ✓  3_load_matches
+2026-07-08 23:40:35  INFO      truescout.nightly —     ✓  4_load_identity
+2026-07-08 23:40:35  INFO      truescout.nightly —     ✗  4_market_values
+2026-07-08 23:40:35  INFO      truescout.nightly —     ✓  5_build_features
+2026-07-08 23:40:35  INFO      truescout.nightly —     ✓  5_archetypes
+2026-07-08 23:40:35  INFO      truescout.nightly —     ✓  6_bayesian_ratings
+2026-07-08 23:40:35  INFO      truescout.nightly —     ✓  6_fit_calibration
+2026-07-08 23:40:35  INFO      truescout.nightly —     ✓  7_monte_carlo_sim
+2026-07-08 23:40:35  INFO      truescout.nightly —     ✓  8_brier_tracker
+2026-07-08 23:40:35  INFO      truescout.nightly —     ✓  9_export_json
+2026-07-08 23:40:35  INFO      truescout.nightly —     ✓  9_verify_outputs
+2026-07-08 23:40:35  INFO      truescout.nightly —     ✓  9_narratives
+2026-07-08 23:40:35  INFO      truescout.nightly — ========================================================================
+2026-07-08 23:40:35  WARNING   truescout.nightly — Non-critical ingestion step(s) failed (4_market_values) — using baseline Git data; downstream math succeeded. Vercel deployment will proceed.
+2026-07-09 02:00:02  INFO      truescout.nightly — ========================================================================
+2026-07-09 02:00:02  INFO      truescout.nightly —   TrueScout Nightly Batch — 2026-07-09 09:00:02 UTC
+2026-07-09 02:00:02  INFO      truescout.nightly — ========================================================================
+2026-07-09 02:00:06  INFO      truescout.nightly — ── Step: ESPN pull (knockout) ──────────────────────────────────
+2026-07-09 02:00:06  INFO      etl.sources.espn_pull — === TrueScout ESPN pull | league=fifa.world ===
+2026-07-09 02:00:06  INFO      etl.sources.espn_pull — Knockout sweep (R32→F): 2026-06-28 → 2026-07-19 (22 dates, includes pre-match)
+2026-07-09 02:00:06  INFO      etl.sources.espn_pull — [1/22] Pulling 2026-06-28 …
+2026-07-09 02:00:06  INFO      etl.sources.espn_pull — ESPN scoreboard → fifa.world / 2026-06-28
+2026-07-09 02:00:13  INFO      etl.sources.espn_pull —   Raw events: 1 (all statuses)
+2026-07-09 02:00:13  INFO      etl.sources.espn_pull —   all valid events: 1
+2026-07-09 02:00:13  INFO      etl.sources.espn_pull — Bronze → matches_2026-06-28.parquet                              (1 rows)
+2026-07-09 02:00:13  INFO      etl.sources.espn_pull — Skipping empty DataFrame → odds_2026-06-28.parquet
+2026-07-09 02:00:13  INFO      etl.sources.espn_pull — [2/22] Pulling 2026-06-29 …
+2026-07-09 02:00:13  INFO      etl.sources.espn_pull — ESPN scoreboard → fifa.world / 2026-06-29
+2026-07-09 02:00:14  INFO      etl.sources.espn_pull —   Raw events: 3 (all statuses)
+2026-07-09 02:00:14  INFO      etl.sources.espn_pull —   all valid events: 3
+2026-07-09 02:00:14  INFO      etl.sources.espn_pull — Bronze → matches_2026-06-29.parquet                              (3 rows)
+2026-07-09 02:00:14  INFO      etl.sources.espn_pull — Skipping empty DataFrame → odds_2026-06-29.parquet
+2026-07-09 02:00:15  INFO      etl.sources.espn_pull — [3/22] Pulling 2026-06-30 …
+2026-07-09 02:00:15  INFO      etl.sources.espn_pull — ESPN scoreboard → fifa.world / 2026-06-30
+2026-07-09 02:00:15  INFO      etl.sources.espn_pull —   Raw events: 3 (all statuses)
+2026-07-09 02:00:15  INFO      etl.sources.espn_pull —   all valid events: 3
+2026-07-09 02:00:15  INFO      etl.sources.espn_pull — Bronze → matches_2026-06-30.parquet                              (3 rows)
+2026-07-09 02:00:15  INFO      etl.sources.espn_pull — Skipping empty DataFrame → odds_2026-06-30.parquet
+2026-07-09 02:00:16  INFO      etl.sources.espn_pull — [4/22] Pulling 2026-07-01 …
+2026-07-09 02:00:16  INFO      etl.sources.espn_pull — ESPN scoreboard → fifa.world / 2026-07-01
+2026-07-09 02:00:17  INFO      etl.sources.espn_pull —   Raw events: 3 (all statuses)
+2026-07-09 02:00:17  INFO      etl.sources.espn_pull —   all valid events: 3
+2026-07-09 02:00:17  INFO      etl.sources.espn_pull — Bronze → matches_2026-07-01.parquet                              (3 rows)
+2026-07-09 02:00:17  INFO      etl.sources.espn_pull — Skipping empty DataFrame → odds_2026-07-01.parquet
+2026-07-09 02:00:18  INFO      etl.sources.espn_pull — [5/22] Pulling 2026-07-02 …
+2026-07-09 02:00:18  INFO      etl.sources.espn_pull — ESPN scoreboard → fifa.world / 2026-07-02
+2026-07-09 02:00:18  INFO      etl.sources.espn_pull —   Raw events: 3 (all statuses)
+2026-07-09 02:00:18  INFO      etl.sources.espn_pull —   all valid events: 3
+2026-07-09 02:00:18  INFO      etl.sources.espn_pull — Bronze → matches_2026-07-02.parquet                              (3 rows)
+2026-07-09 02:00:18  INFO      etl.sources.espn_pull — Skipping empty DataFrame → odds_2026-07-02.parquet
+2026-07-09 02:00:19  INFO      etl.sources.espn_pull — [6/22] Pulling 2026-07-03 …
+2026-07-09 02:00:19  INFO      etl.sources.espn_pull — ESPN scoreboard → fifa.world / 2026-07-03
+2026-07-09 02:00:20  INFO      etl.sources.espn_pull —   Raw events: 3 (all statuses)
+2026-07-09 02:00:20  INFO      etl.sources.espn_pull —   all valid events: 3
+2026-07-09 02:00:20  INFO      etl.sources.espn_pull — Bronze → matches_2026-07-03.parquet                              (3 rows)
+2026-07-09 02:00:20  INFO      etl.sources.espn_pull — Skipping empty DataFrame → odds_2026-07-03.parquet
+2026-07-09 02:00:20  INFO      etl.sources.espn_pull — [7/22] Pulling 2026-07-04 …
+2026-07-09 02:00:20  INFO      etl.sources.espn_pull — ESPN scoreboard → fifa.world / 2026-07-04
+2026-07-09 02:00:21  INFO      etl.sources.espn_pull —   Raw events: 2 (all statuses)
+2026-07-09 02:00:21  INFO      etl.sources.espn_pull —   all valid events: 2
+2026-07-09 02:00:21  INFO      etl.sources.espn_pull — Bronze → matches_2026-07-04.parquet                              (2 rows)
+2026-07-09 02:00:21  INFO      etl.sources.espn_pull — Skipping empty DataFrame → odds_2026-07-04.parquet
+2026-07-09 02:00:22  INFO      etl.sources.espn_pull — [8/22] Pulling 2026-07-05 …
+2026-07-09 02:00:22  INFO      etl.sources.espn_pull — ESPN scoreboard → fifa.world / 2026-07-05
+2026-07-09 02:00:22  INFO      etl.sources.espn_pull —   Raw events: 2 (all statuses)
+2026-07-09 02:00:22  INFO      etl.sources.espn_pull —   all valid events: 2
+2026-07-09 02:00:22  INFO      etl.sources.espn_pull — Bronze → matches_2026-07-05.parquet                              (2 rows)
+2026-07-09 02:00:22  INFO      etl.sources.espn_pull — Skipping empty DataFrame → odds_2026-07-05.parquet
+2026-07-09 02:00:23  INFO      etl.sources.espn_pull — [9/22] Pulling 2026-07-06 …
+2026-07-09 02:00:23  INFO      etl.sources.espn_pull — ESPN scoreboard → fifa.world / 2026-07-06
+2026-07-09 02:00:23  INFO      etl.sources.espn_pull —   Raw events: 2 (all statuses)
+2026-07-09 02:00:23  INFO      etl.sources.espn_pull —   all valid events: 2
+2026-07-09 02:00:23  INFO      etl.sources.espn_pull — Bronze → matches_2026-07-06.parquet                              (2 rows)
+2026-07-09 02:00:23  INFO      etl.sources.espn_pull — Skipping empty DataFrame → odds_2026-07-06.parquet
+2026-07-09 02:00:24  INFO      etl.sources.espn_pull — [10/22] Pulling 2026-07-07 …
+2026-07-09 02:00:24  INFO      etl.sources.espn_pull — ESPN scoreboard → fifa.world / 2026-07-07
+2026-07-09 02:00:25  INFO      etl.sources.espn_pull —   Raw events: 2 (all statuses)
+2026-07-09 02:00:25  INFO      etl.sources.espn_pull —   all valid events: 2
+2026-07-09 02:00:25  INFO      etl.sources.espn_pull — Bronze → matches_2026-07-07.parquet                              (2 rows)
+2026-07-09 02:00:25  INFO      etl.sources.espn_pull — Skipping empty DataFrame → odds_2026-07-07.parquet
+2026-07-09 02:00:26  INFO      etl.sources.espn_pull — [11/22] Pulling 2026-07-08 …
+2026-07-09 02:00:26  INFO      etl.sources.espn_pull — ESPN scoreboard → fifa.world / 2026-07-08
+2026-07-09 02:00:26  INFO      etl.sources.espn_pull —   Raw events: 0 (all statuses)
+2026-07-09 02:00:26  INFO      etl.sources.espn_pull —   all valid events: 0
+2026-07-09 02:00:26  INFO      etl.sources.espn_pull —   No completed events for 2026-07-08 — skipping Parquet write.
+2026-07-09 02:00:27  INFO      etl.sources.espn_pull — [12/22] Pulling 2026-07-09 …
+2026-07-09 02:00:27  INFO      etl.sources.espn_pull — ESPN scoreboard → fifa.world / 2026-07-09
+2026-07-09 02:00:27  INFO      etl.sources.espn_pull —   Raw events: 1 (all statuses)
+2026-07-09 02:00:27  INFO      etl.sources.espn_pull —   all valid events: 1
+2026-07-09 02:00:27  INFO      etl.sources.espn_pull — Bronze → matches_2026-07-09.parquet                              (1 rows)
+2026-07-09 02:00:27  INFO      etl.sources.espn_pull — Bronze → odds_2026-07-09.parquet                                 (1 rows)
+2026-07-09 02:00:28  INFO      etl.sources.espn_pull — [13/22] Pulling 2026-07-10 …
+2026-07-09 02:00:28  INFO      etl.sources.espn_pull — ESPN scoreboard → fifa.world / 2026-07-10
+2026-07-09 02:00:29  INFO      etl.sources.espn_pull —   Raw events: 1 (all statuses)
+2026-07-09 02:00:29  INFO      etl.sources.espn_pull —   all valid events: 1
+2026-07-09 02:00:29  INFO      etl.sources.espn_pull — Bronze → matches_2026-07-10.parquet                              (1 rows)
+2026-07-09 02:00:29  INFO      etl.sources.espn_pull — Bronze → odds_2026-07-10.parquet                                 (1 rows)
+2026-07-09 02:00:29  INFO      etl.sources.espn_pull — [14/22] Pulling 2026-07-11 …
+2026-07-09 02:00:29  INFO      etl.sources.espn_pull — ESPN scoreboard → fifa.world / 2026-07-11
+2026-07-09 02:00:30  INFO      etl.sources.espn_pull —   Raw events: 2 (all statuses)
+2026-07-09 02:00:30  INFO      etl.sources.espn_pull —   all valid events: 2
+2026-07-09 02:00:30  INFO      etl.sources.espn_pull — Bronze → matches_2026-07-11.parquet                              (2 rows)
+2026-07-09 02:00:30  INFO      etl.sources.espn_pull — Bronze → odds_2026-07-11.parquet                                 (2 rows)
+2026-07-09 02:00:31  INFO      etl.sources.espn_pull — [15/22] Pulling 2026-07-12 …
+2026-07-09 02:00:31  INFO      etl.sources.espn_pull — ESPN scoreboard → fifa.world / 2026-07-12
+2026-07-09 02:00:31  INFO      etl.sources.espn_pull —   Raw events: 0 (all statuses)
+2026-07-09 02:00:31  INFO      etl.sources.espn_pull —   all valid events: 0
+2026-07-09 02:00:31  INFO      etl.sources.espn_pull —   No completed events for 2026-07-12 — skipping Parquet write.
+2026-07-09 02:00:32  INFO      etl.sources.espn_pull — [16/22] Pulling 2026-07-13 …
+2026-07-09 02:00:32  INFO      etl.sources.espn_pull — ESPN scoreboard → fifa.world / 2026-07-13
+2026-07-09 02:00:32  INFO      etl.sources.espn_pull —   Raw events: 0 (all statuses)
+2026-07-09 02:00:32  INFO      etl.sources.espn_pull —   all valid events: 0
+2026-07-09 02:00:32  INFO      etl.sources.espn_pull —   No completed events for 2026-07-13 — skipping Parquet write.
+2026-07-09 02:00:33  INFO      etl.sources.espn_pull — [17/22] Pulling 2026-07-14 …
+2026-07-09 02:00:33  INFO      etl.sources.espn_pull — ESPN scoreboard → fifa.world / 2026-07-14
+2026-07-09 02:00:34  INFO      etl.sources.espn_pull —   Raw events: 1 (all statuses)
+2026-07-09 02:00:34  INFO      etl.sources.espn_pull —   all valid events: 1
+2026-07-09 02:00:34  INFO      etl.sources.espn_pull — Bronze → matches_2026-07-14.parquet                              (1 rows)
+2026-07-09 02:00:34  INFO      etl.sources.espn_pull — Skipping empty DataFrame → odds_2026-07-14.parquet
+2026-07-09 02:00:34  INFO      etl.sources.espn_pull — [18/22] Pulling 2026-07-15 …
+2026-07-09 02:00:34  INFO      etl.sources.espn_pull — ESPN scoreboard → fifa.world / 2026-07-15
+2026-07-09 02:00:35  INFO      etl.sources.espn_pull —   Raw events: 1 (all statuses)
+2026-07-09 02:00:35  INFO      etl.sources.espn_pull —   all valid events: 1
+2026-07-09 02:00:35  INFO      etl.sources.espn_pull — Bronze → matches_2026-07-15.parquet                              (1 rows)
+2026-07-09 02:00:35  INFO      etl.sources.espn_pull — Skipping empty DataFrame → odds_2026-07-15.parquet
+2026-07-09 02:00:36  INFO      etl.sources.espn_pull — [19/22] Pulling 2026-07-16 …
+2026-07-09 02:00:36  INFO      etl.sources.espn_pull — ESPN scoreboard → fifa.world / 2026-07-16
+2026-07-09 02:00:36  INFO      etl.sources.espn_pull —   Raw events: 0 (all statuses)
+2026-07-09 02:00:36  INFO      etl.sources.espn_pull —   all valid events: 0
+2026-07-09 02:00:36  INFO      etl.sources.espn_pull —   No completed events for 2026-07-16 — skipping Parquet write.
+2026-07-09 02:00:37  INFO      etl.sources.espn_pull — [20/22] Pulling 2026-07-17 …
+2026-07-09 02:00:37  INFO      etl.sources.espn_pull — ESPN scoreboard → fifa.world / 2026-07-17
+2026-07-09 02:00:37  INFO      etl.sources.espn_pull —   Raw events: 0 (all statuses)
+2026-07-09 02:00:37  INFO      etl.sources.espn_pull —   all valid events: 0
+2026-07-09 02:00:37  INFO      etl.sources.espn_pull —   No completed events for 2026-07-17 — skipping Parquet write.
+2026-07-09 02:00:38  INFO      etl.sources.espn_pull — [21/22] Pulling 2026-07-18 …
+2026-07-09 02:00:38  INFO      etl.sources.espn_pull — ESPN scoreboard → fifa.world / 2026-07-18
+2026-07-09 02:00:39  INFO      etl.sources.espn_pull —   Raw events: 1 (all statuses)
+2026-07-09 02:00:39  INFO      etl.sources.espn_pull —   all valid events: 1
+2026-07-09 02:00:39  INFO      etl.sources.espn_pull — Bronze → matches_2026-07-18.parquet                              (1 rows)
+2026-07-09 02:00:39  INFO      etl.sources.espn_pull — Skipping empty DataFrame → odds_2026-07-18.parquet
+2026-07-09 02:00:39  INFO      etl.sources.espn_pull — [22/22] Pulling 2026-07-19 …
+2026-07-09 02:00:39  INFO      etl.sources.espn_pull — ESPN scoreboard → fifa.world / 2026-07-19
+2026-07-09 02:00:40  INFO      etl.sources.espn_pull —   Raw events: 1 (all statuses)
+2026-07-09 02:00:40  INFO      etl.sources.espn_pull —   all valid events: 1
+2026-07-09 02:00:40  INFO      etl.sources.espn_pull — Bronze → matches_2026-07-19.parquet                              (1 rows)
+2026-07-09 02:00:40  INFO      etl.sources.espn_pull — Skipping empty DataFrame → odds_2026-07-19.parquet
+2026-07-09 02:00:40  INFO      etl.db.connection — DuckDB write connection opened -> S:\Projects\TrueScout\data\truescout.duckdb
+2026-07-09 02:00:40  INFO      etl.db.init_db — Parquet views: 11 / 11 sources available.
+2026-07-09 02:00:40  INFO      etl.sources.espn_pull — === ESPN pull complete: 32 match rows | 4 odds rows across 22 dates ===
+2026-07-09 02:00:40  INFO      truescout.nightly —    ✓ ESPN pull (knockout) completed in 33.8s
+2026-07-09 02:00:40  INFO      truescout.nightly — ── Step: Sofascore pull (group stage rounds) ──────────────────────────────────
+2026-07-09 02:00:40  INFO      etl.sources.sofascore_pull — === TrueScout Sofascore pull | tournament=16 season=58210 ===
+2026-07-09 02:00:41  WARNING   etl.sources.sofascore_pull — 403 blocked at https://www.sofascore.com/api/v1 — trying fallback domain
+2026-07-09 02:00:42  WARNING   etl.sources.sofascore_pull — 403 blocked at https://api.sofascore.app/api/v1 — trying fallback domain
+2026-07-09 02:00:42  WARNING   etl.sources.sofascore_pull — Error payload saved → rounds_unique-tournament_16_season_58210_rounds_090042.bin
+2026-07-09 02:00:42  ERROR     etl.sources.sofascore_pull — All Sofascore domains failed for path: /unique-tournament/16/season/58210/rounds
+2026-07-09 02:00:42  ERROR     etl.sources.sofascore_pull — Could not fetch rounds list.
+2026-07-09 02:00:42  ERROR     etl.sources.sofascore_pull — Could not fetch rounds list — aborting.
+2026-07-09 02:00:42  INFO      truescout.nightly —    ✓ Sofascore pull (group stage rounds) completed in 2.2s
+2026-07-09 02:00:42  INFO      truescout.nightly — ── Step: Sofascore pull (knockout bracket) ──────────────────────────────────
+2026-07-09 02:00:42  INFO      etl.sources.sofascore_pull — === TrueScout Sofascore pull | tournament=16 season=58210 ===
+2026-07-09 02:00:43  WARNING   etl.sources.sofascore_pull — 403 blocked at https://www.sofascore.com/api/v1 — trying fallback domain
+2026-07-09 02:00:44  WARNING   etl.sources.sofascore_pull — 403 blocked at https://api.sofascore.app/api/v1 — trying fallback domain
+2026-07-09 02:00:44  WARNING   etl.sources.sofascore_pull — Error payload saved → cuptrees_unique-tournament_16_season_58210_cuptrees_090044.bin
+2026-07-09 02:00:44  ERROR     etl.sources.sofascore_pull — All Sofascore domains failed for path: /unique-tournament/16/season/58210/cuptrees
+2026-07-09 02:00:44  ERROR     etl.sources.sofascore_pull — cuptrees returned no finished rounds — aborting.
+2026-07-09 02:00:44  INFO      truescout.nightly —    ✓ Sofascore pull (knockout bracket) completed in 2.1s
+2026-07-09 02:00:44  INFO      truescout.nightly — ── Step: Load matches (group stage + knockout) ──────────────────────────────────
+2026-07-09 02:00:44  INFO      etl.load.load_group_stage — === TrueScout group-stage loader ===
+2026-07-09 02:00:45  INFO      etl.db.init_db — Schema: 17 tables created / verified.
+2026-07-09 02:00:45  INFO      etl.db.init_db — Parquet views: 11 / 11 sources available.
+2026-07-09 02:00:45  INFO      etl.load.load_group_stage — Bronze rows (completed): 96
+2026-07-09 02:00:45  INFO      etl.load.load_group_stage — Round breakdown: {'Round of 32': 16, 'Round of 16': 8, 'Group A': 6, 'Group B': 6, 'Group D': 6, 'Group C': 6, 'Group E': 6, 'Group F': 6, 'Group H': 6, 'Group G': 6, 'Group I': 6, 'Group J': 6, 'Group K': 6, 'Group L': 6}
+2026-07-09 02:00:45  INFO      etl.load.load_group_stage — Teams upserted: 48 rows → teams
+2026-07-09 02:00:45  INFO      etl.load.load_group_stage — Matches upserted: 96 rows → matches
+2026-07-09 02:00:45  INFO      etl.load.load_group_stage — matches table — total=72  home_wins=34  draws=20  away_wins=18
+2026-07-09 02:00:45  INFO      etl.load.load_group_stage — === Loader complete: 48 teams, 96 matches upserted ===
+2026-07-09 02:00:45  INFO      truescout.nightly —    ✓ Load matches (group stage + knockout) completed in 1.0s
+2026-07-09 02:00:45  INFO      truescout.nightly — ── Step: Load identity crosswalk ──────────────────────────────────
+2026-07-09 02:00:45  INFO      etl.load.load_identity — === TrueScout load_identity ===
+2026-07-09 02:00:46  INFO      etl.load.load_identity — position_overrides: applied 1 manual overrides
+2026-07-09 02:00:46  INFO      etl.load.load_identity — identity_overrides: nulled key_fbref on 3 rows
+2026-07-09 02:00:49  INFO      etl.load.load_identity — market_values: populated 1131 rows from bronze parquet
+2026-07-09 02:00:49  INFO      etl.load.load_identity — identity_players: 401126 total rows  (83926 with key_sofascore)
+2026-07-09 02:00:49  INFO      etl.load.load_identity — === load_identity complete ===
+2026-07-09 02:00:49  INFO      truescout.nightly —    ✓ Load identity crosswalk completed in 3.9s
+2026-07-09 02:00:49  INFO      truescout.nightly — ── Step: Market value fetch (Sofascore/Transfermarkt) ──────────────────────────────────
+2026-07-09 02:00:50  INFO      etl.sources.market_value_pull — Fetching market values for 67 players (refresh=False, existing=1131 in parquet)
+2026-07-09 02:00:50  INFO      etl.sources.market_value_pull — Batch 1/2 (50 players) …
+2026-07-09 02:00:51  INFO      websocket — Websocket connected
+2026-07-09 02:00:51  INFO      websocket — Websocket connected
+2026-07-09 02:00:53  ERROR     etl.sources.market_value_pull — Sofascore player endpoint requires challenge auth (ss=886117). Aborting — existing Bronze Parquet values are preserved.
+2026-07-09 02:00:53  ERROR     websocket — [WinError 10054] An existing connection was forcibly closed by the remote host - goodbye
+2026-07-09 02:00:53  INFO      etl.sources.market_value_pull —   Progress: 0/67 done (0 new, 0 errors)
+2026-07-09 02:00:53  WARNING   etl.sources.market_value_pull — Stopped early — Sofascore player endpoint requires challenge auth.
+2026-07-09 02:00:53  INFO      etl.sources.market_value_pull — No new values fetched — Bronze Parquet unchanged.
+2026-07-09 02:00:53  INFO      etl.sources.market_value_pull — Done — 0 new values, 0 errors
+2026-07-09 02:00:53  INFO      truescout.nightly —    ✓ Market value fetch (Sofascore/Transfermarkt) completed in 4.1s
+2026-07-09 02:00:53  INFO      truescout.nightly — ── Step: Build Silver feature matrix ──────────────────────────────────
+2026-07-09 02:00:53  INFO      etl.silver.build_features — === TrueScout Phase 2: build_features ===
+2026-07-09 02:00:53  INFO      etl.silver.build_features — WC aggregation: 1028 unique players
+2026-07-09 02:00:53  INFO      etl.silver.build_features — Sofascore bridge: 83926 entries
+2026-07-09 02:00:53  INFO      etl.silver.build_features — Club priors: 2627 players (reep_id linked)
+2026-07-09 02:00:54  INFO      etl.silver.build_features — Sofascore club priors: 401 players
+2026-07-09 02:00:54  INFO      etl.silver.build_features — fbref_intl: stripped 66 CONMEBOL qual rows from CONCACAF players (cross-contamination guard)
+2026-07-09 02:00:54  INFO      etl.silver.build_features — FBref international form priors: 979 players
+2026-07-09 02:00:54  INFO      etl.silver.build_features — Opponent-strength adjustment + time-decay (α=0.50, half_life=60d, global_mean=6.759): 1007 players adjusted.
+2026-07-09 02:00:54  WARNING   etl.silver.build_features — 9 WC players could not be bridged to reep_id (sofascore_id not in identity_players).
+2026-07-09 02:00:55  WARNING   etl.silver.build_features — 31 players could not be position-bucketed (all 3 sources missing/unmapped); flagged UNK — excluded from percentile ranking.
+2026-07-09 02:00:55  INFO      etl.silver.build_features — Sofascore club-stats prior filled for 323 players (goals/90+assists/90 proxy)
+2026-07-09 02:00:55  INFO      etl.silver.build_features — FBref international form prior filled for 65 players (qualifying/tournament xG+xA)
+2026-07-09 02:00:55  INFO      etl.silver.build_features — Defensive boost (DEF): 306 players — mean boost=+0.150, max=+0.300
+2026-07-09 02:00:55  INFO      etl.silver.build_features — Defensive boost (GK): 59 players — mean boost=+0.153, max=+0.300
+2026-07-09 02:00:55  INFO      etl.silver.build_features — Feature matrix: 3232 players  (WC only=217  prior only=2213  both=802)
+2026-07-09 02:00:55  INFO      etl.silver.build_features — Position buckets: {'MID': 1166, 'DEF': 1107, 'FWD': 688, 'GK': 240, 'UNK': 31}
+2026-07-09 02:00:55  INFO      etl.silver.build_features — Position sources: {'reep': 2559, 'understat': 496, 'sofascore_modal': 146, 'unknown': 31}
+2026-07-09 02:00:55  INFO      etl.silver.build_features — Written: features.parquet  (3232 rows, 89 cols)
+2026-07-09 02:00:55  INFO      etl.silver.build_features —   GK  :  240 players  (44 with both WC+prior)
+2026-07-09 02:00:55  INFO      etl.silver.build_features —   DEF : 1107 players  (247 with both WC+prior)
+2026-07-09 02:00:55  INFO      etl.silver.build_features —   MID : 1166 players  (330 with both WC+prior)
+2026-07-09 02:00:55  INFO      etl.silver.build_features —   FWD :  688 players  (181 with both WC+prior)
+2026-07-09 02:00:55  INFO      truescout.nightly —    ✓ Build Silver feature matrix completed in 1.3s
+2026-07-09 02:00:55  INFO      truescout.nightly — ── Step: K-Means archetype clustering ──────────────────────────────────
+2026-07-09 02:00:55  INFO      etl.models.archetypes — === TrueScout Phase 2: archetypes ===
+2026-07-09 02:00:55  INFO      etl.models.archetypes — --- GK: 240 players ---
+2026-07-09 02:00:58  INFO      etl.models.archetypes —   Best k=3  silhouette=0.7838  (features: prior_assists_per_90, prior_shots_per_90, prior_key_passes_per_90)
+2026-07-09 02:00:58  INFO      etl.models.archetypes — --- DEF: 1107 players ---
+2026-07-09 02:00:58  INFO      etl.models.archetypes —   Best k=3  silhouette=0.4057  (features: prior_xg_per_90, prior_goals_per_90, prior_assists_per_90, prior_shots_per_90, prior_key_passes_per_90)
+2026-07-09 02:00:58  INFO      etl.models.archetypes — --- MID: 1166 players ---
+2026-07-09 02:00:58  INFO      etl.models.archetypes —   Best k=3  silhouette=0.3481  (features: prior_xa_per_90, prior_goals_per_90, prior_shots_per_90, prior_key_passes_per_90)
+2026-07-09 02:00:58  INFO      etl.models.archetypes — --- FWD: 688 players ---
+2026-07-09 02:00:59  INFO      etl.models.archetypes —   Best k=3  silhouette=0.2846  (features: prior_xg_per_90, prior_xa_per_90, prior_goals_per_90, prior_assists_per_90, prior_shots_per_90, prior_key_passes_per_90)
+2026-07-09 02:01:04  INFO      etl.models.archetypes — Upserted 3201 rows -> archetypes
+2026-07-09 02:01:04  INFO      etl.models.archetypes — === Archetypes complete: 3201 players clustered ===
+2026-07-09 02:01:04  INFO      truescout.nightly —    ✓ K-Means archetype clustering completed in 9.2s
+2026-07-09 02:01:04  INFO      truescout.nightly — ── Step: Bayesian ratings update ──────────────────────────────────
+2026-07-09 02:01:04  INFO      etl.models.bayesian_ratings — === TrueScout Phase 2: bayesian_ratings ===
+2026-07-09 02:01:04  INFO      etl.models.bayesian_ratings — Loaded 1131 market values from S:\Projects\TrueScout\data\bronze\market_values.parquet
+2026-07-09 02:01:04  INFO      etl.models.bayesian_ratings — Loaded 3232 players from features.parquet + archetypes join
+2026-07-09 02:01:04  INFO      etl.models.bayesian_ratings — Market value prior available for 152 outfield no-prior players
+2026-07-09 02:01:04  INFO      etl.models.bayesian_ratings — Anchor stats computed for 14 clusters
+2026-07-09 02:01:04  INFO      etl.models.bayesian_ratings — Market value Z-score applied to 152 players (MV_PRIOR_PULL=0.20)
+2026-07-09 02:01:04  INFO      etl.models.bayesian_ratings — Age-position curve applied to 3201 players (floor=0.75)
+2026-07-09 02:01:04  INFO      etl.models.bayesian_ratings — Using opponent-adjusted WC ratings (wc_rating_adjusted)
+2026-07-09 02:01:04  INFO      etl.models.bayesian_ratings — Ratings ready: 3232 players  (shrinkage w: min=0.000  mean=0.144  max=0.908)
+2026-07-09 02:01:04  WARNING   etl.models.bayesian_ratings — 31 players have UNK position bucket (excluded from percentile ranking).
+2026-07-09 02:01:04  WARNING   etl.models.bayesian_ratings — 1 DEF/GK players have wc_xg_per_90 > 1.0 — reclassifying → FWD: ['Kaan Ayhan']
+2026-07-09 02:01:04  INFO      etl.models.bayesian_ratings — Written 3232 rows -> player_ratings
+2026-07-09 02:01:04  INFO      etl.models.bayesian_ratings — === bayesian_ratings complete ===
+2026-07-09 02:01:04  INFO      truescout.nightly —    ✓ Bayesian ratings update completed in 0.1s
+2026-07-09 02:01:04  INFO      truescout.nightly — ── Step: Fit calibration scale ──────────────────────────────────
+2026-07-09 02:01:04  INFO      etl.models.calibration — fit_scale: scale=0.8000 (log-loss=0.574865 over 24 matches)
+2026-07-09 02:01:04  INFO      truescout.nightly —    ✓ Fit calibration scale completed in 0.1s
+2026-07-09 02:01:04  INFO      truescout.nightly — ── Step: Monte Carlo bracket simulation ──────────────────────────────────
+2026-07-09 02:01:04  INFO      etl.models.calibration — Loaded fitted logistic_scale=0.8000 from model_params.
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim — Bracket loaded from Bronze (16 R32 + 8 R16 fixtures).
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim — Strength computed for 48 teams (top-15 avg posterior).
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim — Squad-value adjustments applied (48 teams with data).
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim —   France: +0.500 (squad=€1441M)
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim —   England: +0.482 (squad=€1298M)
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim —   Spain: +0.470 (squad=€1214M)
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim —   Portugal: +0.427 (squad=€946M)
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim —   Germany: +0.418 (squad=€902M)
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim —   …
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim —   Qatar: -0.300 (squad=€15M)
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim —   Jordan: -0.280 (squad=€16M)
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim —   Iraq: -0.256 (squad=€19M)
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim —   Curaçao: -0.216 (squad=€24M)
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim —   Iran: -0.200 (squad=€26M)
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim — No rest adjustments applied (3+ rest days for all teams).
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim — Venue adj: Mexico                        venue=Mexico City       delta=+0.30 (home boost)
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim — Venue adj: Ecuador                       venue=Mexico City       delta=-0.10 (altitude penalty)
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim — Applied venue adjustments to 2 team(s).
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim — R32 lock-in: sim match 0 — Canada wins (bracket pos 1).
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim — R32 lock-in: sim match 4 — Brazil wins (bracket pos 8).
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim — R32 lock-in: sim match 2 — Paraguay wins (bracket pos 5).
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim — R32 lock-in: sim match 1 — Morocco wins (bracket pos 3).
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim — R32 lock-in: sim match 5 — Norway wins (bracket pos 11).
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim — R32 lock-in: sim match 3 — France wins (bracket pos 6).
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim — R32 lock-in: sim match 6 — Mexico wins (bracket pos 12).
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim — R32 lock-in: sim match 7 — England wins (bracket pos 14).
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim — R32 lock-in: sim match 11 — Belgium wins (bracket pos 22).
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim — R32 lock-in: sim match 10 — United States wins (bracket pos 20).
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim — R32 lock-in: sim match 9 — Spain wins (bracket pos 18).
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim — R32 lock-in: sim match 8 — Portugal wins (bracket pos 16).
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim — R32 lock-in: sim match 12 — Switzerland wins (bracket pos 24).
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim — R32 lock-in: sim match 15 — Egypt wins (bracket pos 31).
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim — R32 lock-in: sim match 14 — Argentina wins (bracket pos 28).
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim — R32 lock-in: sim match 13 — Colombia wins (bracket pos 26).
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim — Locked 16 completed R32 result(s) for simulation.
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim — R16 lock-in: slot 0 — Morocco wins (bracket pos 3).
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim — R16 lock-in: slot 1 — France wins (bracket pos 6).
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim — R16 lock-in: slot 2 — Norway wins (bracket pos 11).
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim — R16 lock-in: slot 3 — England wins (bracket pos 14).
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim — R16 lock-in: slot 4 — Spain wins (bracket pos 18).
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim — R16 lock-in: slot 5 — Belgium wins (bracket pos 22).
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim — R16 lock-in: slot 7 — Argentina wins (bracket pos 28).
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim — R16 lock-in: slot 6 — Switzerland wins (bracket pos 24).
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim — Locked 8 completed R16 result(s) for simulation.
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim — match_probs: wrote 16 R32 BT probabilities for 2026-07-09.
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim — match_probs_r16: wrote 8 R16 BT probabilities for 2026-07-09.
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim — Running 100000 iterations (scale=0.80, seed=42) ...
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim — Simulation complete in 0.25s.
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim — === R32 matchups being simulated ===
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim —   M01: South Africa                 (6.740) vs Canada                       (7.016)
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim —   M02: Netherlands                  (7.514) vs Morocco                      (7.301)
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim —   M03: Germany                      (7.535) vs Paraguay                     (7.150)
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim —   M04: France                       (7.736) vs Sweden                       (7.208)
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim —   M05: Brazil                       (7.514) vs Japan                        (7.197)
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim —   M06: Ivory Coast                  (7.309) vs Norway                       (7.446)
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim —   M07: Mexico                       (7.476) vs Ecuador                      (7.064)
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim —   M08: England                      (7.520) vs Congo DR                     (6.872)
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim —   M09: Portugal                     (7.542) vs Croatia                      (7.124)
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim —   M10: Spain                        (7.620) vs Austria                      (6.915)
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim —   M11: United States                (7.271) vs Bosnia & Herzegovina         (6.874)
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim —   M12: Belgium                      (7.397) vs Senegal                      (7.290)
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim —   M13: Switzerland                  (7.315) vs Algeria                      (7.016)
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim —   M14: Colombia                     (7.262) vs Ghana                        (7.080)
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim —   M15: Argentina                    (7.533) vs Cape Verde                   (6.823)
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim —   M16: Australia                    (6.936) vs Egypt                        (7.091)
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim — === Top-10 title probabilities ===
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim —   France                        28.9%
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim —   Spain                         19.5%
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim —   Argentina                     14.5%
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim —   England                       12.2%
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim —   Norway                        8.5%
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim —   Belgium                       7.0%
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim —   Switzerland                   5.2%
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim —   Morocco                       4.2%
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim —   Sweden                        0.0%
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim —   Paraguay                      0.0%
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim — Title prob sum = 1.000000 (expect 1.0)
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim — simulations: 2304 rows total after upsert.
+2026-07-09 02:01:04  INFO      etl.models.monte_carlo_sim — Done. run_date=2026-07-09 | 32 teams | 192 rows written | bracket_slots.json: 31 slots.
+2026-07-09 02:01:04  INFO      truescout.nightly —    ✓ Monte Carlo bracket simulation completed in 0.3s
+2026-07-09 02:01:04  INFO      truescout.nightly — ── Step: Brier score tracker ──────────────────────────────────
+2026-07-09 02:01:04  INFO      etl.models.calibration — Loaded fitted logistic_scale=0.8000 from model_params.
+2026-07-09 02:01:04  INFO      etl.models.brier_tracker — Loaded 24 completed knockout match(es); strengths for 48 teams.
+2026-07-09 02:01:04  INFO      etl.models.brier_tracker — Manual FT-pens override for event 760488 (Netherlands vs Morocco): Morocco advanced.
+2026-07-09 02:01:04  INFO      etl.models.brier_tracker — Manual FT-pens override for event 760489 (Germany vs Paraguay): Paraguay advanced.
+2026-07-09 02:01:04  INFO      etl.models.brier_tracker — Manual FT-pens override for event 760499 (Australia vs Egypt): Egypt advanced.
+2026-07-09 02:01:04  WARNING   etl.models.brier_tracker — Market overround 1.0000 ≤ 1.0 for Australia vs Egypt — odds may be vig-removed already.
+2026-07-09 02:01:04  WARNING   etl.models.brier_tracker — Market overround 1.0000 ≤ 1.0 for Argentina vs Cape Verde — odds may be vig-removed already.
+2026-07-09 02:01:04  INFO      etl.models.brier_tracker — Manual FT-pens override for event 760508 (Switzerland vs Colombia): Switzerland advanced.
+2026-07-09 02:01:04  INFO      etl.models.brier_tracker — brier_log: 24 new row(s) inserted (0 already existed).  Total rows: 167.
+2026-07-09 02:01:04  INFO      truescout.nightly —    ✓ Brier score tracker completed in 0.0s
+2026-07-09 02:01:04  INFO      truescout.nightly — ── Step: Export static JSON ──────────────────────────────────
+2026-07-09 02:01:06  INFO      truescout.nightly —    ✓ Export static JSON completed in 1.4s
+2026-07-09 02:01:06  INFO      truescout.nightly — ── Step: Verify exported JSON ──────────────────────────────────
+2026-07-09 02:01:06  INFO      etl.verify_outputs — verify_outputs: title_prob sum = 1.0000 ✓
+2026-07-09 02:01:06  INFO      etl.verify_outputs — verify_outputs: 3232 players ✓
+2026-07-09 02:01:06  INFO      etl.verify_outputs — verify_outputs: player fields validated ✓
+2026-07-09 02:01:06  INFO      etl.verify_outputs — verify_outputs: 103 matchups across 6 rounds ✓
+2026-07-09 02:01:06  INFO      etl.verify_outputs — verify_outputs: brier summary ok — 24 matches graded ✓
+2026-07-09 02:01:06  INFO      etl.verify_outputs — verify_outputs: all checks passed ✓
+2026-07-09 02:01:06  INFO      truescout.nightly —    ✓ Verify exported JSON completed in 0.1s
+2026-07-09 02:01:06  INFO      truescout.nightly — ── Step: Narrative pre-generation ──────────────────────────────────
+2026-07-09 02:01:06  INFO      etl.models.generate_narratives — Loaded 3232 players from players.json.
+2026-07-09 02:01:06  INFO      etl.models.generate_narratives — 2055 candidates (confidence >= 0.30); limit=100; force=False
+2026-07-09 02:01:11  INFO      etl.models.generate_narratives — [1/100] Mike Maignan — data_analyst — gemini-2.5-flash — 854 chars
+2026-07-09 02:01:22  INFO      etl.models.generate_narratives — [2/100] Matheus Cunha — data_analyst — gemini-2.5-flash — 872 chars
+2026-07-09 02:01:32  INFO      etl.models.generate_narratives — [3/100] Aubrey Modiba — data_analyst — gemini-2.5-flash — 962 chars
+2026-07-09 02:01:42  INFO      etl.models.generate_narratives — [4/100] Johan Manzambi — data_analyst — gemini-2.5-flash — 981 chars
+2026-07-09 02:01:48  WARNING   etl.models.generate_narratives — HTTP 503 from gemini-2.5-flash — retry 1/3 in 10.0s
+2026-07-09 02:02:07  INFO      etl.models.generate_narratives — [5/100] Anthony Elanga — data_analyst — gemini-2.5-flash — 830 chars
+2026-07-09 02:02:17  INFO      etl.models.generate_narratives — [6/100] Yoane Wissa — data_analyst — gemini-2.5-flash — 996 chars
+2026-07-09 02:02:22  WARNING   etl.models.generate_narratives — HTTP 503 from gemini-2.5-flash — retry 1/3 in 10.0s
+2026-07-09 02:02:38  INFO      etl.models.generate_narratives — [7/100] Lionnel Mpasi Nzau — data_analyst — gemini-2.5-flash — 846 chars
+2026-07-09 02:02:49  INFO      etl.models.generate_narratives — [8/100] Leandro Paredes — data_analyst — gemini-2.5-flash — 876 chars
+2026-07-09 02:02:54  WARNING   etl.models.generate_narratives — HTTP 503 from gemini-2.5-flash — retry 1/3 in 10.0s
+2026-07-09 02:03:10  INFO      etl.models.generate_narratives — [9/100] Harry Souttar — data_analyst — gemini-2.5-flash — 870 chars
+2026-07-09 02:03:19  INFO      etl.models.generate_narratives — [10/100] Nicolas Pépé — data_analyst — gemini-2.5-flash — 988 chars
+2026-07-09 02:03:24  WARNING   etl.models.generate_narratives — HTTP 503 from gemini-2.5-flash — retry 1/3 in 10.0s
+2026-07-09 02:03:41  INFO      etl.models.generate_narratives — [11/100] Marc Cucurella — data_analyst — gemini-2.5-flash — 940 chars
+2026-07-09 02:03:51  INFO      etl.models.generate_narratives — [12/100] Mathías Olivera — data_analyst — gemini-2.5-flash — 965 chars
+2026-07-09 02:04:02  INFO      etl.models.generate_narratives — [13/100] William Saliba — data_analyst — gemini-2.5-flash — 934 chars
+2026-07-09 02:04:12  INFO      etl.models.generate_narratives — [14/100] Crysencio Summerville — data_analyst — gemini-2.5-flash — 1045 chars
+2026-07-09 02:04:28  INFO      etl.models.generate_narratives — [15/100] Martin Baturina — data_analyst — gemini-2.5-flash — 957 chars
+2026-07-09 02:04:38  INFO      etl.models.generate_narratives — [16/100] Brandon Mechele — data_analyst — gemini-2.5-flash — 1015 chars
+2026-07-09 02:04:48  INFO      etl.models.generate_narratives — [17/100] Nathan Saliba — data_analyst — gemini-2.5-flash — 904 chars
+2026-07-09 02:04:58  INFO      etl.models.generate_narratives — [18/100] Johan Vázquez — data_analyst — gemini-2.5-flash — 1082 chars
+2026-07-09 02:05:03  WARNING   etl.models.generate_narratives — HTTP 429 from gemini-2.5-flash — retry 1/3 in 10.0s
+2026-07-09 02:05:13  WARNING   etl.models.generate_narratives — HTTP 429 from gemini-2.5-flash — retry 2/3 in 20.0s
+2026-07-09 02:05:34  WARNING   etl.models.generate_narratives — Gemini gemini-2.5-flash HTTP 429
+2026-07-09 02:05:34  WARNING   etl.models.generate_narratives — Gemini gemini-2.5-flash returned no content — trying next model
+2026-07-09 02:05:34  WARNING   etl.models.generate_narratives — No narrative for reep_p3d406536 (Gideon Mensah)
+2026-07-09 02:05:38  WARNING   etl.models.generate_narratives — HTTP 429 from gemini-2.5-flash — retry 1/3 in 10.0s
+2026-07-09 02:05:49  WARNING   etl.models.generate_narratives — HTTP 429 from gemini-2.5-flash — retry 2/3 in 20.0s
+2026-07-09 02:06:10  WARNING   etl.models.generate_narratives — Gemini gemini-2.5-flash HTTP 429
+2026-07-09 02:06:10  WARNING   etl.models.generate_narratives — Gemini gemini-2.5-flash returned no content — trying next model
+2026-07-09 02:06:10  WARNING   etl.models.generate_narratives — No narrative for reep_pc1ab7cc2 (Johan Mojica)
+2026-07-09 02:06:14  WARNING   etl.models.generate_narratives — HTTP 429 from gemini-2.5-flash — retry 1/3 in 10.0s
+2026-07-09 02:06:25  WARNING   etl.models.generate_narratives — HTTP 429 from gemini-2.5-flash — retry 2/3 in 20.0s
+2026-07-09 02:06:45  WARNING   etl.models.generate_narratives — Gemini gemini-2.5-flash HTTP 429
+2026-07-09 02:06:45  WARNING   etl.models.generate_narratives — Gemini gemini-2.5-flash returned no content — trying next model
+2026-07-09 02:06:45  WARNING   etl.models.generate_narratives — No narrative for reep_pd744eb20 (Julian Ryerson)
+2026-07-09 02:06:45  WARNING   etl.models.generate_narratives — 3 consecutive failures — likely daily quota hit. Stopping; remaining players picked up on next run.
+2026-07-09 02:06:45  INFO      etl.models.generate_narratives — Narrative generation complete: 18 generated, 107 already cached, 1930 not reached.
+2026-07-09 02:06:45  INFO      truescout.nightly —    ✓ Narrative pre-generation completed in 339.4s
+2026-07-09 02:06:45  INFO      truescout.nightly — ========================================================================
+2026-07-09 02:06:45  INFO      truescout.nightly —   Batch complete — 15/15 steps succeeded — 403.6s total
+2026-07-09 02:06:45  INFO      truescout.nightly —     ✓  1_espn_pull
+2026-07-09 02:06:45  INFO      truescout.nightly —     ✓  2_sofascore_pull
+2026-07-09 02:06:45  INFO      truescout.nightly —     ✓  2_sofascore_knockout
+2026-07-09 02:06:45  INFO      truescout.nightly —     ✓  3_load_matches
+2026-07-09 02:06:45  INFO      truescout.nightly —     ✓  4_load_identity
+2026-07-09 02:06:45  INFO      truescout.nightly —     ✓  4_market_values
+2026-07-09 02:06:45  INFO      truescout.nightly —     ✓  5_build_features
+2026-07-09 02:06:45  INFO      truescout.nightly —     ✓  5_archetypes
+2026-07-09 02:06:45  INFO      truescout.nightly —     ✓  6_bayesian_ratings
+2026-07-09 02:06:45  INFO      truescout.nightly —     ✓  6_fit_calibration
+2026-07-09 02:06:45  INFO      truescout.nightly —     ✓  7_monte_carlo_sim
+2026-07-09 02:06:45  INFO      truescout.nightly —     ✓  8_brier_tracker
+2026-07-09 02:06:45  INFO      truescout.nightly —     ✓  9_export_json
+2026-07-09 02:06:45  INFO      truescout.nightly —     ✓  9_verify_outputs
+2026-07-09 02:06:45  INFO      truescout.nightly —     ✓  9_narratives
+2026-07-09 02:06:45  INFO      truescout.nightly — ========================================================================

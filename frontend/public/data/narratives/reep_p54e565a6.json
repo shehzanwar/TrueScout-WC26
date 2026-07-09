@@ -1,0 +1,6 @@
+{
+  "narrative": "Nathaniel Brown is a Left-Back with an overall rating of 7.14/10. This places him among the top 3% of left-backs at this tournament. His rating range of 6.78–7.49 reflects his match sample size, with 51% derived from this World Cup.\n\nBrown demonstrates strong attacking contributions, with 0.318 goals per 90 min and 0.318 assists per 90 min at this World Cup. His expected goals (xG) per 90 min is 0.163, suggesting efficient finishing from his 0.636 shots per 90 min. Defensively, he averages 4.134 tackles per 90 min, indicating a robust presence.\n\nBrown plays a crucial role as an attacking full-back for his national team, evidenced by his 1.59 key passes per 90 min. Scouts should watch for his continued offensive output, particularly how his goal and assist rate compares to his xG and xA of 0.163 and 0.29 respectively. His defensive consistency, marked by 0.636 interceptions per 90 min, will also be key in upcoming matches.",
+  "voice": "data_analyst",
+  "model": "gemini-2.5-flash",
+  "generated_at": "2026-07-09T06:38:43.384362+00:00"
+}
