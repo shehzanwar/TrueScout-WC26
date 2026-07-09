@@ -1741,6 +1741,79 @@ def export_top_stats(players: list[dict]) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Awards export (Golden Boot / Glove / Ball)
+# ---------------------------------------------------------------------------
+
+def export_awards(players: list[dict]) -> dict:
+    """
+    Build awards.json: tournament award race leaders.
+    Golden Boot = top scorer; Silver/Bronze Boot = 2nd/3rd scorer.
+    Golden Glove = GK with most saves (min 90 WC minutes).
+    Golden Ball candidates = top 5 by model rating (min 90 WC minutes).
+    """
+    from datetime import datetime as _dt, timezone as _tz
+
+    def _row(p: dict, value: float, detail: str | None = None) -> dict:
+        r: dict = {
+            "reep_id":       p["reep_id"],
+            "slug":          p.get("slug", ""),
+            "name":          p["name"],
+            "national_team": p.get("national_team", ""),
+            "value":         value,
+            "wc_minutes":    int(p.get("wc_minutes") or 0),
+        }
+        if detail:
+            r["detail"] = detail
+        return r
+
+    active = [p for p in players if (p.get("wc_minutes") or 0) >= 45]
+
+    # Golden / Silver / Bronze Boot
+    scorers = sorted(
+        [p for p in active if (p.get("wc_goals_raw") or 0) > 0],
+        key=lambda p: (-(p.get("wc_goals_raw") or 0), -(p.get("wc_minutes") or 0)),
+    )
+    boot_labels = ["golden_boot", "silver_boot", "bronze_boot"]
+    boots: dict = {
+        label: _row(s, int(s.get("wc_goals_raw") or 0))
+        for label, s in zip(boot_labels, scorers[:3])
+    }
+
+    # Golden Glove: GK by saves, min 90 min
+    gks = [
+        p for p in players
+        if (p.get("position_bucket") or p.get("position_macro")) == "GK"
+        and (p.get("wc_minutes") or 0) >= 90
+    ]
+    golden_glove = None
+    if gks:
+        best_gk = max(gks, key=lambda p: (p.get("wc_saves_raw") or 0))
+        saves = int(best_gk.get("wc_saves_raw") or 0)
+        golden_glove = _row(best_gk, saves, detail=f"{saves} saves")
+
+    # Golden Ball: top 5 rated outfield players with ≥90 WC minutes
+    candidates = sorted(
+        [p for p in players if (p.get("wc_minutes") or 0) >= 90],
+        key=lambda p: -(p.get("posterior_mean") or 0),
+    )[:5]
+    golden_ball = [
+        {
+            **_row(p, round(float(p.get("posterior_mean") or 0), 2)),
+            "position":         p.get("position_macro", ""),
+            "confidence_score": round(float(p.get("confidence_score") or 0), 3),
+        }
+        for p in candidates
+    ]
+
+    return {
+        "generated_at":        _dt.now(_tz.utc).isoformat(),
+        **boots,
+        "golden_glove":        golden_glove,
+        "golden_ball_candidates": golden_ball,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
@@ -1813,6 +1886,15 @@ def main():
     )
     n_deltas = len(insights.get("overnight", []))
     print(f"  ✓  {len(insights['top_favorites'])} favorites, {len(insights['value_picks'])} value picks, {n_deltas} overnight deltas")
+
+    print("Exporting awards.json …")
+    awards = export_awards(players)
+    (OUTPUT_DIR / "awards.json").write_text(
+        json.dumps(awards, ensure_ascii=False, separators=(",", ":")), encoding="utf-8"
+    )
+    print(f"  ✓  boot={awards.get('golden_boot', {}).get('name', '—')}, "
+          f"glove={awards.get('golden_glove', {}).get('name', '—') if awards.get('golden_glove') else '—'}, "
+          f"ball candidates={len(awards.get('golden_ball_candidates', []))}")
 
     print("Export complete →", OUTPUT_DIR)
 

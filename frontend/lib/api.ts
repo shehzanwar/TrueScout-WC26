@@ -286,6 +286,34 @@ export interface InsightsResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Awards
+// ---------------------------------------------------------------------------
+
+export interface AwardEntry {
+  reep_id: string
+  slug: string
+  name: string
+  national_team: string
+  value: number
+  wc_minutes: number
+  detail?: string
+}
+
+export interface GoldenBallCandidate extends AwardEntry {
+  position: string
+  confidence_score: number
+}
+
+export interface AwardsResponse {
+  generated_at: string
+  golden_boot?: AwardEntry
+  silver_boot?: AwardEntry
+  bronze_boot?: AwardEntry
+  golden_glove?: AwardEntry | null
+  golden_ball_candidates: GoldenBallCandidate[]
+}
+
+// ---------------------------------------------------------------------------
 // Search helpers
 // ---------------------------------------------------------------------------
 

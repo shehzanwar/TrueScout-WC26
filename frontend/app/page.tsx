@@ -1,15 +1,16 @@
-import { getSimulations, getBrier, getAllMatchups, getTopPlayers, getInsights, getTournamentStats } from "@/lib/server-data"
+import { getSimulations, getBrier, getAllMatchups, getTopPlayers, getInsights, getTournamentStats, getTournamentAwards } from "@/lib/server-data"
 import type { Matchup } from "@/lib/api"
 import HomeCards from "./components/HomeCards"
 
 export default async function HomePage() {
-  const [simData, brierData, allMatchups, topPlayers, insights, tournamentStats] = await Promise.all([
+  const [simData, brierData, allMatchups, topPlayers, insights, tournamentStats, awards] = await Promise.all([
     getSimulations().catch(() => null),
     getBrier().catch(() => null),
     getAllMatchups().catch(() => null),
     getTopPlayers(5, 0.5).catch(() => []),
     getInsights().catch(() => null),
     getTournamentStats().catch(() => null),
+    getTournamentAwards().catch(() => null),
   ])
 
   const championsRound = simData?.rounds.find((r) => r.round === "W")
@@ -70,6 +71,7 @@ export default async function HomePage() {
         overnight={insights?.overnight ?? null}
         bracketSlots={simData?.bracket_slots ?? []}
         tournamentStats={tournamentStats}
+        awards={awards}
       />
     </div>
   )

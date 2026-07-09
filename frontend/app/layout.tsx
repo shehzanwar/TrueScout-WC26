@@ -4,6 +4,7 @@ import "./globals.css"
 import Sidebar from "./components/Sidebar"
 import SidebarClient from "./components/SidebarClient"
 import StaleDataBanner from "./components/StaleDataBanner"
+import ChatFAB from "./components/ChatFAB"
 import { getSimulations } from "@/lib/server-data"
 
 const geistSans = Geist({
@@ -59,6 +60,7 @@ export default async function RootLayout({
             {children}
           </main>
         </div>
+        <ChatFAB />
       </body>
     </html>
   )

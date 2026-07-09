@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { motion } from "framer-motion"
-import { playerSlug, type SimTeam, type BrierSummary, type BrierEntry, type Matchup, type PlayerResponse, type InsightsOvernight, type BracketSlotEntry } from "@/lib/api"
+import { playerSlug, type SimTeam, type BrierSummary, type BrierEntry, type Matchup, type PlayerResponse, type InsightsOvernight, type BracketSlotEntry, type AwardsResponse, type AwardEntry, type GoldenBallCandidate } from "@/lib/api"
 import { FlagIcon } from "@/app/components/FlagIcon"
 import Tooltip, { LabelWithInfo } from "@/app/components/Tooltip"
 
@@ -536,6 +536,76 @@ function TournamentStatsCard({ stats }: { stats: TournamentStats }) {
 }
 
 // ---------------------------------------------------------------------------
+// Awards Card
+// ---------------------------------------------------------------------------
+
+function AwardRow({ label, entry, unit }: { label: string; entry: AwardEntry | undefined; unit: string }) {
+  if (!entry) return null
+  return (
+    <div className="flex items-center gap-3 py-1.5">
+      <span className="w-32 shrink-0 text-[11px] font-semibold text-slate-400 uppercase tracking-wide">{label}</span>
+      <FlagIcon name={entry.national_team} size={14} />
+      <Link
+        href={`/players/${entry.reep_id}/${entry.slug}`}
+        className="flex-1 min-w-0 text-sm text-slate-200 hover:text-emerald-400 transition-colors truncate"
+      >
+        {entry.name}
+      </Link>
+      <span className="shrink-0 text-sm font-bold tabular-nums text-amber-400">
+        {entry.value}
+        <span className="font-normal text-[10px] ml-0.5 opacity-75"> {unit}</span>
+      </span>
+    </div>
+  )
+}
+
+function AwardsCard({ awards }: { awards: AwardsResponse }) {
+  const top3 = awards.golden_ball_candidates?.slice(0, 3) ?? []
+  return (
+    <SectionCard
+      title="Award Races"
+      subtitle="Golden Boot · Golden Glove · Golden Ball"
+      className="lg:col-span-2"
+    >
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-0 divide-y sm:divide-y-0 divide-slate-800/40">
+        {/* Boot + Glove */}
+        <div className="divide-y divide-slate-800/40 pb-4 sm:pb-0">
+          <AwardRow label="🥇 Golden Boot" entry={awards.golden_boot} unit="goals" />
+          <AwardRow label="🥈 Silver Boot" entry={awards.silver_boot} unit="goals" />
+          <AwardRow label="🥉 Bronze Boot" entry={awards.bronze_boot} unit="goals" />
+          {awards.golden_glove && (
+            <AwardRow label="🧤 Golden Glove" entry={awards.golden_glove} unit="saves" />
+          )}
+        </div>
+        {/* Golden Ball candidates */}
+        <div className="pt-4 sm:pt-0 sm:pl-8">
+          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-2">
+            🏆 Golden Ball candidates
+          </p>
+          <ol className="space-y-1.5">
+            {top3.map((c: GoldenBallCandidate, i) => (
+              <li key={c.reep_id} className="flex items-center gap-2">
+                <span className="w-4 text-right text-[10px] font-mono text-slate-600 tabular-nums shrink-0">{i + 1}</span>
+                <FlagIcon name={c.national_team} size={13} />
+                <Link
+                  href={`/players/${c.reep_id}/${c.slug}`}
+                  className="flex-1 min-w-0 text-xs text-slate-200 hover:text-emerald-400 transition-colors truncate"
+                >
+                  {c.name}
+                </Link>
+                <span className="text-[10px] font-mono tabular-nums text-slate-400 shrink-0">
+                  {c.value.toFixed(2)}
+                </span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </div>
+    </SectionCard>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Bracket Outlook (3rd column at 2xl+)
 // ---------------------------------------------------------------------------
 
@@ -614,6 +684,7 @@ export default function HomeCards({
   overnight,
   bracketSlots = [],
   tournamentStats = null,
+  awards = null,
 }: {
   champions: SimTeam[]
   brierSummary: BrierSummary
@@ -624,6 +695,7 @@ export default function HomeCards({
   overnight: InsightsOvernight[] | null
   bracketSlots?: BracketSlotEntry[]
   tournamentStats?: TournamentStats | null
+  awards?: AwardsResponse | null
 }) {
   return (
     <div className="2xl:flex 2xl:gap-5 2xl:items-start">
@@ -636,6 +708,7 @@ export default function HomeCards({
         {overnight && overnight.length > 0 && <OvernightDeltasCard overnight={overnight} />}
         <TopPerformersCard players={topPlayers} />
         {tournamentStats && <TournamentStatsCard stats={tournamentStats} />}
+        {awards && <AwardsCard awards={awards} />}
       </div>
       {/* 3rd column: bracket preview at 2xl+ */}
       {bracketSlots.length > 0 && (

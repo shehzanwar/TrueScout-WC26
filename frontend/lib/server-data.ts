@@ -294,6 +294,10 @@ export async function getTournamentStats(): Promise<TournamentStats | null> {
   return readDataOrNull<TournamentStats>("top_stats.json")
 }
 
+export async function getTournamentAwards(): Promise<import("./api").AwardsResponse | null> {
+  return readDataOrNull("awards.json")
+}
+
 // ---------------------------------------------------------------------------
 // Nations — derived from simulations + matchups + players
 // ---------------------------------------------------------------------------
