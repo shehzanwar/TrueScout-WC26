@@ -67,9 +67,10 @@ CLIP_LO, CLIP_HI = 0.01, 0.99
 # Key: ESPN event_id (string). Value: canonical winning team name.
 # Add new entries here when a Sofascore re-pull doesn't resolve the draw automatically.
 MANUAL_FT_PENS_WINNERS: dict[str, str] = {
-    "760488": "Morocco",   # Netherlands 1-1 Morocco (29 Jun 2026) — Morocco wins on pens
-    "760489": "Paraguay",  # Germany 1-1 Paraguay (29 Jun 2026) — Paraguay wins on pens
-    "760499": "Egypt",     # Australia 1-1 Egypt   (03 Jul 2026) — Egypt wins on pens
+    "760488": "Morocco",       # Netherlands 1-1 Morocco (29 Jun 2026) — Morocco wins on pens
+    "760489": "Paraguay",      # Germany 1-1 Paraguay (29 Jun 2026) — Paraguay wins on pens
+    "760499": "Egypt",         # Australia 1-1 Egypt   (03 Jul 2026) — Egypt wins on pens
+    "760508": "Switzerland",   # Switzerland 0-0 Colombia (07 Jul 2026) — Switzerland wins on pens
 }
 
 
