@@ -338,9 +338,12 @@ def load_sofascore_club_priors() -> pd.DataFrame:
     # lambda=1.0 → previous season ≈ 37% weight, two seasons ago ≈ 14%.
     _SEASON_DECAY_LAMBDA = 1.0
     df["w"] = df["minutes_played"].fillna(0).astype(float)
-    max_year = df["season_year"].max()
+    # Parse season_year which may be "25/26", "2025/26", or "2025" — take first number
+    yr_raw = df["season_year"].astype(str).str.extract(r"(\d+)", expand=False).astype(int)
+    yr = yr_raw.where(yr_raw >= 1000, yr_raw + 2000)  # 2-digit → 4-digit
+    max_year = yr.max()
     df["w"] = df["w"] * np.exp(
-        -_SEASON_DECAY_LAMBDA * (max_year - df["season_year"]).clip(lower=0)
+        -_SEASON_DECAY_LAMBDA * (max_year - yr).clip(lower=0)
     )
 
     def _wavg(grp: pd.DataFrame, col: str) -> float:
