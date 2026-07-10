@@ -832,6 +832,7 @@ _FIFA_BANDS: list[tuple[int, str]] = [
 def _fifa_score(
     posterior_mean: float | None,
     percentile_rank: float | None,
+    confidence_score: float | None,
     pos_mean: float = 6.8,
     pos_std: float = 0.25,
 ) -> int | None:
@@ -839,22 +840,22 @@ def _fifa_score(
     Blend position-normalised absolute skill + relative rank into a FIFA-style 0-99 integer.
     60% absolute + 40% relative (percentile 0-1 → 10-99).
 
-    Absolute: baseline uses pos_mean as a reference on the 1-10 scale (anchors the
-    position group at its natural level), then adds a z-score nudge (±1 sigma = ±5 pts)
-    so players above/below their position average are rewarded/penalised relative to peers.
-    This fixes the CB bias: a CB and a FWD at the same within-position percentile get
-    the same absolute component, regardless of their raw posterior level.
+    Both the z-score deviation and the percentile deviation from median are scaled by
+    confidence_score (0-1), so players with no WC evidence (conf≈0.07) can't ride inflated
+    club priors into Elite/World Class bands. At cs=0 the score collapses to the position
+    baseline (~62-67); at cs=1 the formula is unchanged from the original.
     """
     if posterior_mean is None or percentile_rank is None:
         return None
+    cs = max(0.0, min(1.0, confidence_score or 0.0))
     baseline = 10 + (pos_mean - 1.0) * (89.0 / 9.0)
-    # Floor of 0.35: prevents z-score inflation when posteriors cluster near the
-    # prior (pos_std ≈ 0.10). Requires a 0.35-point deviation from position
-    # mean to earn z=1 — only genuine outliers reach Elite/World Class bands.
     z = (posterior_mean - pos_mean) / max(pos_std, 0.35)
     z = max(-3.0, min(3.0, z))
-    absolute = baseline + z * (89.0 / 18.0)   # ±1 sigma = ±4.9 pts; ±3 sigma = ±14.8 pts
-    relative = 10 + percentile_rank * 89.0
+    # Scale z and percentile deviation by confidence; pulls low-evidence players toward median
+    effective_z   = z * cs
+    effective_pct = 0.5 + (percentile_rank - 0.5) * cs
+    absolute = baseline + effective_z * (89.0 / 18.0)
+    relative = 10 + effective_pct * 89.0
     return int(round(max(10.0, min(99.0, 0.60 * absolute + 0.40 * relative))))
 
 
@@ -1486,6 +1487,7 @@ def export_players(conn) -> list:
         fs = _fifa_score(
             _safe_float(posterior_mean),
             _safe_float(percentile_rank),
+            _safe_float(confidence_score),
             pos_mean=_ps["mean"],
             pos_std=_ps["std"],
         )
