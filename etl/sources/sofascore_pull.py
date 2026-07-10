@@ -112,14 +112,31 @@ RATE_LIMIT_PAUSE_S: float = 30.0
 WC_TOURNAMENT_ID: int = 16
 WC_SEASON_ID: int = 58210
 
-# These headers supplement the browser fingerprint set by curl_cffi
-HEADERS: dict[str, str] = {
-    "Referer": "https://www.sofascore.com/",
-    "Origin": "https://www.sofascore.com",
-    "Accept": "application/json, text/plain, */*",
-    "Accept-Language": "en-US,en;q=0.9",
-    "Cache-Control": "no-cache",
-}
+# These headers supplement the browser fingerprint set by curl_cffi.
+# sec-fetch-* tell Cloudflare the request is a same-origin XHR (not a bot script).
+# x-requested-with is a static token embedded in Sofascore's JS bundle — required
+#   since ~2026-07; copy from any working browser request and update in .env when
+#   the site redeploys.  Set SOFASCORE_X_REQUESTED_WITH + SOFASCORE_COOKIE in .env.
+def _build_headers() -> dict[str, str]:
+    h: dict[str, str] = {
+        "Referer":         "https://www.sofascore.com/football/tournament/world/world-championship/16",
+        "Origin":          "https://www.sofascore.com",
+        "Accept":          "application/json, text/plain, */*",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Cache-Control":   "no-cache",
+        "sec-fetch-dest":  "empty",
+        "sec-fetch-mode":  "cors",
+        "sec-fetch-site":  "same-origin",
+        "sec-gpc":         "1",
+    }
+    if settings.sofascore_x_requested_with:
+        h["x-requested-with"] = settings.sofascore_x_requested_with
+    if settings.sofascore_cookie:
+        h["Cookie"] = settings.sofascore_cookie
+    return h
+
+
+HEADERS: dict[str, str] = _build_headers()
 
 # status.type values that indicate a fully completed result
 COMPLETED_STATUSES: frozenset[str] = frozenset({

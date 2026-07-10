@@ -33,6 +33,15 @@ class Settings(BaseSettings):
     # api.sofascore.com is cross-origin and Cloudflare fakes 404s for it.
     sofascore_base_url: str = "https://www.sofascore.com/api/v1"
     sofascore_fallback_url: str = "https://api.sofascore.app/api/v1"
+
+    # --- Sofascore session credentials (from browser DevTools) ---
+    # x-requested-with: static token embedded in Sofascore's JS bundle — changes on
+    #   each deploy but is stable for weeks. Copy from any successful browser request.
+    # sofascore_cookie: full Cookie header string from browser DevTools.
+    #   Only the session-identifying cookies are required; g_state and similar
+    #   Google cookies are ignored by Sofascore but harmless to include.
+    sofascore_x_requested_with: str = ""
+    sofascore_cookie: str = ""
     espn_soccer_base_url: str = "https://site.api.espn.com/apis/site/v2/sports/soccer"
     espn_core_base_url: str = "https://sports.core.api.espn.com/v2/sports/soccer"
 
