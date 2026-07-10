@@ -13,7 +13,7 @@ Runs the full pipeline in dependency order:
   8.   Brier tracker      (grade model against new market odds)
   9.   Export JSON        (write frontend/public/data/*.json for Vercel)
   9.5. Verify outputs     (hard assertions on exported JSON — hard-fail gate)
-  9.6. Narrative pre-gen  (Gemini native API; soft-fail — quota exhaustion expected)
+  9.6. Chat index         (compact tournament snapshot for AI chat; soft-fail)
 
 Designed for Windows Task Scheduler (single-user V1) and GitHub Actions.
 
@@ -120,7 +120,6 @@ def run_pipeline() -> dict[str, bool]:
     from etl.models.brier_tracker        import main as brier_main
     from etl.export_json                 import main as export_main
     from etl.verify_outputs              import main as verify_main
-    from etl.models.generate_narratives  import main as narratives_main
     from etl.build_chat_index            import main as chat_index_main
 
     # botasaurus requires a real browser (Edge/Chrome); not available on GitHub Actions.
@@ -245,13 +244,8 @@ def run_pipeline() -> dict[str, bool]:
         hard_fail=True,
     )
 
-    # Step 9.6 — Pre-generate narratives (soft-fail: free-tier rate limits are expected)
-    results["9_narratives"] = _step(
-        "Narrative pre-generation",
-        narratives_main,
-    )
-
-    # Step 9.7 — Build chat knowledge index (soft-fail: non-critical convenience layer)
+    # Step 9.6 — Build chat knowledge index (soft-fail: non-critical convenience layer)
+    # Note: narrative pre-gen removed — Gemini quota is reserved for on-demand chat + scouting reports.
     results["9_chat_index"] = _step(
         "Build chat knowledge index",
         chat_index_main,
@@ -298,7 +292,6 @@ def main() -> None:
                   "4_market_values",    # botasaurus unavailable on CI; skipped by design
                   "5_archetypes",       # soft-fail: sklearn optional dep, falls back to stale clusters
                   "6_fit_calibration",  # soft-fail: < 12 graded matches → DEFAULT_SCALE used
-                  "9_narratives",    # narrative pre-gen: soft-fail (quota exhaustion expected)
                   "9_chat_index"}   # chat index: soft-fail (convenience layer, not blocking)
     _CRITICAL  = {"5_build_features", "6_bayesian_ratings", "7_monte_carlo_sim",
                   "8_brier_tracker", "9_export_json", "9_verify_outputs"}
