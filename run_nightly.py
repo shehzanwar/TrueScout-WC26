@@ -138,6 +138,32 @@ def run_pipeline() -> dict[str, bool]:
         lambda: espn_main(date_str=None, group_stage=False, knockout=True),
     )
 
+    # Step 1.5 — Re-pull any past knockout dates still showing completed=False.
+    # The nightly often runs before evening matches end, leaving pre-match stubs.
+    # This sweep catches up any date where match_date < today but is_completed=False.
+    def _recover_stale_matches():
+        import duckdb as _duckdb
+        from datetime import date as _date
+        from etl.sources.espn_pull import main as _espn_main
+        _today = _date.today().isoformat()
+        bronze_glob = str(Path(settings.parquet_bronze_dir) / "espn" / "matches" / "*.parquet")
+        try:
+            _tmp = _duckdb.connect()
+            stale = _tmp.execute(f"""
+                SELECT DISTINCT LEFT(CAST(match_date AS VARCHAR), 10) AS pull_date
+                FROM read_parquet('{bronze_glob}', union_by_name=true)
+                WHERE is_completed = FALSE
+                  AND LEFT(CAST(match_date AS VARCHAR), 10) < '{_today}'
+            """).fetchall()
+            _tmp.close()
+        except Exception:
+            return
+        for (pull_date,) in stale:
+            logger.info("   ↻  Re-pulling stale date %s (match ended since last pull)", pull_date)
+            _espn_main(date_str=pull_date, group_stage=False, knockout=False)
+
+    _step("ESPN re-pull stale matches", _recover_stale_matches)
+
     # Step 2 — Sofascore pull (group stage — rounds 1/2/3 via /events/round/{N})
     # Soft-fail: Cloudflare blocks are expected; downstream steps use cached data.
     results["2_sofascore_pull"] = _step(
