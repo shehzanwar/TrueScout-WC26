@@ -179,7 +179,17 @@ def export_simulations(conn) -> dict:
         except Exception:
             pm_r16 = {}
 
-        lookup_by_round = {"R32": pm_r32, "R16": pm_r16}
+        try:
+            pm_qf_rows = conn.execute("""
+                SELECT team_left, team_right, prob_left, prob_right
+                FROM match_probs_qf
+                WHERE run_date = (SELECT MAX(run_date) FROM match_probs_qf)
+            """).fetchall()
+            pm_qf = _build_pm_lookup(pm_qf_rows)
+        except Exception:
+            pm_qf = {}
+
+        lookup_by_round = {"R32": pm_r32, "R16": pm_r16, "QF": pm_qf}
         for slot in bracket_slots:
             rnd = slot.get("round")
             lookup = lookup_by_round.get(rnd)

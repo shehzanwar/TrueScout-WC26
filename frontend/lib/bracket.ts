@@ -324,20 +324,27 @@ export function buildBracket(
       const matchLoser    = matchWinner === teamA ? teamB : teamA
       const altsFromEntry = slotEntry?.alt.filter(a => a.team !== teamA && a.team !== teamB) ?? []
 
-      // A team confirmed via a completed R32/R16 result is not "projected"
+      // QF/SF/F: detect lock-in from joint distribution (top.prob === 1.0 means
+      // all 100k sims had the same winner — confirmed result was written to ESPN).
+      const isLockedIn = code !== "R16" && slotEntry?.top.prob === 1.0
+      if (isLockedIn) confirmedWinners.add(matchWinner)
+
+      const isDone = r16Done || isLockedIn
+
+      // A team confirmed via a completed R32/R16/QF result is not "projected"
       const winnerConfirmed = confirmedWinners.has(matchWinner)
       const loserConfirmed  = confirmedWinners.has(matchLoser)
       // Save the pre-match BT probability before locking slotProb to 1.0/0.0.
       // roundChaos uses top.preMatchProb on completed slots so the chaos meter reflects
       // how competitive the round WAS (same pattern as R32 via preMatchProbFor).
-      const preMatchWinnerProb = r16Done
+      const preMatchWinnerProb = isDone
         ? slotMap.get(`${code}:${newSlotIdx}`)?.top.pre_match_prob
         : undefined
       nextSlots.push({
-        top:    teamData(matchWinner, code, !winnerConfirmed, r16Done ? 1.0 : slotProbFor(code, newSlotIdx, matchWinner), preMatchWinnerProb),
-        bottom: teamData(matchLoser,  code, !loserConfirmed,  r16Done ? 0.0 : slotProbFor(code, newSlotIdx, matchLoser)),
-        alts:   r16Done ? [] : altsFromEntry,
-        isCompleted: r16Done || undefined,
+        top:    teamData(matchWinner, code, !winnerConfirmed, isDone ? 1.0 : slotProbFor(code, newSlotIdx, matchWinner), preMatchWinnerProb),
+        bottom: teamData(matchLoser,  code, !loserConfirmed,  isDone ? 0.0 : slotProbFor(code, newSlotIdx, matchLoser)),
+        alts:   isDone ? [] : altsFromEntry,
+        isCompleted: isDone || undefined,
         score:       r16Score,
       })
     }
@@ -362,6 +369,22 @@ export function buildBracket(
     rounds[0] = {
       ...rounds[0],
       slots: displayOrder.map((i) => rounds[0].slots[i]),
+    }
+  }
+
+  // Reorder QF slots so visually adjacent pairs feed the same SF connector arm.
+  // WC 2026 has cross-bracket SF pairings [[0,2],[1,3]] — QF slot 0 plays slot 2,
+  // not the adjacent slot 1. Flatten to display order [0,2,1,3] so the Connector
+  // between QF and SF draws straight lines to the correct SF match.
+  const sfPairingOrder = sim.pairings?.["SF"]
+  if (sfPairingOrder) {
+    const qfDisplayOrder = sfPairingOrder.flatMap(([a, b]) => [a, b])
+    const qfRoundIdx = rounds.findIndex(r => r.code === "QF")
+    if (qfRoundIdx !== -1 && rounds[qfRoundIdx].slots.length === 4) {
+      rounds[qfRoundIdx] = {
+        ...rounds[qfRoundIdx],
+        slots: qfDisplayOrder.map(i => rounds[qfRoundIdx].slots[i]),
+      }
     }
   }
 

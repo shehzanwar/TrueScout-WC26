@@ -1001,6 +1001,60 @@ def _write_r16_match_probs(
     logger.info("match_probs_r16: wrote %d R16 BT probabilities for %s.", len(rows), run_date)
 
 
+def _write_qf_match_probs(
+    conn: duckdb.DuckDBPyConnection,
+    bracket_order: list[str],
+    strengths: np.ndarray,
+    scale: float,
+    run_date: "date",
+    completed_r16: dict[int, int],
+) -> None:
+    """
+    BT win-probability for each confirmed QF matchup.
+
+    Uses completed R16 winners when available so the pre-match prob reflects
+    the actual opponents. Written to match_probs_qf; export_json.py attaches
+    it as pre_match_prob on completed QF bracket slots so the chaos meter
+    shows how competitive those matches were before the result was known.
+    """
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS match_probs_qf (
+            run_date   DATE    NOT NULL,
+            team_left  VARCHAR NOT NULL,
+            team_right VARCHAR NOT NULL,
+            prob_left  DOUBLE  NOT NULL,
+            prob_right DOUBLE  NOT NULL,
+            PRIMARY KEY (run_date, team_left, team_right)
+        )
+    """)
+    conn.execute("DELETE FROM match_probs_qf WHERE run_date = ?", [str(run_date)])
+
+    rows: list[tuple] = []
+    for k in range(4):
+        # QF slot k pairs R16 slot 2k (left) vs R16 slot 2k+1 (right).
+        r16_left  = 2 * k
+        r16_right = 2 * k + 1
+
+        def _resolve(r16_slot: int) -> int:
+            if r16_slot in completed_r16:
+                return completed_r16[r16_slot]
+            # Fallback: strongest of the 4 bracket positions in this R16 slot's half.
+            base = r16_slot * 4
+            cands = [p for p in range(base, base + 4) if p < len(strengths)]
+            return max(cands, key=lambda p: float(strengths[p]))
+
+        pos_l = _resolve(r16_left)
+        pos_r = _resolve(r16_right)
+        p_l = advance_prob(float(strengths[pos_l]), float(strengths[pos_r]), scale)
+        rows.append((str(run_date), bracket_order[pos_l], bracket_order[pos_r], p_l, 1.0 - p_l))
+
+    conn.executemany(
+        "INSERT INTO match_probs_qf (run_date, team_left, team_right, prob_left, prob_right) VALUES (?, ?, ?, ?, ?)",
+        rows,
+    )
+    logger.info("match_probs_qf: wrote %d QF BT probabilities for %s.", len(rows), run_date)
+
+
 # ---------------------------------------------------------------------------
 # Vectorised single-elimination tournament
 # ---------------------------------------------------------------------------
@@ -1340,6 +1394,7 @@ def main() -> None:
         if not args.validate:
             _write_match_probs(conn, bracket_order, strengths_vec, args.scale, date.today())
             _write_r16_match_probs(conn, bracket_order, strengths_vec, args.scale, date.today(), completed_r32)
+            _write_qf_match_probs(conn, bracket_order, strengths_vec, args.scale, date.today(), completed_later.get("R16", {}))
 
         # 5. Simulate
         logger.info(
