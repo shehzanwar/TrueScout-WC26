@@ -864,7 +864,10 @@ def _load_completed_later_rounds(
         elif rnd_code == "QF":
             sim_match_idx = min(home_bpos, away_bpos) // 8
         elif rnd_code == "SF":
-            sim_match_idx = min(home_bpos, away_bpos) // 16
+            # WC 2026 cross-bracket SF: QF slot 0 (bpos 0-7) plays QF slot 2
+            # (bpos 16-23) → match 0; QF slot 1 (bpos 8-15) plays QF slot 3
+            # (bpos 24-31) → match 1. Formula: which QF slot (//8) mod 2.
+            sim_match_idx = (min(home_bpos, away_bpos) // 8) % 2
         else:  # Final
             sim_match_idx = 0
 
@@ -1034,6 +1037,13 @@ def _run_sim(
     ).copy()
 
     for round_idx in range(1, n_rounds):
+        # WC 2026 non-sequential SF: QF slot 0 winner (France half) plays QF slot 2
+        # winner (Spain half), NOT the adjacent QF slot 1 winner. Reorder the four
+        # survivors from [QF0, QF1, QF2, QF3] → [QF0, QF2, QF1, QF3] so the
+        # sequential left/right split produces the correct cross-bracket pairings.
+        if current.shape[1] == 4:
+            current = current[:, [0, 2, 1, 3]]
+
         n_alive  = current.shape[1]
         n_matches = n_alive // 2
 
@@ -1151,7 +1161,7 @@ def _compute_bracket_slots(
     pairings = {
         "R16": [[a, b] for a, b in r16_pairs],  # ESPN R32 match indices
         "QF":  [[0, 1], [2, 3], [4, 5], [6, 7]],
-        "SF":  [[0, 1], [2, 3]],
+        "SF":  [[0, 2], [1, 3]],   # QF slot 0 winner plays QF slot 2 (cross-bracket)
         "F":   [[0, 1]],
     }
 
