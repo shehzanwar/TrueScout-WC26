@@ -766,8 +766,10 @@ def _load_completed_later_rounds(
 
     round_map = {
         "Round of 16": "R16",
-        "Quarterfinal": "QF",
+        "Quarterfinal": "QF",   # ESPN sometimes uses singular
+        "Quarterfinals": "QF",  # ESPN uses plural form for WC 2026
         "Semifinal": "SF",
+        "Semifinals": "SF",     # ESPN uses plural form for WC 2026
         "Final": "F",
     }
 
@@ -776,7 +778,12 @@ def _load_completed_later_rounds(
             SELECT event_id, round_name, home_team_name, away_team_name,
                    home_score, away_score
             FROM read_parquet('{espn_glob}', union_by_name=true)
-            WHERE round_name IN ('Round of 16','Quarterfinal','Semifinal','Final')
+            WHERE round_name IN (
+                'Round of 16',
+                'Quarterfinal','Quarterfinals',
+                'Semifinal','Semifinals',
+                'Final'
+            )
               AND is_completed = TRUE
         """).df()
     except Exception as exc:
