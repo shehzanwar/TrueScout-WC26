@@ -359,33 +359,42 @@ export function buildBracket(
     prevCode  = code
   }
 
-  // Reorder R32 slots for correct visual alignment.
-  // The Connector component assumes adjacent slot pairs feed the same R16 match,
-  // but ESPN chronological order doesn't honour this. Flatten pairings.R16 to get
-  // the display order: [pair0_a, pair0_b, pair1_a, pair1_b, ...].
-  const r16PairingOrder = sim.pairings?.["R16"]
-  if (r16PairingOrder) {
-    const displayOrder = r16PairingOrder.flatMap(([a, b]) => [a, b])
-    rounds[0] = {
-      ...rounds[0],
-      slots: displayOrder.map((i) => rounds[0].slots[i]),
-    }
-  }
+  // Reorder R32, R16, and QF for correct visual bracket alignment.
+  //
+  // The Connector component assumes adjacent slot pairs always connect to the same
+  // next-round slot.  WC 2026 has a cross-bracket SF (pairings.SF = [[0,2],[1,3]]):
+  // QF slot 0 plays QF slot 2, not the adjacent slot 1.  A simple QF-only reorder
+  // breaks the R16→QF connectors, so we cascade backwards from SF:
+  //
+  //   qfOrder  = SF pairs flattened          → [0,2,1,3]
+  //   r16Order = each QF's R16 feeders       → [0,1, 4,5, 2,3, 6,7]
+  //   r32Order = each R16's R32 feeders      → derived from pairings.R16
+  //
+  // For a sequential SF ([[0,1],[2,3]]) the cascade is a no-op — same as before.
+  const sfPairs  = sim.pairings?.["SF"]
+  const qfPairs  = sim.pairings?.["QF"]
+  const r16Pairs = sim.pairings?.["R16"]
 
-  // Reorder QF slots so visually adjacent pairs feed the same SF connector arm.
-  // WC 2026 has cross-bracket SF pairings [[0,2],[1,3]] — QF slot 0 plays slot 2,
-  // not the adjacent slot 1. Flatten to display order [0,2,1,3] so the Connector
-  // between QF and SF draws straight lines to the correct SF match.
-  const sfPairingOrder = sim.pairings?.["SF"]
-  if (sfPairingOrder) {
-    const qfDisplayOrder = sfPairingOrder.flatMap(([a, b]) => [a, b])
-    const qfRoundIdx = rounds.findIndex(r => r.code === "QF")
-    if (qfRoundIdx !== -1 && rounds[qfRoundIdx].slots.length === 4) {
-      rounds[qfRoundIdx] = {
-        ...rounds[qfRoundIdx],
-        slots: qfDisplayOrder.map(i => rounds[qfRoundIdx].slots[i]),
-      }
+  if (sfPairs && qfPairs && r16Pairs) {
+    const qfOrder  = sfPairs.flatMap(([a, b]) => [a, b])
+    const r16Order = qfOrder.flatMap(qi => qfPairs[qi])
+    const r32Order = r16Order.flatMap(ri => r16Pairs[ri])
+
+    rounds[0] = { ...rounds[0], slots: r32Order.map(i => rounds[0].slots[i]) }
+
+    const r16Idx = rounds.findIndex(r => r.code === "R16")
+    if (r16Idx !== -1) {
+      rounds[r16Idx] = { ...rounds[r16Idx], slots: r16Order.map(i => rounds[r16Idx].slots[i]) }
     }
+
+    const qfIdx = rounds.findIndex(r => r.code === "QF")
+    if (qfIdx !== -1) {
+      rounds[qfIdx] = { ...rounds[qfIdx], slots: qfOrder.map(i => rounds[qfIdx].slots[i]) }
+    }
+  } else if (r16Pairs) {
+    // Fallback: R32-only reorder for tournaments without cross-bracket SF
+    const r32Order = r16Pairs.flatMap(([a, b]) => [a, b])
+    rounds[0] = { ...rounds[0], slots: r32Order.map(i => rounds[0].slots[i]) }
   }
 
   // Champion: top team in the W round (sorted advance_prob DESC = title_prob DESC)
