@@ -527,6 +527,21 @@ def export_matchups(conn) -> dict:
     except Exception:
         pass  # match_probs_r16 doesn't exist yet — will populate on next pipeline run
 
+    bt_qf: dict[tuple[str, str], tuple[float, float]] = {}
+    try:
+        bt_qf_rows = conn.execute("""
+            SELECT team_left, team_right, prob_left, prob_right
+            FROM match_probs_qf
+            WHERE run_date = (SELECT MAX(run_date) FROM match_probs_qf)
+        """).fetchall()
+        for t_l, t_r, p_l, p_r in bt_qf_rows:
+            t_l_n = NAME_ALIASES.get(t_l, t_l)
+            t_r_n = NAME_ALIASES.get(t_r, t_r)
+            bt_qf[(t_l_n, t_r_n)] = (round(p_l, 4), round(p_r, 4))
+            bt_qf[(t_r_n, t_l_n)] = (round(p_r, 4), round(p_l, 4))
+    except Exception:
+        pass  # match_probs_qf doesn't exist yet
+
     result: dict = {}
     for round_code, round_name in ROUND_MAP.items():
         next_round = NEXT_ROUND.get(round_code, "W")
@@ -587,12 +602,14 @@ def export_matchups(conn) -> dict:
             if market_home is None and ev_str in manual_odds:
                 market_home, market_away = manual_odds[ev_str]
 
-            # For R32 and R16, use the pre-simulation BT head-to-head probability
+            # Use pre-simulation BT head-to-head probability for completed rounds
             # so completed matches don't show 100%/0% from the lock-in override.
             if round_code == "R32" and (h_norm, a_norm) in bt_r32:
                 model_home, model_away = bt_r32[(h_norm, a_norm)]
             elif round_code == "R16" and (h_norm, a_norm) in bt_r16:
                 model_home, model_away = bt_r16[(h_norm, a_norm)]
+            elif round_code == "QF" and (h_norm, a_norm) in bt_qf:
+                model_home, model_away = bt_qf[(h_norm, a_norm)]
             else:
                 model_home = sim_map.get(h_norm)
                 model_away = sim_map.get(a_norm)
