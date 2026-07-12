@@ -153,7 +153,7 @@ def run_pipeline() -> dict[str, bool]:
                 SELECT DISTINCT LEFT(CAST(match_date AS VARCHAR), 10) AS pull_date
                 FROM read_parquet('{bronze_glob}', union_by_name=true)
                 WHERE is_completed = FALSE
-                  AND LEFT(CAST(match_date AS VARCHAR), 10) < '{_today}'
+                  AND LEFT(CAST(match_date AS VARCHAR), 10) <= '{_today}'
             """).fetchall()
             _tmp.close()
         except Exception:
