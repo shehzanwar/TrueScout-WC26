@@ -1055,6 +1055,56 @@ def _write_qf_match_probs(
     logger.info("match_probs_qf: wrote %d QF BT probabilities for %s.", len(rows), run_date)
 
 
+def _write_sf_match_probs(
+    conn: duckdb.DuckDBPyConnection,
+    bracket_order: list[str],
+    strengths: np.ndarray,
+    scale: float,
+    run_date: "date",
+    completed_qf: dict[int, int],
+) -> None:
+    """
+    BT win-probability for each confirmed SF matchup.
+
+    Uses completed QF winners when available so the pre-match prob reflects
+    the actual opponents. Written to match_probs_sf; export_json.py attaches
+    it as pre_match_prob on completed SF bracket slots so the chaos meter
+    shows how competitive those matches were before the result was known.
+    """
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS match_probs_sf (
+            run_date   DATE    NOT NULL,
+            team_left  VARCHAR NOT NULL,
+            team_right VARCHAR NOT NULL,
+            prob_left  DOUBLE  NOT NULL,
+            prob_right DOUBLE  NOT NULL,
+            PRIMARY KEY (run_date, team_left, team_right)
+        )
+    """)
+    conn.execute("DELETE FROM match_probs_sf WHERE run_date = ?", [str(run_date)])
+
+    def _resolve(qf_slot: int) -> int:
+        if qf_slot in completed_qf:
+            return completed_qf[qf_slot]
+        base = qf_slot * 8
+        cands = [p for p in range(base, base + 8) if p < len(strengths)]
+        return max(cands, key=lambda p: float(strengths[p]))
+
+    # WC 2026 cross-bracket SF: QF slot 0 winner plays QF slot 2 winner, QF1 plays QF3
+    rows: list[tuple] = []
+    for qf_left, qf_right in [(0, 2), (1, 3)]:
+        pos_l = _resolve(qf_left)
+        pos_r = _resolve(qf_right)
+        p_l = advance_prob(float(strengths[pos_l]), float(strengths[pos_r]), scale)
+        rows.append((str(run_date), bracket_order[pos_l], bracket_order[pos_r], p_l, 1.0 - p_l))
+
+    conn.executemany(
+        "INSERT INTO match_probs_sf (run_date, team_left, team_right, prob_left, prob_right) VALUES (?, ?, ?, ?, ?)",
+        rows,
+    )
+    logger.info("match_probs_sf: wrote %d SF BT probabilities for %s.", len(rows), run_date)
+
+
 # ---------------------------------------------------------------------------
 # Vectorised single-elimination tournament
 # ---------------------------------------------------------------------------
@@ -1395,6 +1445,7 @@ def main() -> None:
             _write_match_probs(conn, bracket_order, strengths_vec, args.scale, date.today())
             _write_r16_match_probs(conn, bracket_order, strengths_vec, args.scale, date.today(), completed_r32)
             _write_qf_match_probs(conn, bracket_order, strengths_vec, args.scale, date.today(), completed_later.get("R16", {}))
+            _write_sf_match_probs(conn, bracket_order, strengths_vec, args.scale, date.today(), completed_later.get("QF", {}))
 
         # 5. Simulate
         logger.info(
