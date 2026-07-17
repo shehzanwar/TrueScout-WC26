@@ -199,7 +199,17 @@ def export_simulations(conn) -> dict:
         except Exception:
             pm_sf = {}
 
-        lookup_by_round = {"R32": pm_r32, "R16": pm_r16, "QF": pm_qf, "SF": pm_sf}
+        try:
+            pm_final_rows = conn.execute("""
+                SELECT team_left, team_right, prob_left, prob_right
+                FROM match_probs_final
+                WHERE run_date = (SELECT MAX(run_date) FROM match_probs_final)
+            """).fetchall()
+            pm_final = _build_pm_lookup(pm_final_rows)
+        except Exception:
+            pm_final = {}
+
+        lookup_by_round = {"R32": pm_r32, "R16": pm_r16, "QF": pm_qf, "SF": pm_sf, "F": pm_final}
         for slot in bracket_slots:
             rnd = slot.get("round")
             lookup = lookup_by_round.get(rnd)
@@ -567,6 +577,21 @@ def export_matchups(conn) -> dict:
     except Exception:
         pass  # match_probs_sf doesn't exist yet
 
+    bt_final: dict[tuple[str, str], tuple[float, float]] = {}
+    try:
+        bt_final_rows = conn.execute("""
+            SELECT team_left, team_right, prob_left, prob_right
+            FROM match_probs_final
+            WHERE run_date = (SELECT MAX(run_date) FROM match_probs_final)
+        """).fetchall()
+        for t_l, t_r, p_l, p_r in bt_final_rows:
+            t_l_n = NAME_ALIASES.get(t_l, t_l)
+            t_r_n = NAME_ALIASES.get(t_r, t_r)
+            bt_final[(t_l_n, t_r_n)] = (round(p_l, 4), round(p_r, 4))
+            bt_final[(t_r_n, t_l_n)] = (round(p_r, 4), round(p_l, 4))
+    except Exception:
+        pass  # match_probs_final doesn't exist yet
+
     result: dict = {}
     for round_code, round_name in ROUND_MAP.items():
         next_round = NEXT_ROUND.get(round_code, "W")
@@ -637,6 +662,8 @@ def export_matchups(conn) -> dict:
                 model_home, model_away = bt_qf[(h_norm, a_norm)]
             elif round_code == "SF" and (h_norm, a_norm) in bt_sf:
                 model_home, model_away = bt_sf[(h_norm, a_norm)]
+            elif round_code == "F" and (h_norm, a_norm) in bt_final:
+                model_home, model_away = bt_final[(h_norm, a_norm)]
             else:
                 model_home = sim_map.get(h_norm)
                 model_away = sim_map.get(a_norm)

@@ -1105,6 +1105,50 @@ def _write_sf_match_probs(
     logger.info("match_probs_sf: wrote %d SF BT probabilities for %s.", len(rows), run_date)
 
 
+def _write_final_match_probs(
+    conn: duckdb.DuckDBPyConnection,
+    bracket_order: list[str],
+    strengths: np.ndarray,
+    scale: float,
+    run_date: "date",
+    completed_sf: dict[int, int],
+) -> None:
+    """
+    BT win-probability for the confirmed Final matchup.
+
+    Uses completed SF winners when available. Written to match_probs_final;
+    export_json.py attaches it so the completed Final card shows the pre-match
+    model probability instead of 100%/0%.
+    """
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS match_probs_final (
+            run_date   DATE    NOT NULL,
+            team_left  VARCHAR NOT NULL,
+            team_right VARCHAR NOT NULL,
+            prob_left  DOUBLE  NOT NULL,
+            prob_right DOUBLE  NOT NULL,
+            PRIMARY KEY (run_date, team_left, team_right)
+        )
+    """)
+    conn.execute("DELETE FROM match_probs_final WHERE run_date = ?", [str(run_date)])
+
+    def _resolve(sf_slot: int) -> int:
+        if sf_slot in completed_sf:
+            return completed_sf[sf_slot]
+        base = sf_slot * 16
+        cands = [p for p in range(base, base + 16) if p < len(strengths)]
+        return max(cands, key=lambda p: float(strengths[p]))
+
+    pos_l = _resolve(0)
+    pos_r = _resolve(1)
+    p_l = advance_prob(float(strengths[pos_l]), float(strengths[pos_r]), scale)
+    conn.execute(
+        "INSERT INTO match_probs_final (run_date, team_left, team_right, prob_left, prob_right) VALUES (?, ?, ?, ?, ?)",
+        (str(run_date), bracket_order[pos_l], bracket_order[pos_r], p_l, 1.0 - p_l),
+    )
+    logger.info("match_probs_final: wrote Final BT probability for %s (%s vs %s).", run_date, bracket_order[pos_l], bracket_order[pos_r])
+
+
 # ---------------------------------------------------------------------------
 # Vectorised single-elimination tournament
 # ---------------------------------------------------------------------------
@@ -1446,6 +1490,7 @@ def main() -> None:
             _write_r16_match_probs(conn, bracket_order, strengths_vec, args.scale, date.today(), completed_r32)
             _write_qf_match_probs(conn, bracket_order, strengths_vec, args.scale, date.today(), completed_later.get("R16", {}))
             _write_sf_match_probs(conn, bracket_order, strengths_vec, args.scale, date.today(), completed_later.get("QF", {}))
+            _write_final_match_probs(conn, bracket_order, strengths_vec, args.scale, date.today(), completed_later.get("SF", {}))
 
         # 5. Simulate
         logger.info(
