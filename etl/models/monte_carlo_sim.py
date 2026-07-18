@@ -1149,6 +1149,65 @@ def _write_final_match_probs(
     logger.info("match_probs_final: wrote Final BT probability for %s (%s vs %s).", run_date, bracket_order[pos_l], bracket_order[pos_r])
 
 
+def _write_3p_match_probs(
+    conn: duckdb.DuckDBPyConnection,
+    bracket_order: list[str],
+    strengths: np.ndarray,
+    scale: float,
+    run_date: "date",
+    completed_qf: dict[int, int],
+    completed_sf: dict[int, int],
+) -> None:
+    """
+    BT win-probability for the 3rd-place match (the two SF losers).
+
+    Determines the losers by comparing each SF match's participants
+    (from completed_qf) against the SF winner (from completed_sf).
+    Written to match_probs_3p; export_json.py uses it so the 3rd-place
+    card shows the pre-match model probability instead of 100%/0%.
+    """
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS match_probs_3p (
+            run_date   DATE    NOT NULL,
+            team_left  VARCHAR NOT NULL,
+            team_right VARCHAR NOT NULL,
+            prob_left  DOUBLE  NOT NULL,
+            prob_right DOUBLE  NOT NULL,
+            PRIMARY KEY (run_date, team_left, team_right)
+        )
+    """)
+    conn.execute("DELETE FROM match_probs_3p WHERE run_date = ?", [str(run_date)])
+
+    def _resolve_loser(sf_slot: int) -> int:
+        qf_left, qf_right = (0, 2) if sf_slot == 0 else (1, 3)
+
+        def _resolve_qf(qf_slot: int) -> int:
+            if qf_slot in completed_qf:
+                return completed_qf[qf_slot]
+            base = qf_slot * 8
+            cands = [p for p in range(base, base + 8) if p < len(strengths)]
+            return max(cands, key=lambda p: float(strengths[p]))
+
+        part_l = _resolve_qf(qf_left)
+        part_r = _resolve_qf(qf_right)
+        winner = completed_sf.get(sf_slot)
+        if winner is not None and part_l != winner:
+            return part_l
+        if winner is not None and part_r != winner:
+            return part_r
+        # SF not yet decided — return the weaker participant as the "expected loser"
+        return min(part_l, part_r, key=lambda p: float(strengths[p]))
+
+    pos_l = _resolve_loser(0)
+    pos_r = _resolve_loser(1)
+    p_l = advance_prob(float(strengths[pos_l]), float(strengths[pos_r]), scale)
+    conn.execute(
+        "INSERT INTO match_probs_3p (run_date, team_left, team_right, prob_left, prob_right) VALUES (?, ?, ?, ?, ?)",
+        (str(run_date), bracket_order[pos_l], bracket_order[pos_r], p_l, 1.0 - p_l),
+    )
+    logger.info("match_probs_3p: wrote 3rd-place BT probability for %s (%s vs %s).", run_date, bracket_order[pos_l], bracket_order[pos_r])
+
+
 # ---------------------------------------------------------------------------
 # Vectorised single-elimination tournament
 # ---------------------------------------------------------------------------
@@ -1491,6 +1550,7 @@ def main() -> None:
             _write_qf_match_probs(conn, bracket_order, strengths_vec, args.scale, date.today(), completed_later.get("R16", {}))
             _write_sf_match_probs(conn, bracket_order, strengths_vec, args.scale, date.today(), completed_later.get("QF", {}))
             _write_final_match_probs(conn, bracket_order, strengths_vec, args.scale, date.today(), completed_later.get("SF", {}))
+            _write_3p_match_probs(conn, bracket_order, strengths_vec, args.scale, date.today(), completed_later.get("QF", {}), completed_later.get("SF", {}))
 
         # 5. Simulate
         logger.info(

@@ -43,9 +43,10 @@ ROUND_MAP = {
     "R16": "Round of 16",
     "QF":  "Quarterfinals",   # ESPN uses plural
     "SF":  "Semifinals",      # ESPN uses plural
+    "3P":  "3rd-Place Match", # ESPN round_name for the 3rd-place playoff
     "F":   "Final",
 }
-NEXT_ROUND = {"R32": "R16", "R16": "QF", "QF": "SF", "SF": "F", "F": "W"}
+NEXT_ROUND = {"R32": "R16", "R16": "QF", "QF": "SF", "SF": "F", "F": "W", "3P": "_3PW"}
 NAME_ALIASES = TEAM_ALIASES
 COIN_BRIER   = 0.25
 COIN_LOGLOSS = math.log(2)  # ≈ 0.6931
@@ -209,7 +210,7 @@ def export_simulations(conn) -> dict:
         except Exception:
             pm_final = {}
 
-        lookup_by_round = {"R32": pm_r32, "R16": pm_r16, "QF": pm_qf, "SF": pm_sf, "F": pm_final}
+        lookup_by_round = {"R32": pm_r32, "R16": pm_r16, "QF": pm_qf, "SF": pm_sf, "F": pm_final, "3P": {}}
         for slot in bracket_slots:
             rnd = slot.get("round")
             lookup = lookup_by_round.get(rnd)
@@ -592,6 +593,21 @@ def export_matchups(conn) -> dict:
     except Exception:
         pass  # match_probs_final doesn't exist yet
 
+    bt_3p: dict[tuple[str, str], tuple[float, float]] = {}
+    try:
+        bt_3p_rows = conn.execute("""
+            SELECT team_left, team_right, prob_left, prob_right
+            FROM match_probs_3p
+            WHERE run_date = (SELECT MAX(run_date) FROM match_probs_3p)
+        """).fetchall()
+        for t_l, t_r, p_l, p_r in bt_3p_rows:
+            t_l_n = NAME_ALIASES.get(t_l, t_l)
+            t_r_n = NAME_ALIASES.get(t_r, t_r)
+            bt_3p[(t_l_n, t_r_n)] = (round(p_l, 4), round(p_r, 4))
+            bt_3p[(t_r_n, t_l_n)] = (round(p_r, 4), round(p_l, 4))
+    except Exception:
+        pass  # match_probs_3p doesn't exist yet
+
     result: dict = {}
     for round_code, round_name in ROUND_MAP.items():
         next_round = NEXT_ROUND.get(round_code, "W")
@@ -664,6 +680,8 @@ def export_matchups(conn) -> dict:
                 model_home, model_away = bt_sf[(h_norm, a_norm)]
             elif round_code == "F" and (h_norm, a_norm) in bt_final:
                 model_home, model_away = bt_final[(h_norm, a_norm)]
+            elif round_code == "3P" and (h_norm, a_norm) in bt_3p:
+                model_home, model_away = bt_3p[(h_norm, a_norm)]
             else:
                 model_home = sim_map.get(h_norm)
                 model_away = sim_map.get(a_norm)

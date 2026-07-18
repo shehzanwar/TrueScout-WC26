@@ -5,6 +5,7 @@ const ROUNDS = [
   { code: "R16", label: "Round of 16" },
   { code: "QF",  label: "Quarter-finals" },
   { code: "SF",  label: "Semi-finals" },
+  { code: "3P",  label: "3rd Place" },
   { code: "F",   label: "Final" },
 ] as const
 

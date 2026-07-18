@@ -5,7 +5,7 @@ import MatchCardGrid from "./MatchCardGrid"
 
 export const metadata: Metadata = { title: "Matchups" }
 
-const VALID_ROUNDS = new Set(["R32", "R16", "QF", "SF", "F"])
+const VALID_ROUNDS = new Set(["R32", "R16", "QF", "SF", "3P", "F"])
 
 export default async function MatchupsPage({
   searchParams,
