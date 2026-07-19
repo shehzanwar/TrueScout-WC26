@@ -8,6 +8,7 @@ import BracketGrid from "./BracketGrid"
 
 export default function BracketPageClient() {
   const [bracket, setBracket] = useState<BracketData | null>(null)
+  const [thirdPlace, setThirdPlace] = useState<MatchupsResponse | null>(null)
   const [runInfo, setRunInfo] = useState<{ date: string; n: number } | null>(null)
   const [error, setError] = useState(false)
 
@@ -31,7 +32,9 @@ export default function BracketPageClient() {
         const r16Data = allMatchups["R16"] ?? undefined
         if (!r32Data) { setError(true); return }
 
+        const thirdPlace = allMatchups["3P"] ?? null
         setBracket(buildBracket(simData, r32Data, r16Data))
+        setThirdPlace(thirdPlace)
       } catch {
         if (!cancelled) setError(true)
       }
@@ -69,7 +72,7 @@ export default function BracketPageClient() {
           {runInfo.n.toLocaleString()} Monte Carlo simulations · run {runInfo.date}
         </p>
       )}
-      <BracketGrid bracket={bracket} />
+      <BracketGrid bracket={bracket} thirdPlace={thirdPlace} />
     </>
   )
 }

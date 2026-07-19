@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { motion } from "framer-motion"
 import type { BracketData } from "@/lib/bracket"
+import type { MatchupsResponse, Matchup } from "@/lib/api"
 import { FlagIcon } from "@/app/components/FlagIcon"
 import BracketSlot from "./BracketSlot"
 
@@ -98,6 +99,144 @@ function ChampionCard({
         </span>
       </motion.div>
       <p className="text-[10px] text-slate-700 text-center">projected</p>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Third-place slot — rendered below the Final column
+// ---------------------------------------------------------------------------
+
+function ThirdPlaceTeamRow({
+  name,
+  prob,
+  isWinner,
+  isLoser,
+}: {
+  name: string
+  prob: number | null
+  isWinner: boolean
+  isLoser: boolean
+}) {
+  if (isWinner) {
+    return (
+      <div className="px-2.5 pt-1.5 pb-1 border-l-2 border-amber-600/60">
+        <div className="flex items-center gap-1.5">
+          <span className="leading-none w-5 shrink-0 flex items-center justify-center">
+            <FlagIcon name={name} size={18} />
+          </span>
+          <span className="flex-1 text-[11px] font-semibold leading-tight truncate text-slate-100">
+            {name}
+          </span>
+          <span className="text-[9px] font-medium text-amber-500 uppercase tracking-wide shrink-0">
+            3rd
+          </span>
+        </div>
+      </div>
+    )
+  }
+
+  if (isLoser) {
+    return (
+      <div className="px-2.5 pt-1.5 pb-1 opacity-40">
+        <div className="flex items-center gap-1.5">
+          <span className="leading-none w-5 shrink-0 flex items-center justify-center">
+            <FlagIcon name={name} size={18} />
+          </span>
+          <span className="flex-1 text-[11px] font-medium leading-tight truncate text-slate-500">
+            {name}
+          </span>
+        </div>
+      </div>
+    )
+  }
+
+  const pct = prob !== null ? Math.round(prob * 100) : null
+  return (
+    <div className="px-2.5 pt-1.5 pb-1">
+      <div className="flex items-center gap-1.5 mb-1">
+        <span className="leading-none w-5 shrink-0 flex items-center justify-center">
+          <FlagIcon name={name} size={18} />
+        </span>
+        <span className="flex-1 text-[11px] font-medium leading-tight truncate text-slate-200">
+          {name}
+        </span>
+        {pct !== null && (
+          <span className="text-[10px] tabular-nums text-slate-400 shrink-0">{pct}%</span>
+        )}
+      </div>
+      {pct !== null && (
+        <div className="h-[3px] bg-slate-800 rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full ${pct >= 60 ? "bg-emerald-500" : pct >= 35 ? "bg-amber-500" : "bg-slate-500"}`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ThirdPlaceSlot({ match }: { match: Matchup }) {
+  const { home, away, is_completed } = match
+
+  const winner =
+    match.winner ??
+    (home.score !== null && away.score !== null
+      ? home.score > away.score
+        ? home.name
+        : away.score > home.score
+          ? away.name
+          : null
+      : null)
+
+  let score: string | undefined
+  if (is_completed && home.score !== null && away.score !== null && winner) {
+    const ws = winner === home.name ? home.score : away.score
+    const ls = winner === home.name ? away.score : home.score
+    score = `${ws}–${ls}`
+  }
+
+  return (
+    <div style={{ width: COLUMN_WIDTH }}>
+      {/* Label — matches HeaderRow column header style */}
+      <div className="flex flex-col items-center gap-1 mb-2">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-amber-600/80">
+          3rd Place
+        </span>
+      </div>
+
+      <div
+        className={[
+          "w-full bg-slate-900 rounded-lg overflow-hidden",
+          is_completed
+            ? "border border-amber-900/50"
+            : "border border-amber-800/30 border-dashed",
+        ].join(" ")}
+      >
+        {is_completed && score && (
+          <div className="px-2.5 pt-1 pb-0 flex items-center gap-1">
+            <span className="text-[9px] text-amber-700/80 uppercase tracking-widest">FT</span>
+            <span className="text-[10px] font-bold tabular-nums text-slate-300">{score}</span>
+          </div>
+        )}
+
+        <div className="border-b border-slate-800/60">
+          <ThirdPlaceTeamRow
+            name={home.name}
+            prob={home.model_advance_prob}
+            isWinner={winner === home.name}
+            isLoser={is_completed && winner !== home.name}
+          />
+        </div>
+
+        <ThirdPlaceTeamRow
+          name={away.name}
+          prob={away.model_advance_prob}
+          isWinner={winner === away.name}
+          isLoser={is_completed && winner !== away.name}
+        />
+      </div>
     </div>
   )
 }
@@ -254,7 +393,13 @@ function Legend() {
 // BracketGrid — main export
 // ---------------------------------------------------------------------------
 
-export default function BracketGrid({ bracket }: { bracket: BracketData }) {
+export default function BracketGrid({
+  bracket,
+  thirdPlace,
+}: {
+  bracket: BracketData
+  thirdPlace?: MatchupsResponse | null
+}) {
   return (
     <div>
       <Legend />
@@ -319,6 +464,19 @@ export default function BracketGrid({ bracket }: { bracket: BracketData }) {
               </>
             )}
           </div>
+
+          {/* 3rd-place slot — below the Final column, scrolls with bracket */}
+          {thirdPlace?.matches[0] && (
+            <div
+              className="flex mt-4"
+              style={{
+                paddingLeft:
+                  (bracket.rounds.length - 1) * (COLUMN_WIDTH + CONNECTOR_WIDTH),
+              }}
+            >
+              <ThirdPlaceSlot match={thirdPlace.matches[0]} />
+            </div>
+          )}
         </div>
       </div>
     </div>
