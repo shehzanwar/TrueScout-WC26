@@ -103,6 +103,7 @@ WHERE m.is_completed = true
     m.round_name IN ('Round of 32', 'Round of 16',
                      'Quarterfinal', 'Quarterfinals',
                      'Semifinal', 'Semifinals',
+                     '3rd-Place Match',
                      'Final', 'Finals')
     OR m.round_name ILIKE '%quarter%'
     OR m.round_name ILIKE '%semi%'
