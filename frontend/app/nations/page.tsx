@@ -93,11 +93,14 @@ export default async function NationsPage() {
 
       {/* ── Eliminated ──────────────────────────────────────────────── */}
       {(() => {
-        const ELIM_ORDER = ["3P", "SF", "QF", "R16", "R32"] as const
+        const ELIM_ORDER = ["SF", "QF", "R16", "R32"] as const
         const buckets = ELIM_ORDER.map((round) => ({
           round,
           label: ROUND_LABELS[round] ?? round,
-          teams: eliminated.filter((n) => n.current_round === round),
+          teams: eliminated.filter((n) => {
+            const effective = n.current_round === "3P" ? "SF" : n.current_round
+            return effective === round
+          }),
         })).filter((b) => b.teams.length > 0)
 
         return (
