@@ -155,6 +155,21 @@ def _load_completed_matches(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
     sql = _COMPLETED_SQL.format(matches=matches_glob, odds=odds_glob)
     df = conn.execute(sql).df()
 
+    # Fill odds from market_odds_archive for events not covered by the parquet odds files
+    missing = df["home_win_prob"].isna()
+    if missing.any():
+        try:
+            archive = conn.execute(
+                "SELECT event_id, home_win_prob, draw_prob, away_win_prob FROM market_odds_archive"
+            ).df()
+            archive["event_id"] = archive["event_id"].astype(str)
+            df["event_id"] = df["event_id"].astype(str)
+            arch_map = archive.set_index("event_id")
+            for col in ("home_win_prob", "draw_prob", "away_win_prob"):
+                df.loc[missing, col] = df.loc[missing, "event_id"].map(arch_map[col])
+        except Exception:
+            pass
+
     df["home_team_name"] = df["home_team_name"].map(_normalize)
     df["away_team_name"] = df["away_team_name"].map(_normalize)
     return df
@@ -527,14 +542,16 @@ def _write_brier_log(conn: duckdb.DuckDBPyConnection, rows: list[dict]) -> int:
 
     n_before = conn.execute("SELECT COUNT(*) FROM brier_log").fetchone()[0]
 
+    # Delete-then-insert (upsert) so re-runs on the same day refresh odds/scores.
+    conn.execute(f"""
+        DELETE FROM brier_log
+        WHERE (event_id, CAST(run_date AS DATE)) IN (
+            SELECT event_id, CAST(run_date AS DATE) FROM _brier_batch
+        )
+    """)
     conn.execute(f"""
         INSERT INTO brier_log ({", ".join(cols)})
         SELECT {", ".join(cols)} FROM _brier_batch
-        WHERE NOT EXISTS (
-            SELECT 1 FROM brier_log bl
-            WHERE bl.event_id = _brier_batch.event_id
-              AND bl.run_date  = CAST(_brier_batch.run_date AS DATE)
-        )
     """)
 
     conn.unregister("_brier_batch")
