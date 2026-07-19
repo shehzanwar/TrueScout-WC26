@@ -13,6 +13,7 @@ const ROUND_LABELS: Record<string, string> = {
   R16: "Round of 16",
   QF:  "Quarterfinals",
   SF:  "Semifinals",
+  "3P": "3rd-Place Match",
   F:   "Final",
 }
 
@@ -92,7 +93,7 @@ export default async function NationsPage() {
 
       {/* ── Eliminated ──────────────────────────────────────────────── */}
       {(() => {
-        const ELIM_ORDER = ["SF", "QF", "R16", "R32"] as const
+        const ELIM_ORDER = ["3P", "SF", "QF", "R16", "R32"] as const
         const buckets = ELIM_ORDER.map((round) => ({
           round,
           label: ROUND_LABELS[round] ?? round,
