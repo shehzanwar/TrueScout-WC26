@@ -695,6 +695,8 @@ def export_matchups(conn) -> dict:
 
             venue = str(venue_city or venue_name) if (venue_city or venue_name) else None
             winner = brier_winner.get(ev_str) or manual_winner.get(ev_str) or None
+            if winner is None and is_completed and h_score is not None and a_score is not None and h_score != a_score:
+                winner = h_norm if h_score > a_score else a_norm
             matches.append({
                 "event_id":    str(event_id),
                 "match_date":  str(match_date),
