@@ -10,7 +10,7 @@ import { FlagIcon } from "@/app/components/FlagIcon"
 // ---------------------------------------------------------------------------
 
 const ROUND_ORDER: Record<string, number> = {
-  R32: 0, R16: 1, QF: 2, SF: 3, F: 4,
+  R32: 0, R16: 1, QF: 2, SF: 3, "3P": 4, F: 5,
 }
 
 function shortRound(r: string): string {
@@ -18,6 +18,7 @@ function shortRound(r: string): string {
   if (r.includes("16")) return "R16"
   if (/quarter/i.test(r)) return "QF"
   if (/semi/i.test(r)) return "SF"
+  if (/3rd/i.test(r)) return "3P"
   if (/final/i.test(r) && !/semi|quarter/i.test(r)) return "F"
   return r
 }
