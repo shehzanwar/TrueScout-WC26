@@ -50,6 +50,9 @@ export default async function HomePage() {
         Math.abs((a.home.model_advance_prob ?? 0) - (a.home.market_advance_prob ?? 0)),
     )[0] ?? null
 
+  // Final match result (for champion card)
+  const finalMatch = allMatchups?.["F"]?.matches?.[0] ?? null
+
   return (
     <div className="max-w-5xl 2xl:max-w-7xl mx-auto space-y-6">
       <div>
@@ -72,6 +75,7 @@ export default async function HomePage() {
         bracketSlots={simData?.bracket_slots ?? []}
         tournamentStats={tournamentStats}
         awards={awards}
+        finalMatch={finalMatch}
       />
     </div>
   )

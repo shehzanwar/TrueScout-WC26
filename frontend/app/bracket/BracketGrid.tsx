@@ -78,13 +78,18 @@ function ChampionCard({
   name: string
   titleProb: number
 }) {
+  const confirmed = titleProb >= 1.0
   return (
     <div className="flex flex-col items-center justify-center gap-3 h-full w-40 shrink-0">
-      <div className="text-xs font-semibold uppercase tracking-widest text-emerald-500/80">
-        Champion
+      <div className={`text-xs font-semibold uppercase tracking-widest ${confirmed ? "text-amber-400/80" : "text-emerald-500/80"}`}>
+        {confirmed ? "🏆 Champion" : "Projected"}
       </div>
       <motion.div
-        className="flex flex-col items-center gap-2 bg-slate-900 border border-emerald-500/25 rounded-xl px-5 py-4"
+        className={`flex flex-col items-center gap-2 rounded-xl px-5 py-4 ${
+          confirmed
+            ? "bg-amber-950/60 border border-amber-500/40 ring-1 ring-amber-500/15"
+            : "bg-slate-900 border border-emerald-500/25"
+        }`}
         initial={{ opacity: 0, scale: 0.92 }}
         whileInView={{ opacity: 1, scale: 1 }}
         viewport={{ once: true }}
@@ -94,11 +99,36 @@ function ChampionCard({
         <span className="text-sm font-bold text-slate-100 text-center leading-tight">
           {name}
         </span>
-        <span className="text-xs font-medium text-emerald-400 tabular-nums">
-          {(titleProb * 100).toFixed(1)}% title
-        </span>
+        {confirmed ? (
+          <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wide">WC 2026</span>
+        ) : (
+          <span className="text-xs font-medium text-emerald-400 tabular-nums">
+            {(titleProb * 100).toFixed(1)}% title
+          </span>
+        )}
       </motion.div>
-      <p className="text-[10px] text-slate-700 text-center">projected</p>
+      {!confirmed && <p className="text-[10px] text-slate-700 text-center">projected</p>}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Champion callout — below the Final column once confirmed
+// ---------------------------------------------------------------------------
+
+function ChampionCallout({ name }: { name: string }) {
+  return (
+    <div style={{ width: COLUMN_WIDTH }}>
+      <div className="flex flex-col items-center gap-1 mb-2">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-amber-500/80">🏆 WC 2026 Champions</span>
+      </div>
+      <div className="w-full bg-amber-950/60 border border-amber-500/35 rounded-lg overflow-hidden">
+        <div className="flex items-center gap-2.5 px-3 py-2.5">
+          <FlagIcon name={name} size={22} />
+          <span className="text-sm font-bold text-slate-100 truncate">{name}</span>
+          <span className="ml-auto text-[10px] font-bold text-amber-400 shrink-0 uppercase tracking-wide">Final</span>
+        </div>
+      </div>
     </div>
   )
 }
@@ -465,10 +495,21 @@ export default function BracketGrid({
             )}
           </div>
 
-          {/* 3rd-place slot — below the Final column, scrolls with bracket */}
-          {thirdPlace?.matches[0] && (
+          {/* Champion callout + 3rd-place slot — below the Final column */}
+          {(bracket.champion?.titleProb ?? 0) >= 1.0 && (
             <div
               className="flex mt-4"
+              style={{
+                paddingLeft:
+                  (bracket.rounds.length - 1) * (COLUMN_WIDTH + CONNECTOR_WIDTH),
+              }}
+            >
+              <ChampionCallout name={bracket.champion!.name} />
+            </div>
+          )}
+          {thirdPlace?.matches[0] && (
+            <div
+              className="flex mt-3"
               style={{
                 paddingLeft:
                   (bracket.rounds.length - 1) * (COLUMN_WIDTH + CONNECTOR_WIDTH),

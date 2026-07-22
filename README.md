@@ -15,6 +15,17 @@ Hierarchical Bayesian player ratings · 100,000-run Monte Carlo bracket simulati
 
 </div>
 
+> **🏆 Tournament archive — pipeline disabled.**
+> Spain defeated Argentina 1–0 (AET) in the Final on **July 19, 2026** to win the 2026 FIFA World Cup.
+> The nightly ETL schedule is disabled; the site and all data are frozen at that result.
+> Track record: **32 matches graded · 24/32 correct · avg Brier 0.202 (+19.2% vs coin flip)**.
+>
+> | Award | Winner |
+> |-------|--------|
+> | 🥾 Golden Boot | Kylian Mbappé (France) — 10 goals |
+> | 🧤 Golden Glove | Orlando Gill (Paraguay) — 23 saves |
+> | 🏆 Golden Ball (model) | Lionel Messi (Argentina) — 8.58 rating |
+
 ---
 
 ## 📖 Overview

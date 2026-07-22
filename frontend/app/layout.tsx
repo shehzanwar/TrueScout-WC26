@@ -4,6 +4,7 @@ import "./globals.css"
 import Sidebar from "./components/Sidebar"
 import SidebarClient from "./components/SidebarClient"
 import StaleDataBanner from "./components/StaleDataBanner"
+import TournamentArchiveBanner from "./components/TournamentArchiveBanner"
 import ChatFAB from "./components/ChatFAB"
 import { getSimulations } from "@/lib/server-data"
 
@@ -49,16 +50,19 @@ export default async function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="flex min-h-screen bg-slate-950">
-        {/* Desktop sidebar — hidden on mobile */}
-        <Sidebar lastUpdated={lastUpdated} />
-        {/* Mobile: sticky top bar + slide-in drawer */}
-        <div className="flex-1 min-w-0 flex flex-col">
-          <SidebarClient />
-          <main className="flex-1 min-w-0 p-6 lg:p-8">
-            <StaleDataBanner runDate={lastUpdated} />
-            {children}
-          </main>
+      <body className="flex flex-col min-h-screen bg-slate-950">
+        <TournamentArchiveBanner />
+        <div className="flex flex-1 min-w-0">
+          {/* Desktop sidebar — hidden on mobile */}
+          <Sidebar lastUpdated={lastUpdated} />
+          {/* Mobile: sticky top bar + slide-in drawer */}
+          <div className="flex-1 min-w-0 flex flex-col">
+            <SidebarClient />
+            <main className="flex-1 min-w-0 p-6 lg:p-8">
+              <StaleDataBanner runDate={lastUpdated} />
+              {children}
+            </main>
+          </div>
         </div>
         <ChatFAB />
       </body>

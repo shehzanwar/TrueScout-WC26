@@ -1,9 +1,9 @@
 name: Nightly ETL + Static Export
 
+# Schedule disabled — tournament complete (Spain won WC 2026, Jul 19 2026).
+# Re-enable the schedule block below to resume nightly runs.
 on:
-  schedule:
-    - cron: "0 2 * * *"   # 02:00 UTC daily
-  workflow_dispatch:       # manual trigger from GitHub UI
+  workflow_dispatch:       # manual trigger only
 
 jobs:
   nightly:

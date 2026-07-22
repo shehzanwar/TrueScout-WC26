@@ -7,6 +7,62 @@ import { FlagIcon } from "@/app/components/FlagIcon"
 import Tooltip, { LabelWithInfo } from "@/app/components/Tooltip"
 
 // ---------------------------------------------------------------------------
+// Champion Hero Card — shown when tournament is complete
+// ---------------------------------------------------------------------------
+
+function ChampionHeroCard({ champion, finalMatch }: { champion: SimTeam; finalMatch: Matchup | null }) {
+  const isHome = finalMatch?.home.name === champion.team_id
+  const opponent = finalMatch ? (isHome ? finalMatch.away.name : finalMatch.home.name) : null
+  const championScore = finalMatch?.is_completed
+    ? (isHome ? finalMatch.home.score : finalMatch.away.score)
+    : null
+  const opponentScore = finalMatch?.is_completed
+    ? (isHome ? finalMatch.away.score : finalMatch.home.score)
+    : null
+  const scoreStr = championScore !== null && opponentScore !== null
+    ? `${championScore}–${opponentScore}`
+    : null
+
+  return (
+    <motion.div
+      variants={card}
+      className="lg:col-span-2 rounded-xl border border-amber-800/40 bg-gradient-to-br from-amber-950/50 via-slate-900 to-slate-900 p-5 flex flex-col gap-4"
+    >
+      <div className="flex items-center gap-4">
+        <div className="shrink-0 rounded-full bg-amber-500/10 border border-amber-500/20 p-3">
+          <FlagIcon name={champion.team_id} size={40} />
+        </div>
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold text-amber-500 uppercase tracking-widest mb-0.5">
+            🏆 WC 2026 Champions
+          </p>
+          <h2 className="text-2xl font-bold text-slate-100 leading-tight">{champion.team_id}</h2>
+          {scoreStr && opponent && (
+            <p className="text-sm text-slate-400 mt-0.5">
+              {scoreStr} vs {opponent} (AET) · Jul 19, 2026
+            </p>
+          )}
+        </div>
+      </div>
+      <div className="flex gap-3 flex-wrap">
+        <Link
+          href="/bracket"
+          className="text-xs text-amber-500/80 hover:text-amber-400 transition-colors"
+        >
+          Full bracket →
+        </Link>
+        <Link
+          href="/nations"
+          className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+        >
+          All nations →
+        </Link>
+      </div>
+    </motion.div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Animation variants — minimal: one subtle lift per card only
 // ---------------------------------------------------------------------------
 
@@ -563,7 +619,7 @@ function AwardsCard({ awards }: { awards: AwardsResponse }) {
   const top3 = awards.golden_ball_candidates?.slice(0, 3) ?? []
   return (
     <SectionCard
-      title="Award Races"
+      title="Tournament Awards"
       subtitle="Golden Boot · Golden Glove · Golden Ball"
       className="lg:col-span-2"
     >
@@ -685,6 +741,7 @@ export default function HomeCards({
   bracketSlots = [],
   tournamentStats = null,
   awards = null,
+  finalMatch = null,
 }: {
   champions: SimTeam[]
   brierSummary: BrierSummary
@@ -696,22 +753,40 @@ export default function HomeCards({
   bracketSlots?: BracketSlotEntry[]
   tournamentStats?: TournamentStats | null
   awards?: AwardsResponse | null
+  finalMatch?: Matchup | null
 }) {
+  const isComplete = champions.some((t) => t.title_prob >= 1.0)
+  const champion = isComplete
+    ? champions.slice().sort((a, b) => b.title_prob - a.title_prob)[0]
+    : null
+
   return (
     <div className="2xl:flex 2xl:gap-5 2xl:items-start">
       {/* Main 2-col grid */}
       <div className="flex-1 min-w-0 grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <FavoritesCard champions={champions} overnight={overnight} />
-        <CalibrationCard summary={brierSummary} entries={brierEntries} />
-        {matchOfTheDay && <MatchOfTheDayCard match={matchOfTheDay} />}
-        <InsightCard match={insightMatch} />
-        {overnight && overnight.length > 0 && <OvernightDeltasCard overnight={overnight} />}
+        {/* Tournament-complete layout: Champion hero + Awards front and centre */}
+        {isComplete && champion ? (
+          <>
+            <ChampionHeroCard champion={champion} finalMatch={finalMatch} />
+            {awards && <AwardsCard awards={awards} />}
+            <CalibrationCard summary={brierSummary} entries={brierEntries} />
+          </>
+        ) : (
+          <>
+            <FavoritesCard champions={champions} overnight={overnight} />
+            <CalibrationCard summary={brierSummary} entries={brierEntries} />
+            {matchOfTheDay && <MatchOfTheDayCard match={matchOfTheDay} />}
+            <InsightCard match={insightMatch} />
+            {overnight && overnight.length > 0 && <OvernightDeltasCard overnight={overnight} />}
+          </>
+        )}
         <TopPerformersCard players={topPlayers} />
         {tournamentStats && <TournamentStatsCard stats={tournamentStats} />}
-        {awards && <AwardsCard awards={awards} />}
+        {/* Awards already shown above when complete; only show here in live mode */}
+        {!isComplete && awards && <AwardsCard awards={awards} />}
       </div>
       {/* 3rd column: bracket preview at 2xl+ */}
-      {bracketSlots.length > 0 && (
+      {!isComplete && bracketSlots.length > 0 && (
         <div className="hidden 2xl:block 2xl:w-64 2xl:shrink-0">
           <BracketPreviewCard slots={bracketSlots} />
         </div>
