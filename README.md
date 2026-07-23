@@ -23,8 +23,8 @@ Hierarchical Bayesian player ratings · 100,000-run Monte Carlo bracket simulati
 > | Award | Winner |
 > |-------|--------|
 > | 🥾 Golden Boot | Kylian Mbappé (France) — 10 goals |
-> | 🧤 Golden Glove | Orlando Gill (Paraguay) — 23 saves |
-> | 🏆 Golden Ball (model) | Lionel Messi (Argentina) — 8.58 rating |
+> | 🧤 Golden Glove | Unai Simón (Spain) — 7 clean sheets |
+> | 🏆 Golden Ball | Rodri (Spain) |
 
 ---
 

@@ -310,6 +310,7 @@ export interface AwardsResponse {
   silver_boot?: AwardEntry
   bronze_boot?: AwardEntry
   golden_glove?: AwardEntry | null
+  golden_ball_winner?: GoldenBallCandidate
   golden_ball_candidates: GoldenBallCandidate[]
 }
 

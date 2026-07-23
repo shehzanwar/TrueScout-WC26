@@ -617,6 +617,7 @@ function AwardRow({ label, entry, unit }: { label: string; entry: AwardEntry | u
 
 function AwardsCard({ awards }: { awards: AwardsResponse }) {
   const top3 = awards.golden_ball_candidates?.slice(0, 3) ?? []
+  const winner = awards.golden_ball_winner
   return (
     <SectionCard
       title="Tournament Awards"
@@ -630,31 +631,70 @@ function AwardsCard({ awards }: { awards: AwardsResponse }) {
           <AwardRow label="🥈 Silver Boot" entry={awards.silver_boot} unit="goals" />
           <AwardRow label="🥉 Bronze Boot" entry={awards.bronze_boot} unit="goals" />
           {awards.golden_glove && (
-            <AwardRow label="🧤 Golden Glove" entry={awards.golden_glove} unit="saves" />
+            <AwardRow label="🧤 Golden Glove" entry={awards.golden_glove} unit="clean sheets" />
           )}
         </div>
-        {/* Golden Ball candidates */}
+        {/* Golden Ball */}
         <div className="pt-4 sm:pt-0 sm:pl-8">
           <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-2">
-            🏆 Golden Ball candidates
+            🏆 Golden Ball
           </p>
-          <ol className="space-y-1.5">
-            {top3.map((c: GoldenBallCandidate, i) => (
-              <li key={c.reep_id} className="flex items-center gap-2">
-                <span className="w-4 text-right text-[10px] font-mono text-slate-600 tabular-nums shrink-0">{i + 1}</span>
-                <FlagIcon name={c.national_team} size={13} />
+          {winner ? (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 rounded-lg bg-amber-950/40 border border-amber-800/30 px-3 py-2">
+                <FlagIcon name={winner.national_team} size={14} />
                 <Link
-                  href={`/players/${c.reep_id}/${c.slug}`}
-                  className="flex-1 min-w-0 text-xs text-slate-200 hover:text-emerald-400 transition-colors truncate"
+                  href={`/players/${winner.reep_id}/${winner.slug}`}
+                  className="flex-1 min-w-0 text-xs font-semibold text-amber-300 hover:text-amber-200 transition-colors truncate"
                 >
-                  {c.name}
+                  {winner.name}
                 </Link>
-                <span className="text-[10px] font-mono tabular-nums text-slate-400 shrink-0">
-                  {c.value.toFixed(2)}
+                <span className="text-[10px] font-mono tabular-nums text-amber-500 shrink-0">
+                  {winner.value.toFixed(2)}
                 </span>
-              </li>
-            ))}
-          </ol>
+              </div>
+              {top3.length > 0 && (
+                <>
+                  <p className="text-[10px] text-slate-600 uppercase tracking-wide mt-1">Model top picks</p>
+                  <ol className="space-y-1.5">
+                    {top3.map((c: GoldenBallCandidate, i) => (
+                      <li key={c.reep_id} className="flex items-center gap-2">
+                        <span className="w-4 text-right text-[10px] font-mono text-slate-600 tabular-nums shrink-0">{i + 1}</span>
+                        <FlagIcon name={c.national_team} size={13} />
+                        <Link
+                          href={`/players/${c.reep_id}/${c.slug}`}
+                          className="flex-1 min-w-0 text-xs text-slate-400 hover:text-emerald-400 transition-colors truncate"
+                        >
+                          {c.name}
+                        </Link>
+                        <span className="text-[10px] font-mono tabular-nums text-slate-500 shrink-0">
+                          {c.value.toFixed(2)}
+                        </span>
+                      </li>
+                    ))}
+                  </ol>
+                </>
+              )}
+            </div>
+          ) : (
+            <ol className="space-y-1.5">
+              {top3.map((c: GoldenBallCandidate, i) => (
+                <li key={c.reep_id} className="flex items-center gap-2">
+                  <span className="w-4 text-right text-[10px] font-mono text-slate-600 tabular-nums shrink-0">{i + 1}</span>
+                  <FlagIcon name={c.national_team} size={13} />
+                  <Link
+                    href={`/players/${c.reep_id}/${c.slug}`}
+                    className="flex-1 min-w-0 text-xs text-slate-200 hover:text-emerald-400 transition-colors truncate"
+                  >
+                    {c.name}
+                  </Link>
+                  <span className="text-[10px] font-mono tabular-nums text-slate-400 shrink-0">
+                    {c.value.toFixed(2)}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          )}
         </div>
       </div>
     </SectionCard>
