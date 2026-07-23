@@ -9,7 +9,7 @@ import { LabelWithInfo } from "@/app/components/Tooltip"
 // Helpers
 // ---------------------------------------------------------------------------
 
-function fmt(v: number | null, decimals = 4): string {
+function fmt(v: number | null, decimals = 3): string {
   return v === null ? "—" : v.toFixed(decimals)
 }
 

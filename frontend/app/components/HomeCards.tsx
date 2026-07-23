@@ -192,7 +192,7 @@ function FavoritesCard({
 
 function CalibrationCard({ summary, entries }: { summary: BrierSummary; entries: BrierEntry[] }) {
   const skillPct  = summary.brier_skill_vs_coin != null ? `${(summary.brier_skill_vs_coin * 100).toFixed(1)}%` : "—"
-  const brierModel = summary.avg_brier_model != null ? summary.avg_brier_model.toFixed(4) : "—"
+  const brierModel = summary.avg_brier_model != null ? summary.avg_brier_model.toFixed(3) : "—"
   const skillPos  = summary.brier_skill_vs_coin != null && summary.brier_skill_vs_coin > 0
 
   return (
